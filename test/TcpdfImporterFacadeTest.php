@@ -151,6 +151,35 @@ class TcpdfImporterFacadeTest extends TestCase
     }
 
     /**
+     * Build a one-page PDF whose /Contents points to a dictionary that holds no stream.
+     */
+    private function buildUnextractableContentsPdf(): string
+    {
+        $bodies = [
+            1 => '<< /Type /Catalog /Pages 2 0 R >>',
+            2 => '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+            3 => '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> /Contents 4 0 R >>',
+            4 => '<< /Type /Metadata >>',
+        ];
+
+        $pdf = "%PDF-1.7\n";
+        $offsets = [];
+        foreach ($bodies as $num => $body) {
+            $offsets[$num] = \strlen($pdf);
+            $pdf .= $num . " 0 obj\n" . $body . "\nendobj\n";
+        }
+
+        $xrefStart = \strlen($pdf);
+        $size = \count($bodies) + 1;
+        $pdf .= "xref\n0 " . $size . "\n0000000000 65535 f \n";
+        foreach (\array_keys($bodies) as $num) {
+            $pdf .= \sprintf("%010d 00000 n \n", $offsets[$num]);
+        }
+
+        return $pdf . "trailer\n<< /Size " . $size . " /Root 1 0 R >>\nstartxref\n" . $xrefStart . "\n%%EOF";
+    }
+
+    /**
      * Build a minimal one-page PDF whose /Contents is a single LZW stream.
      */
     private function buildLzwContentPdf(): string
@@ -583,6 +612,30 @@ class TcpdfImporterFacadeTest extends TestCase
 
         $this->assertStringContainsString('was not fully resolved while parsing', $warnings);
         $this->assertStringContainsString('resolution depth limit (4)', $warnings);
+    }
+
+    /**
+     * A page whose /Contents resolves to no stream must reach the document warnings.
+     *
+     * @throws \Throwable
+     */
+    public function testBlankImportedPageWarningReachesTheDocumentWarnings(): void
+    {
+        $pdf = $this->makePdf();
+        $srcId = $pdf->setImportSourceData($this->buildUnextractableContentsPdf());
+        $tpl = $pdf->importPage($srcId, 1);
+        $pdf->addPage();
+        $pdf->useImportedPage($tpl, 10, 10, 120, 80, ['keepAspectRatio' => false]);
+
+        // The importer warnings are copied into the document list while the output is built.
+        $this->assertSame([], $pdf->getWarnings());
+
+        $pdf->getOutPDFString();
+
+        $this->assertStringContainsString('has a /Contents entry but no content stream could be extracted', \implode(
+            "\n",
+            $pdf->getWarnings(),
+        ));
     }
 
     /**

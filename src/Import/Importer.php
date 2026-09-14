@@ -226,6 +226,30 @@ class Importer implements ImporterInterface
     }
 
     /**
+     * Record a warning when a page declares /Contents but no content stream could be located.
+     *
+     * A stream that is present but empty is legal and is not reported. The page
+     * is imported as an empty Form XObject either way, so the condition is
+     * reported instead of thrown.
+     *
+     * @param array<string, mixed> $pageDict Effective page dictionary.
+     * @param bool                 $found    True when at least one content stream was located.
+     * @param int                  $pageNum  1-based page number of the imported page.
+     */
+    private function checkImportedContent(array $pageDict, bool $found, int $pageNum): void
+    {
+        if ($found || !isset($pageDict['Contents'])) {
+            return;
+        }
+
+        $this->addWarning(
+            'The imported page '
+            . $pageNum
+            . ' has a /Contents entry but no content stream could be extracted: the page will be blank',
+        );
+    }
+
+    /**
      * Record a warning, ignoring duplicates.
      */
     private function addWarning(string $message): void
@@ -403,6 +427,7 @@ class Importer implements ImporterInterface
         // Extract content stream.
         $contentStream = $cloner->getContentStream($resolved['dict'], $src);
         $this->pon = $cloner->getPon();
+        $this->checkImportedContent($resolved['dict'], $contentStream['found'], $pageNum);
 
         // Flush cloned auxiliary objects.
         $rawAuxObjects = $map->flush();

@@ -234,6 +234,146 @@ class ImporterTest extends TestCase
         return $pdf . "trailer\n<< /Size {$size} /Root 1 0 R >>\nstartxref\n{$xrefStart}\n%%EOF";
     }
 
+    /**
+     * Assemble a classic-xref PDF from a map of object number to object body.
+     *
+     * @param array<int, string> $objects Object bodies keyed by object number.
+     */
+    private function assemblePdf(array $objects): string
+    {
+        $pdf = "%PDF-1.7\n";
+        $xrefRows = '';
+        foreach ($objects as $num => $body) {
+            $xrefRows .= sprintf("%010d 00000 n \n", strlen($pdf));
+            $pdf .= $num . " 0 obj\n" . $body . "\nendobj\n";
+        }
+
+        $xrefStart = strlen($pdf);
+        $size = count($objects) + 1;
+        $pdf .= "xref\n0 {$size}\n0000000000 65535 f \n" . $xrefRows;
+
+        return $pdf . "trailer\n<< /Size {$size} /Root 1 0 R >>\nstartxref\n{$xrefStart}\n%%EOF";
+    }
+
+    /**
+     * Build a one-page PDF whose /Contents is an indirect reference to the
+     * object given as the page content value.
+     *
+     * @param string             $contentsValue Value written as the page /Contents entry.
+     * @param array<int, string> $extra         Additional objects, keyed by object number.
+     */
+    private function buildIndirectContentsPdf(string $contentsValue, array $extra): string
+    {
+        return $this->assemblePdf([
+            1 => '<< /Type /Catalog /Pages 2 0 R >>',
+            2 => '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+            3 => '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] /Contents ' . $contentsValue . ' >>',
+        ] + $extra);
+    }
+
+    /**
+     * Build the body of a plain (unfiltered) stream object.
+     */
+    private function plainStreamObject(string $bytes): string
+    {
+        return '<< /Length ' . strlen($bytes) . " >>\nstream\n" . $bytes . "\nendstream";
+    }
+
+    /** @throws \Throwable */
+    public function testImportPageResolvesContentsReferenceToStreamArray(): void
+    {
+        // /Contents 4 0 R where object 4 is [5 0 R 6 0 R], not a stream.
+        $data = $this->buildIndirectContentsPdf('4 0 R', [
+            4 => '[5 0 R 6 0 R]',
+            5 => $this->plainStreamObject('10 20 m 30 40 l S'),
+            6 => $this->plainStreamObject('50 60 m 70 80 l S'),
+        ]);
+
+        $importer = $this->makeImporter();
+        $srcId = $importer->setImportSourceData($data);
+        $importer->importPage($srcId, 1);
+        $out = $importer->getOutImportedObjects();
+
+        $this->assertStringContainsString('10 20 m 30 40 l S', $out);
+        $this->assertStringContainsString('50 60 m 70 80 l S', $out);
+        $this->assertStringNotContainsString('/Length 0 >>', $out);
+        $this->assertSame([], $importer->getWarnings());
+    }
+
+    /** @throws \Throwable */
+    public function testImportPageResolvesContentsReferenceToSingleStreamArray(): void
+    {
+        $data = $this->buildIndirectContentsPdf('4 0 R', [
+            4 => '[5 0 R]',
+            5 => $this->plainStreamObject('10 20 m 30 40 l S'),
+        ]);
+
+        $importer = $this->makeImporter();
+        $srcId = $importer->setImportSourceData($data);
+        $importer->importPage($srcId, 1);
+
+        $this->assertStringContainsString('10 20 m 30 40 l S', $importer->getOutImportedObjects());
+        $this->assertSame([], $importer->getWarnings());
+    }
+
+    /** @throws \Throwable */
+    public function testImportPageReportsUnextractableContentStream(): void
+    {
+        // /Contents points to a dictionary that carries no stream.
+        $data = $this->buildIndirectContentsPdf('4 0 R', [4 => '<< /Type /Metadata >>']);
+
+        $importer = $this->makeImporter();
+        $srcId = $importer->setImportSourceData($data);
+        $importer->importPage($srcId, 1);
+
+        $this->assertStringContainsString('has a /Contents entry but no content stream could be extracted', implode(
+            "\n",
+            $importer->getWarnings(),
+        ));
+    }
+
+    /** @throws \Throwable */
+    public function testImportPageDoesNotReportLegallyEmptyContentStream(): void
+    {
+        $data = $this->buildIndirectContentsPdf('4 0 R', [4 => "<< /Length 0 >>\nstream\n\nendstream"]);
+
+        $importer = $this->makeImporter();
+        $srcId = $importer->setImportSourceData($data);
+        $importer->importPage($srcId, 1);
+
+        $this->assertSame([], $importer->getWarnings());
+    }
+
+    /** @throws \Throwable */
+    public function testImportPageDoesNotReportEmptyContentsArray(): void
+    {
+        // An empty /Contents array is a legal empty content: the page is blank by design.
+        $data = $this->buildIndirectContentsPdf('4 0 R', [4 => '[]']);
+
+        $importer = $this->makeImporter();
+        $srcId = $importer->setImportSourceData($data);
+        $importer->importPage($srcId, 1);
+
+        $this->assertSame([], $importer->getWarnings());
+    }
+
+    /** @throws \Throwable */
+    public function testImportPageKeepsStreamWithFalseEndstreamMarkerInPayload(): void
+    {
+        // An indirect /Length that cannot be resolved makes the parser cut the payload at the
+        // "endstream" marker it contains and tokenize the rest: the object is still a stream.
+        $data = $this->buildIndirectContentsPdf('4 0 R', [
+            4 => "<< /Length 99 0 R >>\nstream\nq endstream [(a) (b)] Q\nendstream",
+        ]);
+
+        $importer = $this->makeImporter();
+        $srcId = $importer->setImportSourceData($data);
+        $importer->importPage($srcId, 1);
+
+        $this->assertStringContainsString('q ', $importer->getOutImportedObjects());
+        $this->assertSame([], $importer->getWarnings());
+    }
+
     /** @throws \Throwable */
     public function testTruncatedEmbeddedFontWalkIsReported(): void
     {

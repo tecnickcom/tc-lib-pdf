@@ -155,6 +155,171 @@ class ResourceClonerTest extends TestCase
         $cloner->getContentStream($pageDict, $src);
     }
 
+    /**
+     * Build a mock source where the given object holds an array of references.
+     *
+     * @param array<int, string> $refs Referenced object keys.
+     *
+     * @return array<int, mixed> Raw parser tokens for an array object.
+     */
+    private function refArrayObject(array $refs): array
+    {
+        return [['[', \array_map(static fn(string $ref): array => ['objref', $ref], $refs)]];
+    }
+
+    /**
+     * Build the raw parser tokens of a stream object with the given bytes.
+     *
+     * @return array<int, mixed>
+     */
+    private function streamObject(string $bytes): array
+    {
+        return [
+            ['<<', [['/', 'Length'], ['numeric', \strlen($bytes)]]],
+            ['stream', $bytes],
+        ];
+    }
+
+    /** @throws \Throwable */
+    public function testGetContentStreamResolvesRefToArrayOfRefs(): void
+    {
+        // /Contents points to an object that is an array of stream references.
+        $src = $this->makeMockSourceDocument([
+            '3_0' => $this->refArrayObject(['1_0', '2_0']),
+            '1_0' => $this->streamObject('alpha'),
+            '2_0' => $this->streamObject('beta'),
+        ]);
+        $cloner = new ResourceCloner(0);
+
+        $result = $cloner->getContentStream(['Contents' => '3_0'], $src);
+
+        $this->assertSame('alpha beta', $result['bytes']);
+        $this->assertSame('', $result['filter']);
+        $this->assertSame(10, $result['length']);
+        $this->assertTrue($result['found']);
+    }
+
+    /** @throws \Throwable */
+    public function testGetContentStreamRefToArrayMatchesDirectArray(): void
+    {
+        $src = $this->makeMockSourceDocument([
+            '3_0' => $this->refArrayObject(['1_0', '2_0']),
+            '1_0' => $this->streamObject('alpha'),
+            '2_0' => $this->streamObject('beta'),
+        ]);
+        $cloner = new ResourceCloner(0);
+
+        $this->assertSame(
+            $cloner->getContentStream(['Contents' => ['1_0', '2_0']], $src),
+            $cloner->getContentStream(['Contents' => '3_0'], $src),
+        );
+    }
+
+    /** @throws \Throwable */
+    public function testGetContentStreamRefToSingleElementArrayKeepsFilter(): void
+    {
+        // A one-element array is extracted directly, so the source filter is preserved.
+        $src = $this->makeMockSourceDocument([
+            '3_0' => $this->refArrayObject(['1_0']),
+            '1_0' => [
+                ['<<', [['/', 'Filter'], ['/', 'FlateDecode']]],
+                ['stream', 'alpha'],
+            ],
+        ]);
+        $cloner = new ResourceCloner(0);
+
+        $result = $cloner->getContentStream(['Contents' => '3_0'], $src);
+
+        $this->assertSame('alpha', $result['bytes']);
+        $this->assertSame('/FlateDecode', $result['filter']);
+        $this->assertTrue($result['found']);
+    }
+
+    /** @throws \Throwable */
+    public function testGetContentStreamRefToEmptyArrayReturnsEmptyStream(): void
+    {
+        // An empty array is a legal empty content: nothing is lost, so it is not reported.
+        $src = $this->makeMockSourceDocument(['3_0' => $this->refArrayObject([])]);
+        $cloner = new ResourceCloner(0);
+
+        $result = $cloner->getContentStream(['Contents' => '3_0'], $src);
+
+        $this->assertSame('', $result['bytes']);
+        $this->assertSame(0, $result['length']);
+        $this->assertTrue($result['found']);
+    }
+
+    /** @throws \Throwable */
+    public function testGetContentStreamDirectEmptyArrayIsFound(): void
+    {
+        $src = $this->makeMockSourceDocument([]);
+        $cloner = new ResourceCloner(0);
+
+        $result = $cloner->getContentStream(['Contents' => []], $src);
+
+        $this->assertSame('', $result['bytes']);
+        $this->assertSame(0, $result['length']);
+        $this->assertTrue($result['found']);
+    }
+
+    /** @throws \Throwable */
+    public function testGetContentStreamStreamWithTrailingArrayTokenIsNotAnArray(): void
+    {
+        // A payload holding an "endstream" marker makes the parser emit the rest of the
+        // bytes as stray tokens: the object is still a stream, not an array of references.
+        $src = $this->makeMockSourceDocument([
+            '3_0' => [
+                ['<<', [['/', 'Length'], ['objref', '99_0']]],
+                ['stream', 'q '],
+                ['endstream', ''],
+                ['[', [['(', 'a'], ['(', 'b']]],
+            ],
+        ]);
+        $cloner = new ResourceCloner(0);
+
+        $result = $cloner->getContentStream(['Contents' => '3_0'], $src);
+
+        $this->assertSame('q ', $result['bytes']);
+        $this->assertTrue($result['found']);
+    }
+
+    /** @throws \Throwable */
+    public function testGetContentStreamRefToNonStreamReportsNotFound(): void
+    {
+        // Neither a stream nor an array: nothing can be extracted.
+        $src = $this->makeMockSourceDocument(['3_0' => [['<<', [['/', 'Type'], ['/', 'Page']]]]]);
+        $cloner = new ResourceCloner(0);
+
+        $result = $cloner->getContentStream(['Contents' => '3_0'], $src);
+
+        $this->assertSame('', $result['bytes']);
+        $this->assertSame(0, $result['length']);
+        $this->assertFalse($result['found']);
+    }
+
+    /** @throws \Throwable */
+    public function testGetContentStreamEmptyStreamIsFound(): void
+    {
+        // An empty content stream is legal and must not be reported as missing.
+        $src = $this->makeMockSourceDocument(['1_0' => $this->streamObject('')]);
+        $cloner = new ResourceCloner(0);
+
+        $result = $cloner->getContentStream(['Contents' => '1_0'], $src);
+
+        $this->assertSame('', $result['bytes']);
+        $this->assertSame(0, $result['length']);
+        $this->assertTrue($result['found']);
+    }
+
+    /** @throws \Throwable */
+    public function testGetContentStreamMissingContentsIsNotFound(): void
+    {
+        $src = $this->makeMockSourceDocument([]);
+        $cloner = new ResourceCloner(0);
+
+        $this->assertFalse($cloner->getContentStream([], $src)['found']);
+    }
+
     // -------------------------------------------------------------------------
     // cloneResources
     // -------------------------------------------------------------------------

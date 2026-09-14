@@ -101,4 +101,28 @@ class DictParserTest extends TestCase
         $this->assertSame([], $parser->resolveArray('9999 0 R', $doc));
         $this->assertSame(['a', 'b'], $parser->resolveArray(['a', 'b'], $doc));
     }
+
+    /** @throws \Throwable */
+    public function testObjectToArrayReadsTheLeadingArrayToken(): void
+    {
+        $parser = new DictParser();
+
+        $this->assertSame(['1_0', '/Name'], $parser->objectToArray([['[', [['objref', '1_0'], ['/', 'Name']]]]));
+    }
+
+    /** @throws \Throwable */
+    public function testObjectToArrayIgnoresAnArrayTokenAfterAStream(): void
+    {
+        $parser = new DictParser();
+
+        // A payload holding an "endstream" marker makes the parser emit the rest of the
+        // bytes as stray tokens: the object is still a stream, not an array.
+        $this->assertNull($parser->objectToArray([
+            ['<<', [['/', 'Length'], ['objref', '99_0']]],
+            ['stream', 'q '],
+            ['endstream', ''],
+            ['[', [['(', 'a']]],
+        ]));
+        $this->assertNull($parser->objectToArray([]));
+    }
 }

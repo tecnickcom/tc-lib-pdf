@@ -67,6 +67,31 @@ final class DictParser
     }
 
     /**
+     * Convert a raw parsed object array to the list of its array value.
+     *
+     * Only the first element is examined: an object holding an array opens with the
+     * array token, while a stream object can expose trailing tokens when its payload
+     * contains an "endstream" marker.
+     *
+     * @param array<int, mixed> $objData Raw object data from the parser.
+     *
+     * @return array<int, mixed>|null Parsed array elements, or null when the object holds no array.
+     */
+    public function objectToArray(array $objData): ?array
+    {
+        $first = \array_slice(\array_values($objData), 0, 1);
+        if (\count($first) !== 1 || !\is_array($first[0])) {
+            return null;
+        }
+
+        if (($first[0][0] ?? null) !== '[' || !\is_array($first[0][1] ?? null)) {
+            return null;
+        }
+
+        return \array_map($this->parseValue(...), \array_values($first[0][1]));
+    }
+
+    /**
      * Recursively convert a raw parser dictionary array into a PHP associative array.
      * Each entry in the raw array is a pair [key_element, value_element].
      *
@@ -215,14 +240,6 @@ final class DictParser
             return [];
         }
 
-        foreach (\array_values($obj ?? []) as $element) {
-            if ($element[0] !== '[' || !\is_array($element[1])) {
-                continue;
-            }
-
-            return \array_map($this->parseValue(...), \array_values($element[1]));
-        }
-
-        return [];
+        return $obj === null ? [] : $this->objectToArray($obj) ?? [];
     }
 }

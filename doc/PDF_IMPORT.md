@@ -69,6 +69,24 @@ $sourceId = $pdf->setImportSourceFile('/path/to/source.pdf', [
 
 `ImportResourceLimitException` extends `ImportCorruptedSourceException`, so a handler for the latter around source registration also catches limit failures.
 
+## Page Content Streams
+
+A page `/Contents` entry is accepted in every form the specification allows: a stream, an array of streams, or an indirect reference to either. Several streams are decoded and concatenated into the single stream of the resulting Form XObject.
+
+A page whose `/Contents` entry cannot be resolved to any stream is imported as an empty Form XObject and reported as a document warning, so a blank imported page is never silent:
+
+```php
+$pdf->importPage($sourceId, 1);
+$pdf->getOutPDFString();
+
+foreach ($pdf->getWarnings() as $warning) {
+    // "The imported page 1 has a /Contents entry but no content stream could be
+    //  extracted: the page will be blank"
+}
+```
+
+A `/Contents` stream that exists but is empty, and an empty `/Contents` array, are legal empty contents and are not reported.
+
 ## Import One Page and Place It
 
 ```php
