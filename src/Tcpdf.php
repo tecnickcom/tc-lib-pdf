@@ -309,13 +309,28 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
     }
 
     /**
+     * Pattern matching an acceptable PDF document base file name.
+     *
+     * Combining marks must be attached to a base character, and at least one
+     * letter or number is required.
+     *
+     * @var string
+     */
+    protected const PDFFILENAME_REGEX = '/^(?=[\\p{L}\\p{N}_, -]*[\\p{L}\\p{N}])(?:[\\p{L}\\p{N}][\\p{M}]*|[_, -])+(?:\\.[Pp][Dd][Ff])?$/u';
+
+    /**
      * Set the PDF document base file name.
-     * Valid base names may contain Unicode letters, marks, numbers,
-     * underscore (_), comma (,), space, and hyphen (-).
-     * The base name is normalized to Unicode NFC before validation.
-     * The validated filename length is limited to 255 bytes.
+     * Accepted base names may contain Unicode letters, marks, numbers,
+     * underscore (_), comma (,), space, and hyphen (-), and include at least
+     * one letter or number.
+     * The base name is normalized to Unicode NFC before it is checked.
+     * The filename length is limited to 255 bytes.
      * If a file extension is present, it must be '.pdf' (case-insensitive).
      * Any directory path is ignored and only the basename is used.
+     * Names outside that set are sanitized by sanitizePDFFilename(), so the
+     * name in use may differ from $name: see getPDFFilename().
+     * Sanitization is not injective: 'a.b.pdf' and 'a_b.pdf' both yield
+     * 'a_b.pdf'.
      *
      * @param string $name File name.
      */
@@ -329,16 +344,64 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
             }
         }
 
-        if (\strlen($bname) > 255) {
-            return;
+        if (\strlen($bname) > 255 || \preg_match(self::PDFFILENAME_REGEX, $bname) !== 1) {
+            $bname = $this->sanitizePDFFilename($bname);
         }
 
-        // Enforce combining marks to be attached to a base character and require at least one base char.
-        $regexp = '/^(?=[\\p{L}\\p{N}_, -]*[\\p{L}\\p{N}])(?:[\\p{L}\\p{N}][\\p{M}]*|[_, -])+(?:\\.[Pp][Dd][Ff])?$/u';
-        if (\preg_match($regexp, $bname) === 1) {
-            $this->pdffilename = $bname;
-            $this->encpdffilename = \rawurlencode($bname);
+        $this->pdffilename = $bname;
+        $this->encpdffilename = \rawurlencode($bname);
+    }
+
+    /**
+     * Return the PDF document base file name currently in use.
+     *
+     * The value may differ from the argument passed to setPDFFilename(), which
+     * sanitizes names outside the accepted set.
+     */
+    public function getPDFFilename(): string
+    {
+        return $this->pdffilename;
+    }
+
+    /**
+     * Reduce a base file name to the accepted set.
+     *
+     * Rejected characters become an underscore, a '.pdf' extension is preserved,
+     * and the result is trimmed to 255 bytes on a code point boundary.
+     * An empty name, or one left without letters or numbers, falls back to the
+     * default file name: the document file ID with a '.pdf' extension.
+     *
+     * @param string $bname NFC-normalized base file name.
+     */
+    protected function sanitizePDFFilename(string $bname): string
+    {
+        $ext = '';
+        if (\strlen($bname) >= 4 && \strcasecmp(\substr($bname, -4), '.pdf') === 0) {
+            $ext = \substr($bname, -4);
+            $bname = \substr($bname, 0, -4);
         }
+
+        // Marks are kept here so that scripts without a precomposed form survive.
+        $bname = (string) \preg_replace('/[^\\p{L}\\p{N}_, \\-\\p{M}]/u', '_', $bname);
+        $bname = (string) \preg_replace('/(?<![\\p{L}\\p{N}\\p{M}])\\p{M}+/u', '', $bname);
+
+        $max = 255 - \strlen($ext);
+        while (\strlen($bname) > $max) {
+            $bname = (string) \preg_replace('/.$/u', '', $bname);
+        }
+
+        // Reached by an empty stem, by malformed UTF-8, and by trimming that
+        // strips the only letters or numbers present.
+        if (\preg_match('/[\\p{L}\\p{N}]/u', $bname) !== 1) {
+            if ($ext === '') {
+                $ext = '.pdf';
+            }
+
+            // The file ID is hexadecimal, so slicing it stays within the budget.
+            $bname = \substr($this->fileid, 0, 255 - \strlen($ext));
+        }
+
+        return $bname . $ext;
     }
 
     /**

@@ -97,58 +97,144 @@ class TcpdfTest extends TestUtil
     }
 
     /** @throws \Throwable */
-    public function testSetPDFFilenameRejectsInvalidExtension(): void
+    public function testGetPDFFilenameReturnsTheNameInUse(): void
     {
         $obj = $this->getTestObject();
-        $before = (string) $this->getObjectProperty($obj, 'pdffilename');
+        $obj->setPDFFilename('my_test_file.pdf');
+
+        $this->assertSame('my_test_file.pdf', $obj->getPDFFilename());
+    }
+
+    /** @throws \Throwable */
+    public function testGetPDFFilenameReturnsTheSanitizedName(): void
+    {
+        $obj = $this->getTestObject();
+        $obj->setPDFFilename('my_report.final.pdf');
+
+        $this->assertSame('my_report_final.pdf', $obj->getPDFFilename());
+    }
+
+    /** @throws \Throwable */
+    public function testSetPDFFilenameSanitizesInvalidExtension(): void
+    {
+        $obj = $this->getTestObject();
 
         $obj->setPDFFilename('bad-name.txt');
 
-        $this->assertSame($before, $this->getObjectProperty($obj, 'pdffilename'));
+        $this->assertSame('bad-name_txt', $this->getObjectProperty($obj, 'pdffilename'));
     }
 
     /** @throws \Throwable */
-    public function testSetPDFFilenameRejectsControlCharacters(): void
+    public function testSetPDFFilenameSanitizesControlCharacters(): void
     {
         $obj = $this->getTestObject();
-        $before = (string) $this->getObjectProperty($obj, 'pdffilename');
 
         $obj->setPDFFilename("bad\tname.pdf");
 
-        $this->assertSame($before, $this->getObjectProperty($obj, 'pdffilename'));
+        $this->assertSame('bad_name.pdf', $this->getObjectProperty($obj, 'pdffilename'));
     }
 
     /** @throws \Throwable */
-    public function testSetPDFFilenameRejectsMarkOnlyStem(): void
+    public function testSetPDFFilenameSanitizesMarkOnlyStem(): void
     {
         $obj = $this->getTestObject();
-        $before = (string) $this->getObjectProperty($obj, 'pdffilename');
+        $fileid = (string) $this->getObjectProperty($obj, 'fileid');
 
         $obj->setPDFFilename("\u{0301}.pdf");
 
-        $this->assertSame($before, $this->getObjectProperty($obj, 'pdffilename'));
+        $this->assertSame($fileid . '.pdf', $this->getObjectProperty($obj, 'pdffilename'));
     }
 
     /** @throws \Throwable */
-    public function testSetPDFFilenameRejectsDetachedMarkAfterSeparator(): void
+    public function testSetPDFFilenameFallsBackWhenNameIsEmpty(): void
     {
         $obj = $this->getTestObject();
-        $before = (string) $this->getObjectProperty($obj, 'pdffilename');
+        $fileid = (string) $this->getObjectProperty($obj, 'fileid');
+        $obj->setPDFFilename('other.pdf');
+
+        $obj->setPDFFilename('');
+
+        $this->assertSame($fileid . '.pdf', $this->getObjectProperty($obj, 'pdffilename'));
+        $this->assertSame($fileid . '.pdf', $this->getObjectProperty($obj, 'encpdffilename'));
+    }
+
+    /** @throws \Throwable */
+    public function testSetPDFFilenameFallsBackWhenOnlyTheExtensionIsGiven(): void
+    {
+        $obj = $this->getTestObject();
+        $fileid = (string) $this->getObjectProperty($obj, 'fileid');
+
+        $obj->setPDFFilename('.pdf');
+
+        $this->assertSame($fileid . '.pdf', $this->getObjectProperty($obj, 'pdffilename'));
+    }
+
+    /** @throws \Throwable */
+    public function testSetPDFFilenameSanitizesDetachedMarkAfterSeparator(): void
+    {
+        $obj = $this->getTestObject();
 
         $obj->setPDFFilename("a \u{0301}.pdf");
 
-        $this->assertSame($before, $this->getObjectProperty($obj, 'pdffilename'));
+        $this->assertSame('a .pdf', $this->getObjectProperty($obj, 'pdffilename'));
     }
 
     /** @throws \Throwable */
-    public function testSetPDFFilenameRejectsNamesLongerThan255Bytes(): void
+    public function testSetPDFFilenameTrimsNamesLongerThan255Bytes(): void
     {
         $obj = $this->getTestObject();
-        $before = (string) $this->getObjectProperty($obj, 'pdffilename');
 
         $obj->setPDFFilename(\str_repeat('a', 252) . '.pdf');
 
-        $this->assertSame($before, $this->getObjectProperty($obj, 'pdffilename'));
+        $name = (string) $this->getObjectProperty($obj, 'pdffilename');
+        $this->assertSame(\str_repeat('a', 251) . '.pdf', $name);
+    }
+
+    /** @throws \Throwable */
+    public function testSetPDFFilenameTrimsOnCodePointBoundary(): void
+    {
+        $obj = $this->getTestObject();
+
+        $obj->setPDFFilename(\str_repeat("\u{00E9}", 200) . '.pdf');
+
+        $name = $obj->getPDFFilename();
+        $this->assertLessThanOrEqual(255, \strlen($name));
+        $this->assertSame(1, \preg_match('//u', $name));
+    }
+
+    /** @throws \Throwable */
+    public function testSetPDFFilenameFallsBackWhenTrimmingStripsEveryLetter(): void
+    {
+        $obj = $this->getTestObject();
+        $fileid = (string) $this->getObjectProperty($obj, 'fileid');
+
+        $obj->setPDFFilename(\str_repeat('_', 255) . 'a');
+
+        $this->assertSame($fileid . '.pdf', $obj->getPDFFilename());
+    }
+
+    /** @throws \Throwable */
+    public function testSetPDFFilenameKeepsDistinctNamesDistinct(): void
+    {
+        $names = [];
+        foreach (['inv-2024.01.15.pdf', 'inv-2024.02.20.pdf', 'inv-2024.03.05.pdf'] as $given) {
+            $obj = $this->getTestObject();
+            $obj->setPDFFilename($given);
+            $names[] = $obj->getPDFFilename();
+        }
+
+        $this->assertCount(3, \array_unique($names));
+    }
+
+    /** @throws \Throwable */
+    public function testSetPDFFilenameNeverKeepsThePreviousName(): void
+    {
+        $obj = $this->getTestObject();
+        $obj->setPDFFilename('first.pdf');
+
+        $obj->setPDFFilename('second.name.pdf');
+
+        $this->assertSame('second_name.pdf', $obj->getPDFFilename());
     }
 
     /** @throws \Throwable */

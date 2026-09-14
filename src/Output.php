@@ -6297,7 +6297,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Save the PDF document to a local file.
      *
-     * @param string $path   Path to the output file.
+     * The file is written in the $path directory with the base name returned
+     * by getPDFFilename().
+     *
+     * @param string $path   Path to the output directory.
      * @param string $rawpdf Raw PDF data string from getOutPDFString().
      * @throws \Throwable
      */
