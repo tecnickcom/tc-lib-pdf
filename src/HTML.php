@@ -16784,12 +16784,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $indentWidth = \max(0.0, $availableWidth - $textIndentOffset);
                 $indentStart = $forcedir === 'R' ? 0.0 : $textIndentOffset;
                 if ($lineWidth > 0.0 && $lineWidth <= ($indentWidth + self::WIDTH_TOLERANCE) && !$lineWidthCollapsed) {
-                    $renderPosX = $lineOriginX
-                    + $indentStart
-                    + match ($halign) {
-                        'R' => \max(0.0, $indentWidth - $lineWidth),
-                        default => \max(0.0, ($indentWidth - $lineWidth) / 2),
-                    };
+                    $renderPosX =
+                        $lineOriginX
+                        + $indentStart
+                        + match ($halign) {
+                            'R' => \max(0.0, $indentWidth - $lineWidth),
+                            default => \max(0.0, ($indentWidth - $lineWidth) / 2),
+                        };
                     // Use the measured lineWidth for rendering to avoid rounding-induced wraps.
                     // The lineWidth has been verified to fit within indentWidth + self::WIDTH_TOLERANCE tolerance.
                     $renderWidth = \min($lineWidth, $indentWidth);

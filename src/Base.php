@@ -458,8 +458,8 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *        'subtype': string,
  *        'h'?: string,
  *        'mk'?: array<array-key, mixed>,
- *        'a'?: TAnnotActionDict,
- *        'aa'?: TAnnotAdditionalActionDict,
+ *        'a'?: TAnnotActionDict|string,
+ *        'aa'?: TAnnotAdditionalActionDict|string,
  *        'bs'?: TAnnotBorderStyle,
  *        'parent'?: array<mixed>,
  *        'border'?: array<mixed>,
@@ -716,7 +716,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.76.0';
+    protected string $version = '8.76.1';
 
     /**
      * Encrypt object.
@@ -2137,7 +2137,9 @@ abstract class Base
             curlopts: $fileOptions['curlopts'] ?? [],
             defaultCurlOpts: $fileOptions['defaultCurlOpts'] ?? null,
             fixedCurlOpts: $fileOptions['fixedCurlOpts'] ?? null,
-            allowedPaths: $fileOptions['markupAllowedPaths'] ?? $fileOptions['allowedPaths'] ?? $this->defaultMarkupAllowedPaths(),
+            allowedPaths: $fileOptions['markupAllowedPaths']
+            ?? $fileOptions['allowedPaths']
+            ?? $this->defaultMarkupAllowedPaths(),
         );
 
         $this->cache = new ObjCache();
