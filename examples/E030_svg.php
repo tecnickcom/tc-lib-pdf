@@ -512,6 +512,75 @@ $svg07a = $pdf->addSVG(
 $pdf->page->addContent($pdf->getSetSVG(soid: $svg07a));
 
 // ---------------------------------------------------------------------------
+// Page 8 - style_cascade_regressions.svg (full-page portrait)
+//
+// Sheet covering the style cascade, opacity, length units and clipping rules:
+// a style declaration against the presentation attribute of the same element,
+// a fully transparent group, lengths with and without a unit suffix,
+// percentage alpha values, and a clipPath applied to a shape, to a group and
+// to nothing at all.
+//
+// Each case is drawn next to a reference shape painted directly in the
+// expected form: the two must be identical.
+// ---------------------------------------------------------------------------
+
+$page08 = $pdf->addPage();
+$pdf->setBookmark(
+    name: 'style_cascade_regressions.svg',
+    link: '',
+    level: 0,
+    page: -1,
+    posx: 0,
+    posy: 0,
+    fstyle: 'B',
+    color: 'green',
+);
+
+$svg08a = $pdf->addSVG(
+    img: $svgdir . '/style_cascade_regressions.svg',
+    posx: 0,
+    posy: 0,
+    width: $page08['width'],
+    height: $page08['height'],
+    pageheight: $page08['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG(soid: $svg08a));
+
+// ---------------------------------------------------------------------------
+// Page 9 - style_sheet_use_regressions.svg (full-page portrait)
+//
+// Sheet covering the rules a document stylesheet contributes to the cascade,
+// the compositing of a translucent group, the dash pattern, the dash offset
+// and the miter limit, and the use element against a shape, a group and a
+// symbol target.
+//
+// Each case is drawn next to a reference shape painted directly in the
+// expected form: the two must be identical.
+// ---------------------------------------------------------------------------
+
+$page09 = $pdf->addPage();
+$pdf->setBookmark(
+    name: 'style_sheet_use_regressions.svg',
+    link: '',
+    level: 0,
+    page: -1,
+    posx: 0,
+    posy: 0,
+    fstyle: 'B',
+    color: 'orange',
+);
+
+$svg09a = $pdf->addSVG(
+    img: $svgdir . '/style_sheet_use_regressions.svg',
+    posx: 0,
+    posy: 0,
+    width: $page09['width'],
+    height: $page09['height'],
+    pageheight: $page09['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG(soid: $svg09a));
+
+// ---------------------------------------------------------------------------
 // Output
 // ---------------------------------------------------------------------------
 

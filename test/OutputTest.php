@@ -1084,7 +1084,7 @@ class OutputTest extends TestUtil
 
         $this->assertNotNull($gradientId);
 
-        $out = $obj->exposeGetPatternStreamResourceDict('/Sh' . $gradientId . ' sh /I2 Do');
+        $out = $obj->exposeGetPatternStreamResourceDict('/Sh' . $gradientId . ' sh /IMG2 Do');
 
         $this->assertStringContainsString(' /Pattern <<', $out);
         $this->assertStringContainsString(' /XObject <<', $out);
@@ -3034,7 +3034,9 @@ class OutputTest extends TestUtil
         $xobjects['IMP1'] = [
             'spot_colors' => [],
             'extgstate' => [],
+            'gsnames' => [],
             'gradient' => [],
+            'pattern' => [],
             'font' => [],
             'image' => [],
             'xobject' => [],
@@ -4276,7 +4278,9 @@ class OutputTest extends TestUtil
                 'outdata' => 'q Q',
                 'spot_colors' => [],
                 'extgstate' => [],
+                'gsnames' => [],
                 'gradient' => [],
+                'pattern' => [],
                 'font' => [],
                 'image' => [],
                 'xobject' => [],
@@ -4324,7 +4328,9 @@ class OutputTest extends TestUtil
                 'outdata' => 'q Q',
                 'spot_colors' => [],
                 'extgstate' => [],
+                'gsnames' => [],
                 'gradient' => [],
+                'pattern' => [],
                 'font' => [],
                 'image' => [],
                 'xobject' => [],
@@ -4338,8 +4344,9 @@ class OutputTest extends TestUtil
         $this->assertContainsAllFragments($out, [
             '/Group << /Type /Group /S /Transparency',
             '/CS /DeviceRGB',
-            '/I /true',
-            '/K /false',
+            // ISO 32000-1 table 96: /I and /K are booleans, not names.
+            '/I true',
+            '/K false',
         ]);
     }
 
@@ -4373,7 +4380,9 @@ class OutputTest extends TestUtil
                 'outdata' => 'q Q',
                 'spot_colors' => [],
                 'extgstate' => [],
+                'gsnames' => [],
                 'gradient' => [],
+                'pattern' => [],
                 'font' => [],
                 'image' => [],
                 'xobject' => [],
@@ -4440,7 +4449,9 @@ class OutputTest extends TestUtil
             'XG' => [
                 'spot_colors' => [],
                 'extgstate' => [],
+                'gsnames' => [],
                 'gradient' => [],
+                'pattern' => [],
                 'font' => [],
                 'image' => [],
                 'xobject' => [],
@@ -4459,7 +4470,9 @@ class OutputTest extends TestUtil
             'XO' => [
                 'spot_colors' => [],
                 'extgstate' => [],
+                'gsnames' => [],
                 'gradient' => [],
+                'pattern' => [],
                 'font' => [],
                 'image' => [],
                 'xobject' => [],
@@ -5734,7 +5747,9 @@ class OutputTest extends TestUtil
                 'outdata' => 'q Q',
                 'spot_colors' => [],
                 'extgstate' => [],
+                'gsnames' => [],
                 'gradient' => [],
+                'pattern' => [],
                 'font' => [],
                 'image' => [],
                 'xobject' => ['XO2'],
@@ -5752,7 +5767,9 @@ class OutputTest extends TestUtil
                 'outdata' => '',
                 'spot_colors' => [],
                 'extgstate' => [],
+                'gsnames' => [],
                 'gradient' => [],
+                'pattern' => [],
                 'font' => [],
                 'image' => [],
                 'xobject' => [],
@@ -5796,7 +5813,9 @@ class OutputTest extends TestUtil
                 'outdata' => 'q Q',
                 'spot_colors' => [],
                 'extgstate' => [],
+                'gsnames' => [],
                 'gradient' => [],
+                'pattern' => [],
                 'font' => [],
                 'image' => [],
                 'xobject' => ['DOES_NOT_EXIST'],
@@ -6324,7 +6343,7 @@ class OutputTest extends TestUtil
     /**
      * @throws \Throwable
      */
-    public function testGetPatternDictSkipsPatternWithoutNKey(): void
+    public function testGetPatternEntriesSkipsPatternWithoutNKey(): void
     {
         $obj = $this->getInternalTestObject();
 
@@ -6334,7 +6353,7 @@ class OutputTest extends TestUtil
             'P2' => [],
         ]);
 
-        $result = $obj->exposeGetPatternDict();
+        $result = $obj->exposeGetPatternEntriesByKeys(['P1', 'P2']);
 
         $this->assertStringContainsString('/P1 7 0 R', $result);
         $this->assertStringNotContainsString('/P2', $result);

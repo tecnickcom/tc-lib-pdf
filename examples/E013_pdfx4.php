@@ -7,6 +7,10 @@ declare(strict_types=1);
  *
  * PDF/X-4 conformance example with transparency-capable print output.
  *
+ * Also shows the colour space the SVG paints are emitted in: ISO 15930-7 admits
+ * a device colour space only when the output intent defines the same space, so
+ * the operators follow the printing condition passed to setOutputIntent().
+ *
  * @since       2026-04-25
  * @category    Library
  * @package     Pdf
@@ -60,6 +64,22 @@ $html =
     . 'encryption disabled, and interactive actions still suppressed for print conformance.</p>';
 
 $pdf->addHTMLCell(html: $html, posx: 15, posy: 20, width: 180);
+
+// The output intent above is the 3-component sRGB profile, an RGB printing
+// condition, so the DeviceRGB paints of this SVG are conformant and emitted as
+// 'rg' operators. Passing a 4-component profile to setOutputIntent() instead
+// makes the same SVG emit DeviceCMYK, and the explicit cmyk() paint is emitted
+// as 'k' either way.
+$svg =
+    '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40" viewBox="0 0 100 40">'
+    . '<rect x="0" y="0" width="30" height="40" fill="cmyk(0%,0%,0%,100%)"/>'
+    . '<rect x="35" y="0" width="30" height="40" fill="#d6457b"/>'
+    . '<path d="M 70 0 H 100 V 40 H 70 Z"/>'
+    . '</svg>';
+
+$page = $pdf->page->getPage();
+$soid = $pdf->addSVG(img: $svg, posx: 15, posy: 70, width: 90, height: 36, pageheight: $page['height']);
+$pdf->page->addContent($pdf->getSetSVG(soid: $soid));
 
 $rawpdf = $pdf->getOutPDFString();
 $pdf->renderPDF(rawpdf: $rawpdf);

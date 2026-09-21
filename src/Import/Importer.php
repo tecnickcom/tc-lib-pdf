@@ -481,7 +481,9 @@ class Importer implements ImporterInterface
         $this->xobjects[$tid] = [
             'spot_colors' => [],
             'extgstate' => [],
+            'gsnames' => [],
             'gradient' => [],
+            'pattern' => [],
             'font' => [],
             'image' => [],
             'xobject' => [],

@@ -16,6 +16,9 @@
 
 namespace Test;
 
+/**
+ * @phpstan-import-type TSVGAttributes from \Com\Tecnick\Pdf\SVG
+ */
 class SVGTest extends TestUtil
 {
     public static function setUpBeforeClass(): void
@@ -1202,30 +1205,20 @@ class SVGTest extends TestUtil
         $base = $obj->exposeDefaultSVGStyle();
         $parser = \xml_parser_create('UTF-8');
 
-        $obj->patchSvgObj(47, [
-            'defsmode' => true,
-            'text' => 'txt',
-            'defs' => [
-                'def1' => [
-                    'name' => 'g',
-                    'attr' => ['id' => 'def1'],
-                    'child' => [
-                        'child1' => [
-                            'name' => 'path',
-                            'attr' => ['id' => 'child1'],
-                        ],
-                    ],
-                ],
-            ],
-        ]);
+        $obj->patchSvgObj(47, ['defsmode' => true, 'text' => 'txt']);
 
+        $obj->exposeHandleSVGTagStart($parser, 'g', ['id' => 'def1'], 47);
+        $obj->exposeHandleSVGTagStart($parser, 'path', ['id' => 'child1'], 47);
         $obj->exposeHandleSVGTagEnd($parser, 'path');
         $defs = $obj->getSvgObj(47)['defs'];
         /** @var array<string, mixed> $def1 */
         $def1 = $defs['def1'] ?? [];
         /** @var array<string, mixed> $child */
         $child = isset($def1['child']) && \is_array($def1['child']) ? $def1['child'] : [];
+        $this->assertArrayHasKey('child1', $child);
         $this->assertArrayHasKey('child1_CLOSE', $child);
+        // The id-bearing child is also an entry of its own.
+        $this->assertArrayHasKey('child1', $defs);
 
         $obj->exposeHandleSVGTagStart($parser, 'line', [], 47);
         $defs = $obj->getSvgObj(47)['defs'];
@@ -1495,24 +1488,12 @@ class SVGTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
         $obj->initSvgObjForHandlers(52);
-        $obj->patchSvgObj(52, [
-            'defsmode' => true,
-            'text' => 'close-parent',
-            'defs' => [
-                'grp1' => [
-                    'name' => 'g',
-                    'attr' => ['id' => 'grp1'],
-                    'child' => [
-                        'other' => [
-                            'name' => 'path',
-                            'attr' => ['id' => 'other'],
-                        ],
-                    ],
-                ],
-            ],
-        ]);
+        $obj->patchSvgObj(52, ['defsmode' => true, 'text' => 'close-parent']);
 
         $parser = \xml_parser_create('UTF-8');
+        $obj->exposeHandleSVGTagStart($parser, 'g', ['id' => 'grp1'], 52);
+        $obj->exposeHandleSVGTagStart($parser, 'path', ['id' => 'other'], 52);
+        $obj->exposeHandleSVGTagEnd($parser, 'path');
         $obj->exposeHandleSVGTagEnd($parser, 'g');
 
         $defs = $obj->getSvgObj(52)['defs'];
@@ -3650,14 +3631,17 @@ class SVGTest extends TestUtil
         $this->assertSame('', $badOut);
 
         $parser = \xml_parser_create('UTF-8');
-        $obj->exposeParseSVGStyleClipPath($parser, 55, [
+        $bufferBefore = $obj->getSvgObj(55)['out'];
+        $clipOut = $obj->exposeParseSVGStyleClipPath($parser, 55, [
             'cp1' => [
                 'name' => 'rect',
                 'attr' => ['x' => '1', 'y' => '1', 'width' => '2', 'height' => '2'],
                 'tm' => [1, 0, 0, 1, 0, 0],
             ],
         ]);
-        $this->assertNotSame('', $obj->getSvgObj(55)['out']);
+        // The clipping commands are returned, not left in the object buffer.
+        $this->assertNotSame('', $clipOut);
+        $this->assertSame($bufferBefore, $obj->getSvgObj(55)['out']);
 
         $this->assertSame('', $obj->exposeParseSVGTagSTARTlinearGradient(55, [
             'gradientTransform' => 'matrix(1 0 0 1 1 2)',
@@ -4750,7 +4734,7 @@ class SVGTest extends TestUtil
             ],
         ]);
 
-        $out = $obj->exposeParseSVGTagSTARTuse($parser, 921, ['href' => '#symvb', 'x' => '1', 'y' => '2']);
+        $out = $this->expandSVGUseOutput($obj, $parser, 921, ['href' => '#symvb', 'x' => '1', 'y' => '2']);
         $this->assertNotSame('', $out);
         $this->assertStringContainsString(' cm', $out);
     }
@@ -4787,7 +4771,7 @@ class SVGTest extends TestUtil
             ],
         ]);
 
-        $out = $obj->exposeParseSVGTagSTARTuse($parser, 922, [
+        $out = $this->expandSVGUseOutput($obj, $parser, 922, [
             'href' => '#symovr',
             'x' => '0',
             'y' => '0',
@@ -4827,7 +4811,7 @@ class SVGTest extends TestUtil
 
         $obj->initSvgObjForHandlers(923);
         $obj->patchSvgObj(923, ['styles' => [$base], 'defs' => $defs]);
-        $outDefault = $obj->exposeParseSVGTagSTARTuse($parser, 923, [
+        $outDefault = $this->expandSVGUseOutput($obj, $parser, 923, [
             'href' => '#symstyle',
             'x' => '0',
             'y' => '0',
@@ -4837,7 +4821,7 @@ class SVGTest extends TestUtil
 
         $obj->initSvgObjForHandlers(924);
         $obj->patchSvgObj(924, ['styles' => [$base], 'defs' => $defs]);
-        $outTransformed = $obj->exposeParseSVGTagSTARTuse($parser, 924, [
+        $outTransformed = $this->expandSVGUseOutput($obj, $parser, 924, [
             'href' => '#symstyle',
             'x' => '0',
             'y' => '0',
@@ -4879,7 +4863,7 @@ class SVGTest extends TestUtil
 
         $obj->initSvgObjForHandlers(925);
         $obj->patchSvgObj(925, ['styles' => [$base], 'defs' => $defs]);
-        $outDefault = $obj->exposeParseSVGTagSTARTuse($parser, 925, [
+        $outDefault = $this->expandSVGUseOutput($obj, $parser, 925, [
             'href' => '#symstyle2',
             'x' => '0',
             'y' => '0',
@@ -4889,7 +4873,7 @@ class SVGTest extends TestUtil
 
         $obj->initSvgObjForHandlers(926);
         $obj->patchSvgObj(926, ['styles' => [$base], 'defs' => $defs]);
-        $outStyled = $obj->exposeParseSVGTagSTARTuse($parser, 926, [
+        $outStyled = $this->expandSVGUseOutput($obj, $parser, 926, [
             'href' => '#symstyle2',
             'x' => '0',
             'y' => '0',
@@ -4932,7 +4916,7 @@ class SVGTest extends TestUtil
                 ],
             ],
         ]);
-        $outDefault = $obj->exposeParseSVGTagSTARTuse($parser, 927, [
+        $outDefault = $this->expandSVGUseOutput($obj, $parser, 927, [
             'href' => '#symstyle3',
             'x' => '0',
             'y' => '0',
@@ -4959,7 +4943,7 @@ class SVGTest extends TestUtil
                 ],
             ],
         ]);
-        $outStyled = $obj->exposeParseSVGTagSTARTuse($parser, 928, [
+        $outStyled = $this->expandSVGUseOutput($obj, $parser, 928, [
             'href' => '#symstyle3',
             'x' => '0',
             'y' => '0',
@@ -5001,7 +4985,7 @@ class SVGTest extends TestUtil
                 ],
             ],
         ]);
-        $outDefault = $obj->exposeParseSVGTagSTARTuse($parser, 929, [
+        $outDefault = $this->expandSVGUseOutput($obj, $parser, 929, [
             'href' => '#symstyle4',
             'x' => '0',
             'y' => '0',
@@ -5028,7 +5012,7 @@ class SVGTest extends TestUtil
                 ],
             ],
         ]);
-        $outTransformed = $obj->exposeParseSVGTagSTARTuse($parser, 930, [
+        $outTransformed = $this->expandSVGUseOutput($obj, $parser, 930, [
             'href' => '#symstyle4',
             'x' => '0',
             'y' => '0',
@@ -7840,5 +7824,2220 @@ class SVGTest extends TestUtil
         $lastMarker = \strrpos($out, '2.000000 0.000000 0.000000 2.000000 ');
         $this->assertIsInt($lastMarker);
         $this->assertGreaterThan($lastMarker, (int) \strrpos($out, ' re'));
+    }
+
+    /**
+     * Render an inline SVG fragment inside a 100x100 viewBox and return the
+     * emitted content stream.
+     *
+     * @throws \Throwable
+     */
+    private function renderSVGFragment(
+        string $body,
+        float $width = 100.0,
+        float $height = 100.0,
+        string $mode = '',
+    ): string {
+        $obj = $mode === '' ? new \Com\Tecnick\Pdf\Tcpdf() : new \Com\Tecnick\Pdf\Tcpdf(mode: $mode);
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+            . $body
+            . '</svg>';
+
+        return $obj->getSetSVG($obj->addSVG($svg, 0, 0, $width, $height, $page['height']));
+    }
+
+    /**
+     * Expand a <use> element and return everything it emitted, whether it was
+     * returned or appended to the object output buffer.
+     *
+     * @phpstan-param TSVGAttributes $attr
+     *
+     * @throws \Throwable
+     */
+    private function expandSVGUseOutput(TestableSVG $obj, \XMLParser $parser, int $soid, array $attr): string
+    {
+        $before = $obj->getSvgObj($soid)['out'];
+        $returned = $obj->exposeParseSVGTagSTARTuse($parser, $soid, $attr);
+
+        return $returned . \substr($obj->getSvgObj($soid)['out'], \strlen($before));
+    }
+
+    /**
+     * Return the object dictionary of the transparency-group Form XObject
+     * emitted for an SVG group. The mask groups are DeviceGray, the SVG groups
+     * follow the colour policy of the document.
+     */
+    private function getSVGGroupFormDict(string $raw): string
+    {
+        $dicts = [];
+        \preg_match_all('/\/Subtype \/Form.*?>> stream/s', $raw, $dicts);
+        foreach ($dicts[0] ?? [] as $dict) {
+            if (\preg_match('/\/S \/Transparency \/CS \/Device(?:RGB|CMYK)/', $dict) === 1) {
+                return $dict;
+            }
+        }
+
+        $this->fail('No group Form XObject found');
+    }
+
+    /**
+     * Count the balanced graphics state operators of a content stream.
+     *
+     * @return array{0: int, 1: int}
+     */
+    private function countSVGGraphicStates(string $out): array
+    {
+        return [
+            (int) \preg_match_all('/(?<![A-Za-z0-9])q(?![A-Za-z0-9])/', $out),
+            (int) \preg_match_all('/(?<![A-Za-z0-9])Q(?![A-Za-z0-9])/', $out),
+        ];
+    }
+
+    /**
+     * A declaration in the style attribute outranks the presentation attribute
+     * for the same property on the same element.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGStyleAttributeOverridesPresentationAttribute(): void
+    {
+        $fill = $this->renderSVGFragment(
+            '<rect x="0" y="0" width="100" height="100" fill="#ff0000" style="fill:#00ff00"/>',
+        );
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 rg', $fill);
+        $this->assertStringNotContainsString('1.000000 0.000000 0.000000 rg', $fill);
+
+        $stroke = $this->renderSVGFragment('<rect x="0" y="0" width="100" height="100" fill="none"'
+        . ' stroke="#ff0000" style="stroke:#00ff00"/>');
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 RG', $stroke);
+        $this->assertStringNotContainsString('1.000000 0.000000 0.000000 RG', $stroke);
+    }
+
+    /**
+     * A declaration for a different property leaves the presentation attribute
+     * of the element in place.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGStyleAttributeKeepsUnrelatedPresentationAttribute(): void
+    {
+        $out = $this->renderSVGFragment('<rect x="0" y="0" width="100" height="100" fill="#ff0000"'
+        . ' style="stroke:#00ff00;stroke-width:4"/>');
+
+        $this->assertStringContainsString('1.000000 0.000000 0.000000 rg', $out);
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 RG', $out);
+    }
+
+    /**
+     * An empty declaration does not wipe out the presentation attribute.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGEmptyStyleDeclarationKeepsPresentationAttribute(): void
+    {
+        $out = $this->renderSVGFragment('<rect x="0" y="0" width="100" height="100" fill="#ff0000" style="fill: ;"/>');
+
+        $this->assertStringContainsString('1.000000 0.000000 0.000000 rg', $out);
+    }
+
+    /**
+     * A style declaration of 'inherit' resolves to the value of the parent.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGStyleDeclarationInheritResolvesToTheParentValue(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<g fill="#00ff00">'
+            . '<rect x="0" y="0" width="100" height="100" fill="#ff0000" style="fill:inherit"/>'
+            . '</g>',
+        );
+
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 rg', $out);
+        $this->assertStringNotContainsString('1.000000 0.000000 0.000000 rg', $out);
+    }
+
+    /**
+     * A presentation attribute on a parent is overridden by a declaration on the
+     * child.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGInheritedPresentationAttributeIsOverriddenByChildStyle(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<g fill="#ff0000"><rect x="0" y="0" width="100" height="100" style="fill:#00ff00"/></g>',
+        );
+
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 rg', $out);
+    }
+
+    /**
+     * The same precedence applies to the use and symbol style merge.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGUseStyleAttributeOverridesPresentationAttribute(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<defs><symbol id="s"><rect x="0" y="0" width="100" height="100"/></symbol></defs>'
+            . '<use href="#s" fill="#ff0000" style="fill:#00ff00"/>',
+        );
+
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 rg', $out);
+        $this->assertStringNotContainsString('1.000000 0.000000 0.000000 rg', $out);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function svgZeroOpacityProvider(): array
+    {
+        $rect = '<rect x="0" y="0" width="100" height="100" fill="#ff0000"/>';
+
+        return [
+            'element attribute' => ['<rect x="0" y="0" width="100" height="100" fill="#ff0000" opacity="0"/>'],
+            'element style' => ['<rect x="0" y="0" width="100" height="100" fill="#ff0000" style="opacity:0"/>'],
+            'group attribute' => ['<g opacity="0">' . $rect . '</g>'],
+            'group style' => ['<g style="opacity:0">' . $rect . '</g>'],
+            'nested group' => ['<g opacity="0"><g>' . $rect . '</g></g>'],
+            'group percentage' => ['<g opacity="0%">' . $rect . '</g>'],
+        ];
+    }
+
+    /**
+     * A fully transparent element paints nothing, and neither does its subtree.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('svgZeroOpacityProvider')]
+    public function testSVGZeroOpacityPaintsNothing(string $body): void
+    {
+        $out = $this->renderSVGFragment($body);
+
+        $this->assertSame(0, \preg_match_all('/^[fFbBsS]\*?$/m', $out));
+        [$open, $close] = $this->countSVGGraphicStates($out);
+        $this->assertSame($open, $close);
+    }
+
+    /**
+     * A fully transparent group does not hide the elements that follow it.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGZeroOpacityGroupKeepsTheFollowingSibling(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<g opacity="0"><rect x="0" y="0" width="100" height="100" fill="#ff0000"/></g>'
+            . '<rect x="0" y="0" width="10" height="10" fill="#0000ff"/>',
+        );
+
+        $this->assertStringContainsString('0.000000 0.000000 1.000000 rg', $out);
+        $this->assertStringNotContainsString('1.000000 0.000000 0.000000 rg', $out);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function svgNoTransparencyModeProvider(): array
+    {
+        return [
+            'pdfa1b' => ['pdfa1b'],
+            'pdfx1a' => ['pdfx1a'],
+        ];
+    }
+
+    /**
+     * A fully transparent group paints nothing in the modes that cannot express
+     * an alpha at all.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('svgNoTransparencyModeProvider')]
+    public function testSVGZeroOpacityGroupPaintsNothingWithoutTransparency(string $mode): void
+    {
+        $out = $this->renderSVGFragment(
+            '<g opacity="0"><rect x="0" y="0" width="100" height="100" fill="#ff0000"/></g>',
+            100.0,
+            100.0,
+            $mode,
+        );
+
+        $this->assertSame(0, \preg_match_all('/^[fFbBsS]\*?$/m', $out));
+    }
+
+    /**
+     * A px length is a user unit, so it is scaled by the viewBox transform like
+     * a bare number.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGStrokeWidthPixelUnitMatchesTheBareNumber(): void
+    {
+        $path = '<path d="M 10 10 L 90 90" fill="none" stroke="#ff0000" stroke-width="%s"/>';
+
+        $match = [];
+        \preg_match('/^[\d.]+ w$/m', $this->renderSVGFragment(\sprintf($path, '2'), 200.0, 200.0), $match);
+        $bare = $match[0] ?? '';
+        $this->assertNotSame('', $bare);
+
+        \preg_match('/^[\d.]+ w$/m', $this->renderSVGFragment(\sprintf($path, '2px'), 200.0, 200.0), $match);
+        $this->assertSame($bare, $match[0] ?? '');
+
+        // The same value in a style declaration resolves identically.
+        $styled = '<path d="M 10 10 L 90 90" fill="none" stroke="#ff0000" style="stroke-width:2px"/>';
+        \preg_match('/^[\d.]+ w$/m', $this->renderSVGFragment($styled, 200.0, 200.0), $match);
+        $this->assertSame($bare, $match[0] ?? '');
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: float}>
+     */
+    public static function svgStrokeWidthUnitProvider(): array
+    {
+        // A 100 unit viewBox rendered at 100pt: one user unit is 0.75pt.
+        return [
+            'user unit' => ['4', 3.0],
+            'pixels' => ['4px', 3.0],
+            'points' => ['4pt', 4.0],
+            'millimetres' => ['4mm', 11.338583],
+            'font relative' => ['1em', 10.0],
+            // A percentage is relative to the normalized diagonal of the viewport.
+            'percentage' => ['50%', 37.5],
+            'invalid' => ['abc', 0.75],
+        ];
+    }
+
+    /**
+     * A stroke-width carrying a unit is resolved against the SVG reference values.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('svgStrokeWidthUnitProvider')]
+    public function testSVGStrokeWidthResolvesEveryUnit(string $value, float $expected): void
+    {
+        $out = $this->renderSVGFragment(
+            '<path d="M 10 10 L 90 90" fill="none" stroke="#ff0000" stroke-width="' . $value . '"/>',
+        );
+
+        $match = [];
+        \preg_match('/^([\d.]+) w$/m', $out, $match);
+        $this->assertEqualsWithDelta($expected, \floatval($match[1] ?? 0.0), 0.0001);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function svgAlphaPercentageProvider(): array
+    {
+        return [
+            'opacity' => ['opacity'],
+            'fill-opacity' => ['fill-opacity'],
+            'stroke-opacity' => ['stroke-opacity'],
+        ];
+    }
+
+    /**
+     * A percentage alpha is equivalent to the same value written as a number.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('svgAlphaPercentageProvider')]
+    public function testSVGAlphaPercentageMatchesTheNumericValue(string $property): void
+    {
+        $shape = '<rect x="0" y="0" width="10" height="10" fill="#ff0000" stroke="#00ff00" %s/>';
+
+        $this->assertSame(
+            $this->renderSVGFragment(\sprintf($shape, $property . '="0.5"')),
+            $this->renderSVGFragment(\sprintf($shape, $property . '="50%"')),
+        );
+    }
+
+    /**
+     * An unparseable alpha leaves the element opaque rather than invisible.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGInvalidAlphaKeepsTheElementOpaque(): void
+    {
+        $out = $this->renderSVGFragment('<rect x="0" y="0" width="100" height="100" fill="#ff0000" opacity="abc"/>');
+
+        $this->assertStringContainsString('1.000000 0.000000 0.000000 rg', $out);
+        $this->assertSame(1, \preg_match_all('/^[fFbBsS]\*?$/m', $out));
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: int}>
+     */
+    public static function svgClipPathProvider(): array
+    {
+        $defs = '<defs><clipPath id="c"><rect x="0" y="0" width="50" height="100"/></clipPath></defs>';
+        $head = '<rect x="0" y="0" width="100" height="100" fill="#ff0000"';
+
+        return [
+            // The outer viewport clip of addSVG() is always emitted, so the
+            // expected count includes it.
+            'no clip path' => [$defs . $head . '/>', 1],
+            'clip on the element' => [$defs . $head . ' clip-path="url(#c)"/>', 2],
+            'clip on the element style' => [$defs . $head . ' style="clip-path:url(#c)"/>', 2],
+            'clip on a group' => [$defs . '<g clip-path="url(#c)">' . $head . '/></g>', 2],
+            'clip-path none' => [$defs . $head . ' clip-path="none"/>', 1],
+            'unresolved reference' => [$defs . $head . ' clip-path="url(#missing)"/>', 1],
+        ];
+    }
+
+    /**
+     * A clipPath is applied only to the elements that reference it, and applies
+     * to the children of a referencing container.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('svgClipPathProvider')]
+    public function testSVGClipPathAppliesOnlyWhereReferenced(string $body, int $clips): void
+    {
+        $out = $this->renderSVGFragment($body);
+
+        $this->assertSame(1, \preg_match_all('/^[fFbBsS]\*?$/m', $out));
+        $this->assertSame($clips, \preg_match_all('/^W n$/m', $out));
+        [$open, $close] = $this->countSVGGraphicStates($out);
+        $this->assertSame($open, $close);
+    }
+
+    /**
+     * A clipPath that nothing references clips nothing.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGUnreferencedClipPathIsNotApplied(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<defs><clipPath id="c"><rect x="0" y="0" width="50" height="100"/></clipPath></defs>'
+            . '<rect x="0" y="0" width="100" height="100" fill="#ff0000"/>'
+            . '<rect x="0" y="0" width="10" height="10" fill="#0000ff"/>',
+        );
+
+        $this->assertSame(2, \preg_match_all('/^[fFbBsS]\*?$/m', $out));
+        $this->assertSame(1, \preg_match_all('/^W n$/m', $out));
+    }
+
+    /**
+     * The element that follows a clipped element is painted, and unclipped.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGClippedElementDoesNotSwallowTheFollowingSibling(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<defs><clipPath id="c"><rect x="0" y="0" width="50" height="100"/></clipPath></defs>'
+            . '<rect x="0" y="0" width="100" height="100" fill="#ff0000" clip-path="url(#c)"/>'
+            . '<rect x="0" y="0" width="10" height="10" fill="#0000ff"/>',
+        );
+
+        $this->assertSame(2, \preg_match_all('/^[fFbBsS]\*?$/m', $out));
+        $this->assertStringContainsString('0.000000 0.000000 1.000000 rg', $out);
+        // Only the referencing element carries a clip, on top of the viewport one.
+        $this->assertSame(2, \preg_match_all('/^W n$/m', $out));
+    }
+
+    /**
+     * Each reference selects the geometry of its own clipPath.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGClipPathReferenceSelectsTheMatchingDefinition(): void
+    {
+        $defs =
+            '<defs>'
+            . '<clipPath id="c"><rect x="0" y="0" width="50" height="100"/></clipPath>'
+            . '<clipPath id="d"><rect x="0" y="0" width="100" height="25"/></clipPath>'
+            . '</defs>';
+        $head = $defs . '<rect x="0" y="0" width="100" height="100" fill="#ff0000" clip-path="url(#';
+
+        $match = [];
+        \preg_match_all('/^([\d.\- ]+) re$/m', $this->renderSVGFragment($head . 'c)"/>'), $match);
+        $this->assertStringContainsString('37.500000 -75.000000', $match[1][1] ?? '');
+
+        \preg_match_all('/^([\d.\- ]+) re$/m', $this->renderSVGFragment($head . 'd)"/>'), $match);
+        $this->assertStringContainsString('75.000000 -18.750000', $match[1][1] ?? '');
+    }
+
+    /**
+     * The clipping path is emitted inside the graphics state of the element, so
+     * that it is unwound with it.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGClipPathIsScopedToTheElementGraphicsState(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<defs><clipPath id="c"><rect x="0" y="0" width="50" height="100"/></clipPath></defs>'
+            . '<g clip-path="url(#c)"><rect x="0" y="0" width="100" height="100" fill="#ff0000"/></g>',
+        );
+
+        // The group clip follows the q of the group, and the fill follows the clip.
+        $groupOpen = \strpos($out, 'W n');
+        $this->assertIsInt($groupOpen);
+        $clip = \strrpos($out, 'W n');
+        $this->assertIsInt($clip);
+        $this->assertGreaterThan($groupOpen, $clip);
+        $this->assertGreaterThan($clip, (int) \strrpos($out, "\nf"));
+    }
+
+    /**
+     * An unresolved clip-path reference is reported.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGUnresolvedClipPathReferenceRaisesAWarning(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+            . '<rect x="0" y="0" width="100" height="100" fill="#ff0000" clip-path="url(#missing)"/>'
+            . '</svg>';
+
+        $obj->getSetSVG($obj->addSVG($svg, 0, 0, 100, 100, $page['height']));
+
+        $this->assertNotSame(
+            [],
+            \array_filter($obj->getWarnings(), static fn(string $warning): bool => \str_contains(
+                $warning,
+                'clip-path reference "#missing"',
+            )),
+        );
+    }
+
+    /**
+     * A shape that draws no text does not emit a text fill colour.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGShapeDoesNotEmitATextFillColor(): void
+    {
+        $out = $this->renderSVGFragment('<rect x="0" y="0" width="100" height="100" fill="#ff0000"/>');
+
+        $this->assertSame(1, \preg_match_all('/ rg$/m', $out));
+    }
+
+    /**
+     * Write a minimal ICC profile carrying the given colour space signature.
+     *
+     * @throws \Throwable
+     */
+    private function writeIccProfileStub(string $space): string
+    {
+        $path = (string) \tempnam(\sys_get_temp_dir(), 'tclibpdficc');
+        $header = \str_pad('', 16, "\x00") . $space . \str_pad('', 108, "\x00");
+        \file_put_contents($path, $header);
+
+        return $path;
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: bool}>
+     */
+    public static function svgOutputIntentSpaceProvider(): array
+    {
+        return [
+            'cmyk printing condition' => ['CMYK', false],
+            'rgb printing condition' => ['RGB ', true],
+        ];
+    }
+
+    /**
+     * In PDF/X the SVG paints follow the colour space of the output intent.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('svgOutputIntentSpaceProvider')]
+    public function testSVGPdfxPaintsFollowTheOutputIntentSpace(string $space, bool $allowsRgb): void
+    {
+        $icc = $this->writeIccProfileStub($space);
+
+        try {
+            $obj = new \Com\Tecnick\Pdf\Tcpdf(mode: 'pdfx4');
+            $obj->file->setAllowedPaths([\dirname($icc), (string) \constant('K_PATH_FONTS')]);
+            $obj->setOutputIntent(
+                identifier: 'CGATS TR 001',
+                iccfile: $icc,
+                info: 'printing condition',
+                condition: 'printing condition',
+            );
+            $page = $this->initFontAndPage($obj);
+            $svg =
+                '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+                . '<rect x="0" y="0" width="50" height="100" fill="cmyk(0%,0%,0%,100%)"/>'
+                . '<path d="M 50 0 H 100 V 100 H 50 Z"/>'
+                . '</svg>';
+
+            $out = $obj->getSetSVG($obj->addSVG($svg, 0, 0, 100, 100, $page['height']));
+
+            $this->assertSame($allowsRgb, \str_contains($out, ' rg'));
+        } finally {
+            if (\is_file($icc)) {
+                \unlink($icc);
+            }
+        }
+    }
+
+    /**
+     * Outside PDF/X the colour policy belongs to the caller, so an output intent
+     * does not clear it.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGOutputIntentKeepsTheCallerColorPolicy(): void
+    {
+        $icc = $this->writeIccProfileStub('RGB ');
+
+        try {
+            $obj = new \Com\Tecnick\Pdf\Tcpdf();
+            $obj->file->setAllowedPaths([\dirname($icc), (string) \constant('K_PATH_FONTS')]);
+            $obj->color->setForceDeviceCmyk(true);
+            $obj->setOutputIntent(identifier: 'sRGB', iccfile: $icc, condition: 'display');
+
+            $this->assertTrue($obj->color->isForceDeviceCmyk());
+        } finally {
+            if (\is_file($icc)) {
+                \unlink($icc);
+            }
+        }
+    }
+
+    /**
+     * A DeviceRGB paint in a PDF/X document without an RGB printing condition is
+     * reported.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGPdfxDeviceRgbWithoutRgbIntentRaisesAWarning(): void
+    {
+        // A grayscale printing condition admits neither DeviceRGB nor DeviceCMYK,
+        // so the RGB paint is emitted as is and reported.
+        $icc = $this->writeIccProfileStub('GRAY');
+
+        try {
+            $obj = new \Com\Tecnick\Pdf\Tcpdf(mode: 'pdfx4');
+            $obj->file->setAllowedPaths([\dirname($icc), (string) \constant('K_PATH_FONTS')]);
+            $obj->setOutputIntent(identifier: 'Gray', iccfile: $icc, condition: 'grayscale');
+            $page = $this->initFontAndPage($obj);
+            $svg =
+                '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+                . '<rect x="0" y="0" width="100" height="100" fill="#ff0000"/>'
+                . '</svg>';
+
+            $obj->getSetSVG($obj->addSVG($svg, 0, 0, 100, 100, $page['height']));
+            $obj->setTitle('probe');
+            $obj->getOutPDFString();
+
+            $this->assertNotSame(
+                [],
+                \array_filter($obj->getWarnings(), static fn(string $warning): bool => \str_contains(
+                    $warning,
+                    'PDF/X: a DeviceRGB colour is emitted',
+                )),
+            );
+        } finally {
+            if (\is_file($icc)) {
+                \unlink($icc);
+            }
+        }
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function svgStrokeDashProvider(): array
+    {
+        // A 100 unit viewBox rendered at 100pt: one user unit is 0.75pt.
+        return [
+            'space separated' => ['stroke-dasharray="4 2"', '[3.000000 1.500000] 0.000000 d'],
+            'comma separated' => ['stroke-dasharray="4,2"', '[3.000000 1.500000] 0.000000 d'],
+            // An odd list is repeated to make the dash/gap pairs even.
+            'odd list' => ['stroke-dasharray="4"', '[3.000000 3.000000] 0.000000 d'],
+            // Fractional lengths are kept instead of being rounded to integers.
+            'sub unit lengths' => ['stroke-dasharray="0.5 0.25"', '[0.375000 0.187500] 0.000000 d'],
+            'unit suffixes' => ['stroke-dasharray="4px 2pt"', '[3.000000 2.000000] 0.000000 d'],
+            'dash offset' => ['stroke-dasharray="4 2" stroke-dashoffset="2"', '[3.000000 1.500000] 1.500000 d'],
+            'dash offset unit' => ['stroke-dasharray="4 2" stroke-dashoffset="2px"', '[3.000000 1.500000] 1.500000 d'],
+        ];
+    }
+
+    /**
+     * The dash pattern and its phase are emitted from the resolved lengths.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('svgStrokeDashProvider')]
+    public function testSVGStrokeDashPatternIsEmitted(string $extra, string $expected): void
+    {
+        $out = $this->renderSVGFragment(
+            '<path d="M 10 10 L 90 90" fill="none" stroke="#ff0000" stroke-width="2" ' . $extra . '/>',
+        );
+
+        $this->assertStringContainsString($expected, $out);
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: float}>
+     */
+    public static function svgStrokeMiterLimitProvider(): array
+    {
+        return [
+            // The initial value of stroke-miterlimit is 4.
+            'omitted' => ['', 4.0],
+            'explicit' => ['stroke-miterlimit="8"', 8.0],
+            'decimal' => ['stroke-miterlimit="1.5"', 1.5],
+            // The value is clamped to the legal minimum of 1.
+            'below the minimum' => ['stroke-miterlimit="0.2"', 1.0],
+            'invalid' => ['stroke-miterlimit="abc"', 4.0],
+        ];
+    }
+
+    /**
+     * The miter limit is emitted from the style rather than left at the default.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('svgStrokeMiterLimitProvider')]
+    public function testSVGStrokeMiterLimitIsEmitted(string $extra, float $expected): void
+    {
+        $out = $this->renderSVGFragment(
+            '<path d="M 10 10 L 90 90" fill="none" stroke="#ff0000" stroke-width="2" ' . $extra . '/>',
+        );
+
+        $match = [];
+        \preg_match('/^([\d.]+) M$/m', $out, $match);
+        $this->assertEqualsWithDelta($expected, \floatval($match[1] ?? 0.0), 0.0001);
+    }
+
+    /**
+     * A percentage stroke width resolves against the viewport diagonal on every
+     * kind of element.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGPercentageStrokeWidthIsResolvedAlike(): void
+    {
+        $path = $this->renderSVGFragment('<path d="M10 10 H90" stroke="#ff0000" stroke-width="5%" fill="none"/>');
+        $text = $this->renderSVGFragment(
+            '<text x="10" y="50" font-size="10" stroke="#ff0000" stroke-width="5%">Hi</text>',
+        );
+
+        $match = [];
+        \preg_match('/([\d.]+) w/', $path, $match);
+        $width = $match[1] ?? '';
+
+        $this->assertNotSame('', $width);
+        // The width of the text outline is emitted inside the text object.
+        $this->assertStringContainsString('Tr ' . $width . ' w', $text);
+    }
+
+    /**
+     * A group opacity is applied to the composited group, so the group is
+     * painted through a single transparency group.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGGroupOpacityPaintsATransparencyGroup(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<g opacity="0.5">'
+            . '<rect x="0" y="0" width="60" height="60" fill="#ff0000"/>'
+            . '<rect x="30" y="30" width="60" height="60" fill="#0000ff"/>'
+            . '</g>',
+        );
+
+        // A single alpha state and a single paint, instead of one alpha per child.
+        $this->assertSame(1, \preg_match_all('/\/GS\d+ gs/', $out));
+        $this->assertSame(1, \preg_match_all('/\/XT\d+ Do/', $out));
+        $this->assertSame(0, \preg_match_all('/^[fFbBsS]\*?$/m', $out));
+        [$open, $close] = $this->countSVGGraphicStates($out);
+        $this->assertSame($open, $close);
+    }
+
+    /**
+     * The group Form XObject carries a transparency group and the content of the
+     * subtree.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGGroupOpacityRegistersATransparencyGroupXObject(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+            . '<g opacity="0.5"><rect x="0" y="0" width="60" height="60" fill="#ff0000"/></g>'
+            . '</svg>';
+
+        $obj->page->addContent($obj->getSetSVG($obj->addSVG($svg, 0, 0, 100, 100, $page['height'])));
+        $obj->setTitle('probe');
+        $raw = $obj->getOutPDFString();
+
+        $this->assertStringContainsString('/Type /Group /S /Transparency', $raw);
+        $this->assertStringContainsString('/Subtype /Form', $raw);
+    }
+
+    /**
+     * A per-element opacity keeps the alpha on each element.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGElementOpacityIsNotGrouped(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<g>'
+            . '<rect x="0" y="0" width="60" height="60" fill="#ff0000" opacity="0.5"/>'
+            . '<rect x="30" y="30" width="60" height="60" fill="#0000ff" opacity="0.5"/>'
+            . '</g>',
+        );
+
+        $this->assertSame(0, \preg_match_all('/\/XT\d+ Do/', $out));
+        $this->assertSame(2, \preg_match_all('/^[fFbBsS]\*?$/m', $out));
+    }
+
+    /**
+     * A group is not isolated in the modes that forbid transparency.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('svgNoTransparencyModeProvider')]
+    public function testSVGGroupOpacityIsNotGroupedWithoutTransparency(string $mode): void
+    {
+        $out = $this->renderSVGFragment(
+            '<g opacity="0.5"><rect x="0" y="0" width="60" height="60" fill="#ff0000"/></g>',
+            100.0,
+            100.0,
+            $mode,
+        );
+
+        $this->assertSame(0, \preg_match_all('/\/XT\d+ Do/', $out));
+        $this->assertSame(1, \preg_match_all('/^[fFbBsS]\*?$/m', $out));
+    }
+
+    /**
+     * The spot colours painted by a group are declared in the resources of the
+     * group Form XObject.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGGroupOpacityDeclaresTheSpotColorResources(): void
+    {
+        // A CMYK printing condition resolves the named colours as spot colours.
+        $icc = $this->writeIccProfileStub('CMYK');
+
+        try {
+            $obj = new \Com\Tecnick\Pdf\Tcpdf(mode: 'pdfx4');
+            $obj->file->setAllowedPaths([\dirname($icc), (string) \constant('K_PATH_FONTS')]);
+            $obj->setOutputIntent(identifier: 'CGATS TR 001', iccfile: $icc, condition: 'printing condition');
+            $page = $this->initFontAndPage($obj);
+            $svg =
+                '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+                . '<g opacity="0.5"><rect x="0" y="0" width="60" height="60" fill="red"/></g>'
+                . '</svg>';
+
+            $obj->page->addContent($obj->getSetSVG($obj->addSVG($svg, 0, 0, 100, 100, $page['height'])));
+            $obj->setTitle('probe');
+            $raw = $obj->getOutPDFString();
+
+            $this->bcAssertMatchesRegularExpression(
+                '/\/ColorSpace << \/CS\d+ \d+ 0 R/',
+                $this->getSVGGroupFormDict($raw),
+            );
+        } finally {
+            if (\is_file($icc)) {
+                \unlink($icc);
+            }
+        }
+    }
+
+    /**
+     * A stroking spot colour is declared in the resources of the group Form
+     * XObject, like the non-stroking one.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGGroupOpacityDeclaresTheStrokingSpotColorResources(): void
+    {
+        $icc = $this->writeIccProfileStub('CMYK');
+
+        try {
+            $obj = new \Com\Tecnick\Pdf\Tcpdf(mode: 'pdfx4');
+            $obj->file->setAllowedPaths([\dirname($icc), (string) \constant('K_PATH_FONTS')]);
+            $obj->setOutputIntent(identifier: 'CGATS TR 001', iccfile: $icc, condition: 'printing condition');
+            $page = $this->initFontAndPage($obj);
+            $svg =
+                '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+                . '<g opacity="0.5">'
+                . '<rect x="0" y="0" width="60" height="60" fill="none" stroke="red" stroke-width="4"/>'
+                . '</g>'
+                . '</svg>';
+
+            $obj->page->addContent($obj->getSetSVG($obj->addSVG($svg, 0, 0, 100, 100, $page['height'])));
+            $obj->setTitle('probe');
+            $dict = $this->getSVGGroupFormDict($obj->getOutPDFString());
+
+            // The default fill and the stroke resolve to two spot colours.
+            $this->assertSame(2, \preg_match_all('/\/CS\d+ \d+ 0 R/', $dict));
+            // A CMYK printing condition admits no DeviceRGB blending space.
+            $this->assertStringContainsString('/S /Transparency /CS /DeviceCMYK', $dict);
+        } finally {
+            if (\is_file($icc)) {
+                \unlink($icc);
+            }
+        }
+    }
+
+    /**
+     * The soft mask of a gradient painted by a group is declared in the
+     * resources of the group Form XObject.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGGroupOpacityDeclaresTheGradientSoftMaskResource(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+            . '<defs><linearGradient id="lg">'
+            . '<stop offset="0%" stop-color="#ff0000" stop-opacity="0.2"/>'
+            . '<stop offset="100%" stop-color="#0000ff"/>'
+            . '</linearGradient></defs>'
+            . '<g opacity="0.5"><rect x="0" y="0" width="50" height="50" fill="url(#lg)"/></g>'
+            . '</svg>';
+
+        $obj->page->addContent($obj->getSetSVG($obj->addSVG($svg, 0, 0, 100, 100, $page['height'])));
+        $obj->setTitle('probe');
+        $dict = $this->getSVGGroupFormDict($obj->getOutPDFString());
+
+        $this->bcAssertMatchesRegularExpression('/\/ExtGState <<[^>]*\/TGS\d+ \d+ 0 R/', $dict);
+    }
+
+    /**
+     * The patterns and the SVG masks painted by a group are declared in the
+     * resources of the group Form XObject.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGGroupOpacityDeclaresThePatternAndMaskResources(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+            . '<defs>'
+            . '<pattern id="p" width="10" height="10" patternUnits="userSpaceOnUse">'
+            . '<rect x="0" y="0" width="5" height="5" fill="#00ff00"/>'
+            . '</pattern>'
+            . '<mask id="m"><rect x="0" y="0" width="60" height="60" fill="#ffffff"/></mask>'
+            . '</defs>'
+            . '<g opacity="0.5">'
+            . '<rect x="0" y="0" width="50" height="50" fill="url(#p)"/>'
+            . '<rect x="50" y="0" width="50" height="50" fill="#0000ff" mask="url(#m)"/>'
+            . '</g>'
+            . '</svg>';
+
+        $obj->page->addContent($obj->getSetSVG($obj->addSVG($svg, 0, 0, 100, 100, $page['height'])));
+        $obj->setTitle('probe');
+        $raw = $obj->getOutPDFString();
+
+        $dict = $this->getSVGGroupFormDict($raw);
+        $this->bcAssertMatchesRegularExpression('/\/Pattern << \/PTN_[0-9A-F]+ \d+ 0 R/', $dict);
+        $this->bcAssertMatchesRegularExpression('/\/ExtGState << \/MSK_[0-9A-F]+ \d+ 0 R/', $dict);
+    }
+
+    /**
+     * The gradients and the SVG patterns of a group share a single /Pattern
+     * resource dictionary.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGGroupOpacityMergesThePatternResources(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+            . '<defs>'
+            . '<linearGradient id="lg">'
+            . '<stop offset="0%" stop-color="#ff0000"/><stop offset="100%" stop-color="#0000ff"/>'
+            . '</linearGradient>'
+            . '<pattern id="p" width="10" height="10" patternUnits="userSpaceOnUse">'
+            . '<rect x="0" y="0" width="5" height="5" fill="#00ff00"/>'
+            . '</pattern>'
+            . '</defs>'
+            . '<g opacity="0.5">'
+            . '<rect x="0" y="0" width="50" height="50" fill="url(#p)"/>'
+            . '<rect x="50" y="0" width="50" height="50" fill="url(#lg)"/>'
+            . '</g>'
+            . '</svg>';
+
+        $obj->page->addContent($obj->getSetSVG($obj->addSVG($svg, 0, 0, 100, 100, $page['height'])));
+        $obj->setTitle('probe');
+        $raw = $obj->getOutPDFString();
+
+        $dict = $this->getSVGGroupFormDict($raw);
+        $this->assertSame(1, \preg_match_all('/\/Pattern <</', $dict));
+        $this->bcAssertMatchesRegularExpression('/\/Pattern << \/p\d+ \d+ 0 R \/PTN_[0-9A-F]+ \d+ 0 R >>/', $dict);
+    }
+
+    /**
+     * The images painted by a group are declared in the resources of the group
+     * Form XObject.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGGroupOpacityDeclaresTheImageResources(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf();
+        $page = $this->initFontAndPage($obj);
+        $img = (string) \realpath(__DIR__ . '/../examples/images/tcpdf_signature.png');
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+            . '<g opacity="0.5"><image x="0" y="0" width="50" height="25" href="'
+            . $img
+            . '"/></g>'
+            . '</svg>';
+
+        $obj->page->addContent($obj->getSetSVG($obj->addSVG($svg, 0, 0, 100, 100, $page['height'])));
+        $obj->setTitle('probe');
+        $raw = $obj->getOutPDFString();
+
+        $this->bcAssertMatchesRegularExpression(
+            '/\/XObject << \/IMG(?:plain|mask)?\d+ \d+ 0 R/',
+            $this->getSVGGroupFormDict($raw),
+        );
+    }
+
+    /**
+     * A clipPath replay does not shift the sibling positions of the elements
+     * that follow it.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGClipPathReplayKeepsTheSiblingPositions(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<style>rect:first-child{fill:#00ff00}</style>'
+            . '<defs><clipPath id="c"><rect x="0" y="0" width="100" height="100"/></clipPath></defs>'
+            . '<g clip-path="url(#c)"><rect x="0" y="0" width="9" height="9" fill="#ff0000"/></g>',
+        );
+
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 rg', $out);
+    }
+
+    /**
+     * The clipping region of a clipPath is the union of its children, so they
+     * are merged into a single path with one clipping operator.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGClipPathMergesItsChildrenIntoOneRegion(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<defs><clipPath id="c">'
+            . '<rect x="0" y="0" width="30" height="30"/>'
+            . '<rect x="50" y="50" width="30" height="30"/>'
+            . '</clipPath></defs>'
+            . '<rect x="0" y="0" width="100" height="100" fill="#ff0000" clip-path="url(#c)"/>',
+        );
+
+        // Both shapes are emitted, under one transform and one clipping
+        // operator: consecutive operators would intersect instead of joining.
+        $this->assertSame(2, \preg_match_all('/^[\d.\-]+ [\d.\-]+ 22\.500000 -22\.500000 re$/m', $out));
+        $this->bcAssertMatchesRegularExpression(
+            '/22\.500000 -22\.500000 re\n[\d.\-]+ [\d.\-]+ 22\.500000 -22\.500000 re\nW n/',
+            $out,
+        );
+        [$open, $close] = $this->countSVGGraphicStates($out);
+        $this->assertSame($open, $close);
+    }
+
+    /**
+     * A container among the children of a clipPath contributes no geometry of
+     * its own, and its children still clip.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGClipPathWithAContainerChildClips(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<defs><clipPath id="c"><g>'
+            . '<rect x="0" y="0" width="30" height="30"/><rect x="50" y="50" width="30" height="30"/>'
+            . '</g></clipPath></defs>'
+            . '<rect x="0" y="0" width="100" height="100" fill="#ff0000" clip-path="url(#c)"/>',
+        );
+
+        $this->bcAssertMatchesRegularExpression(
+            '/22\.500000 -22\.500000 re\n[\d.\-]+ [\d.\-]+ 22\.500000 -22\.500000 re\nW n/',
+            $out,
+        );
+        [$open, $close] = $this->countSVGGraphicStates($out);
+        $this->assertSame($open, $close);
+    }
+
+    /**
+     * A clipPath child that is not a shape contributes nothing, and paints
+     * nothing either.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGClipPathIgnoresANonShapeChild(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<defs><clipPath id="c">'
+            . '<text x="0" y="0">Hi</text>'
+            . '<rect x="0" y="0" width="30" height="30"/><rect x="50" y="50" width="30" height="30"/>'
+            . '</clipPath></defs>'
+            . '<rect x="0" y="0" width="100" height="100" fill="#ff0000" clip-path="url(#c)"/>',
+        );
+
+        $this->assertStringNotContainsString(' Tj', $out);
+        $this->bcAssertMatchesRegularExpression(
+            '/22\.500000 -22\.500000 re\n[\d.\-]+ [\d.\-]+ 22\.500000 -22\.500000 re\nW n/',
+            $out,
+        );
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function svgStrokeWidthLengthProvider(): array
+    {
+        return [
+            'leading zero' => ['0.5px'],
+            'no leading zero' => ['.5px'],
+            'explicit sign' => ['+2px'],
+            'font relative' => ['.5em'],
+            'unitless' => ['2'],
+        ];
+    }
+
+    /**
+     * A text outline is emitted whatever form the stroke width is written in.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('svgStrokeWidthLengthProvider')]
+    public function testSVGTextStrokeAcceptsEveryLengthForm(string $width): void
+    {
+        $out = $this->renderSVGFragment(
+            '<text x="10" y="50" font-size="10" stroke="#ff0000" stroke-width="' . $width . '">Hi</text>',
+        );
+
+        // Text rendering mode 2 is fill then stroke.
+        $this->assertStringContainsString('2 Tr', $out);
+    }
+
+    /**
+     * The mask Form XObject declares the resources its content paints with.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGMaskDeclaresItsResources(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+            . '<defs>'
+            . '<linearGradient id="lg">'
+            . '<stop offset="0%" stop-color="#000000"/><stop offset="100%" stop-color="#ffffff"/>'
+            . '</linearGradient>'
+            . '<mask id="m"><rect x="0" y="0" width="60" height="60" fill="url(#lg)"/></mask>'
+            . '</defs>'
+            . '<rect x="0" y="0" width="50" height="50" fill="#ff0000" mask="url(#m)"/>'
+            . '</svg>';
+
+        $obj->page->addContent($obj->getSetSVG($obj->addSVG($svg, 0, 0, 100, 100, $page['height'])));
+        $obj->setTitle('probe');
+        $raw = $obj->getOutPDFString();
+
+        $dicts = [];
+        \preg_match_all('/\/Subtype \/Form.*?stream/s', $raw, $dicts);
+        $masks = \array_values(\array_filter($dicts[0] ?? [], static fn(string $dict): bool => \str_contains(
+            $dict,
+            '/CS /DeviceGray',
+        )));
+
+        $this->assertNotSame([], $masks);
+        $this->bcAssertMatchesRegularExpression('/\/Resources <<[^>]*\/ProcSet/', $masks[0] ?? '');
+        $this->assertStringContainsString('/Shading << /Sh', $masks[0] ?? '');
+    }
+
+    /**
+     * The mask Form XObject declares the named ExtGState resources too.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGMaskDeclaresTheGradientSoftMaskResource(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+            . '<defs>'
+            . '<linearGradient id="lg">'
+            . '<stop offset="0%" stop-color="#000000" stop-opacity="0.2"/>'
+            . '<stop offset="100%" stop-color="#ffffff"/>'
+            . '</linearGradient>'
+            . '<mask id="m"><rect x="0" y="0" width="60" height="60" fill="url(#lg)"/></mask>'
+            . '</defs>'
+            . '<rect x="0" y="0" width="50" height="50" fill="#ff0000" mask="url(#m)"/>'
+            . '</svg>';
+
+        $obj->page->addContent($obj->getSetSVG($obj->addSVG($svg, 0, 0, 100, 100, $page['height'])));
+        $obj->setTitle('probe');
+        $raw = $obj->getOutPDFString();
+
+        $dicts = [];
+        \preg_match_all('/\/Subtype \/Form.*?stream/s', $raw, $dicts);
+        $masks = \array_values(\array_filter(
+            $dicts[0] ?? [],
+            static fn(string $dict): bool => \str_contains($dict, '/ProcSet') && \str_contains($dict, '/DeviceGray'),
+        ));
+
+        $this->assertNotSame([], $masks);
+        $this->bcAssertMatchesRegularExpression('/\/ExtGState << \/TGS\d+ \d+ 0 R/', $masks[0] ?? '');
+    }
+
+    /**
+     * A property declared twice in one block keeps its last value.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGStyleSheetKeepsTheLastDeclarationOfABlock(): void
+    {
+        $out = $this->renderSVGFragment('<style>rect { fill: #ff0000; fill: #00ff00; }</style>'
+        . '<rect x="0" y="0" width="9" height="9"/>');
+
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 rg', $out);
+        $this->assertStringNotContainsString('1.000000 0.000000 0.000000 rg', $out);
+    }
+
+    /**
+     * An important declaration outranks a later one in the same block.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGStyleSheetKeepsTheImportantDeclarationOfABlock(): void
+    {
+        $out = $this->renderSVGFragment('<style>rect { fill: #00ff00 !important; fill: #ff0000; }</style>'
+        . '<rect x="0" y="0" width="9" height="9"/>');
+
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 rg', $out);
+        $this->assertStringNotContainsString('1.000000 0.000000 0.000000 rg', $out);
+    }
+
+    /**
+     * A '#' inside an attribute value is part of the value, not an id selector.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGStyleSheetAttributeValueDoesNotScoreAsAnId(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<style>rect[data-k="#x"] { fill: #ff0000; } #target { fill: #00ff00; }</style>'
+            . '<rect id="target" data-k="#x" x="0" y="0" width="9" height="9"/>',
+        );
+
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 rg', $out);
+        $this->assertStringNotContainsString('1.000000 0.000000 0.000000 rg', $out);
+    }
+
+    /**
+     * A clipPath that holds no usable shape is reported.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGClipPathReportsAnUnusableRegion(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+            . '<defs><clipPath id="c"><use href="#nothing"/></clipPath></defs>'
+            . '<rect x="0" y="0" width="20" height="20" fill="#ff0000" clip-path="url(#c)"/>'
+            . '</svg>';
+
+        $obj->getSetSVG($obj->addSVG($svg, 0, 0, 100, 100, $page['height']));
+
+        $this->assertNotSame(
+            [],
+            \array_filter($obj->getWarnings(), static fn(string $warning): bool => \str_contains(
+                $warning,
+                'clipPath that holds no usable shape',
+            )),
+        );
+    }
+
+    /**
+     * The closing tag of a clipPath child emits nothing, like its start tag.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGClipPathChildEndTagEmitsNothing(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+            . '<g opacity="0.5">'
+            . '<clipPath id="cp"><g><rect x="0" y="0" width="30" height="30"/></g></clipPath>'
+            . '<rect x="0" y="0" width="50" height="50" fill="#ff0000" clip-path="url(#cp)"/>'
+            . '</g>'
+            . '</svg>';
+
+        $out = $obj->getSetSVG($obj->addSVG($svg, 0, 0, 100, 100, $page['height']));
+
+        [$open, $close] = $this->countSVGGraphicStates($out);
+        $this->assertSame($open, $close);
+
+        // The subtree is painted through the transparency group of the opacity.
+        /** @var array<string, array<string, mixed>> $xobjects */
+        $xobjects = $this->getObjectProperty($obj, 'xobjects');
+        $this->assertCount(1, $xobjects);
+        $group = \reset($xobjects);
+        $this->assertIsArray($group);
+        $stream = (string) ($group['outdata'] ?? '');
+
+        $this->assertSame(1, \preg_match_all('/^W n$/m', $stream));
+        $this->assertSame(1, \preg_match_all('/^[fFbBsS]\*?$/m', $stream));
+        [$open, $close] = $this->countSVGGraphicStates($stream);
+        $this->assertSame($open, $close);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function svgHiddenSubtreeProvider(): array
+    {
+        return [
+            'zero opacity' => ['<g opacity="0">%s</g>'],
+            'display none' => ['<g display="none">%s</g>'],
+        ];
+    }
+
+    /**
+     * Nothing inside an element that is not rendered is rendered, whatever the
+     * elements of the subtree ask for.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('svgHiddenSubtreeProvider')]
+    public function testSVGHiddenSubtreeStaysHidden(string $wrapper): void
+    {
+        $out = $this->renderSVGFragment(\sprintf(
+            $wrapper,
+            '<rect x="0" y="0" width="30" height="30" fill="#ff0000" display="inline"/>',
+        ));
+
+        $this->assertSame(0, \preg_match_all('/^[fFbBsS]\*?$/m', $out));
+    }
+
+    /**
+     * A clipPath child that emits no geometry does not cancel the region.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGClipPathIgnoresAnEmptyChild(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<defs><clipPath id="c">'
+            . '<path/><rect x="0" y="0" width="30" height="30"/>'
+            . '</clipPath></defs>'
+            . '<rect x="0" y="0" width="100" height="100" fill="#ff0000" clip-path="url(#c)"/>',
+        );
+
+        $this->bcAssertMatchesRegularExpression('/22\.500000 -22\.500000 re\nW n/', $out);
+    }
+
+    /**
+     * A clipPath whose shapes do not share one transform clips by the first of
+     * them, and says so.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGClipPathReportsTheShapesItCannotMerge(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+            . '<defs><clipPath id="c">'
+            . '<rect width="50" height="50"/><rect transform="translate(50 50)" width="50" height="50"/>'
+            . '</clipPath></defs>'
+            . '<rect x="0" y="0" width="100" height="100" fill="#ff0000" clip-path="url(#c)"/>'
+            . '</svg>';
+
+        $out = $obj->getSetSVG($obj->addSVG($svg, 0, 0, 100, 100, $page['height']));
+
+        $this->assertSame(2, \preg_match_all('/^W n$/m', $out));
+        $this->assertNotSame(
+            [],
+            \array_filter($obj->getWarnings(), static fn(string $warning): bool => \str_contains(
+                $warning,
+                'clipPath whose shapes carry different transforms',
+            )),
+        );
+    }
+
+    /**
+     * The transform of a clipPath child applies to the region, not to the
+     * element that the region clips.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGClipPathTransformDoesNotMoveTheClippedElement(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<defs><clipPath id="c">'
+            . '<rect x="0" y="0" width="30" height="30" transform="translate(20 20)"/>'
+            . '</clipPath></defs>'
+            . '<rect x="0" y="0" width="100" height="100" fill="#ff0000" clip-path="url(#c)"/>',
+        );
+
+        // The transform that builds the region is undone after the clipping
+        // operator, which keeps the region and restores the user space.
+        $number = '[\d.\-]+';
+        $matrix = $number . ' ' . $number . ' ' . $number . ' ' . $number . ' (' . $number . ') (' . $number . ')';
+        $match = [];
+        \preg_match('/' . $matrix . ' cm\n[^\n]+ re\nW n\n' . $matrix . ' cm/', $out, $match);
+
+        $this->assertCount(5, $match);
+        $movex = \floatval($match[1] ?? 0.0);
+        $movey = \floatval($match[2] ?? 0.0);
+        $backx = \floatval($match[3] ?? 0.0);
+        $backy = \floatval($match[4] ?? 0.0);
+
+        $this->assertNotSame(0.0, $movex);
+        $this->bcAssertEqualsWithDelta(0.0, $movex + $backx, 0.001);
+        $this->bcAssertEqualsWithDelta(0.0, $movey + $backy, 0.001);
+    }
+
+    /**
+     * The style of a clipPath child does not reach the elements that follow the
+     * clipped one.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGClipPathDoesNotLeakItsStyle(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<defs><clipPath id="c"><g fill="#ff0000" stroke="#ff9900">'
+            . '<rect x="0" y="0" width="30" height="30"/>'
+            . '</g></clipPath></defs>'
+            . '<rect x="0" y="0" width="100" height="100" fill="#00ff00" clip-path="url(#c)"/>'
+            . '<rect x="40" y="40" width="10" height="10"/>',
+        );
+
+        $this->assertStringNotContainsString('1.000000 0.000000 0.000000 rg', $out);
+        $this->assertStringNotContainsString('RG', $out);
+    }
+
+    /**
+     * A mask replay does not shift the sibling positions of the elements that
+     * follow it.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGMaskReplayKeepsTheSiblingPositions(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<style>rect:first-child{fill:#00ff00}</style>'
+            . '<defs><mask id="m"><rect x="0" y="0" width="100" height="100" fill="#ffffff"/></mask></defs>'
+            . '<g mask="url(#m)"><rect x="0" y="0" width="9" height="9" fill="#ff0000"/></g>',
+        );
+
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 rg', $out);
+    }
+
+    /**
+     * The BBox of a group Form XObject covers the page it is painted on.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGGroupBBoxFollowsThePageWidth(): void
+    {
+        $portrait = $this->getSVGGroupBBoxWidth(['format' => 'A4']);
+        $landscape = $this->getSVGGroupBBoxWidth(['format' => 'A4', 'orientation' => 'L']);
+
+        $this->assertGreaterThan($portrait, $landscape);
+    }
+
+    /**
+     * Return the BBox width of the group Form XObject emitted on a page.
+     *
+     * @param array<string, string> $pagedata Page data.
+     *
+     * @throws \Throwable
+     */
+    private function getSVGGroupBBoxWidth(array $pagedata): float
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf();
+        $this->initFont($obj);
+        $page = $obj->addPage($pagedata);
+        $height = \floatval($page['height'] ?? 0.0);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+            . '<g opacity="0.5"><rect x="0" y="0" width="100" height="100" fill="#ff0000"/></g>'
+            . '</svg>';
+
+        $obj->page->addContent($obj->getSetSVG($obj->addSVG($svg, 0, 0, 100, 100, $height)));
+        $obj->setTitle('probe');
+
+        $match = [];
+        \preg_match(
+            '/\/BBox \[([\d.\-]+) [\d.\-]+ ([\d.\-]+) /',
+            $this->getSVGGroupFormDict($obj->getOutPDFString()),
+            $match,
+        );
+
+        return \floatval($match[2] ?? 0.0) - \floatval($match[1] ?? 0.0);
+    }
+
+    /**
+     * The BBox of a group Form XObject follows the transforms of the ancestors
+     * of the group, not only the placement of the SVG object.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGGroupBBoxCoversTheAncestorTransform(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf();
+        $page = $this->initFontAndPage($obj);
+        // The ancestor shrinks the user space, so the group paints in
+        // coordinates far outside the page box.
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+            . '<g transform="scale(0.05)">'
+            . '<g opacity="0.5"><rect x="0" y="0" width="1800" height="1800" fill="#ff0000"/></g>'
+            . '</g>'
+            . '</svg>';
+
+        $obj->addSVG($svg, 0, 0, 100, 100, $page['height']);
+
+        /** @var array<string, array<string, mixed>> $xobjects */
+        $xobjects = $this->getObjectProperty($obj, 'xobjects');
+        $this->assertCount(1, $xobjects);
+        $data = \reset($xobjects);
+        $this->assertIsArray($data);
+
+        // The BBox is stored as [x, y, width, height] in user units and emitted
+        // as [x, -y, w + x, h - y] in points.
+        $topoints = 72.0 / 25.4;
+        $boxx = \floatval($data['x'] ?? 0.0) * $topoints;
+        $boxy = -\floatval($data['y'] ?? 0.0) * $topoints;
+        $boxw = (\floatval($data['w'] ?? 0.0) + \floatval($data['x'] ?? 0.0)) * $topoints;
+        $boxh = (\floatval($data['h'] ?? 0.0) - \floatval($data['y'] ?? 0.0)) * $topoints;
+
+        $match = [];
+        \preg_match('/([\d.\-]+) ([\d.\-]+) ([\d.\-]+) ([\d.\-]+) re/', (string) ($data['outdata'] ?? ''), $match);
+        $rectx = \floatval($match[1] ?? 0.0);
+        $recty = \floatval($match[2] ?? 0.0);
+        $rectw = \floatval($match[3] ?? 0.0);
+        $recth = \floatval($match[4] ?? 0.0);
+
+        // The box is compared with a rounding margin of a hundredth of a point.
+        $margin = 0.01;
+        $this->assertLessThanOrEqual($rectx + $margin, $boxx);
+        $this->assertGreaterThanOrEqual($rectx + $rectw - $margin, $boxw);
+        $this->assertLessThanOrEqual($recty + $recth + $margin, $boxy);
+        $this->assertGreaterThanOrEqual($recty - $margin, $boxh);
+    }
+
+    /**
+     * The children of a pattern and of a mask paint their fill.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGPatternAndMaskContentIsPainted(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+            . '<defs>'
+            . '<pattern id="p" width="10" height="10" patternUnits="userSpaceOnUse">'
+            . '<rect x="0" y="0" width="5" height="5" fill="#00ff00"/>'
+            . '</pattern>'
+            . '<mask id="m"><rect x="0" y="0" width="50" height="50" fill="#ffffff"/></mask>'
+            . '</defs>'
+            . '<rect x="0" y="0" width="50" height="50" fill="url(#p)"/>'
+            . '<rect x="50" y="0" width="40" height="40" fill="#0000ff" mask="url(#m)"/>'
+            . '</svg>';
+
+        $obj->addSVG($svg, 0, 0, 100, 100, $page['height']);
+
+        /** @var array<string, array<string, mixed>> $patterns */
+        $patterns = $this->getObjectProperty($obj, 'patterns');
+        $this->assertNotEmpty($patterns);
+        foreach ($patterns as $pattern) {
+            $this->assertSame(1, \preg_match_all('/^[fFbBsS]\*?$/m', (string) ($pattern['outdata'] ?? '')));
+        }
+
+        /** @var array<string, array<string, mixed>> $masks */
+        $masks = $this->getObjectProperty($obj, 'svgmasks');
+        $this->assertNotEmpty($masks);
+        foreach ($masks as $mask) {
+            $this->assertSame(1, \preg_match_all('/^[fFbBsS]\*?$/m', (string) ($mask['stream'] ?? '')));
+        }
+    }
+
+    /**
+     * A group opacity inside a mask leaves the mask content stream balanced.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGGroupOpacityInsideAMaskKeepsTheStreamBalanced(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+            . '<defs><mask id="m">'
+            . '<g opacity="0.5"><rect x="0" y="0" width="50" height="50" fill="#ffffff"/></g>'
+            . '</mask></defs>'
+            . '<rect x="0" y="0" width="100" height="100" fill="#ff0000" mask="url(#m)"/>'
+            . '</svg>';
+
+        $obj->getSetSVG($obj->addSVG($svg, 0, 0, 100, 100, $page['height']));
+
+        /** @var array<string, array<string, mixed>> $masks */
+        $masks = $this->getObjectProperty($obj, 'svgmasks');
+        $this->assertNotEmpty($masks);
+        foreach ($masks as $mask) {
+            [$open, $close] = $this->countSVGGraphicStates((string) ($mask['stream'] ?? ''));
+            $this->assertSame($open, $close);
+        }
+
+        // The replay moves each child out of the output buffer, so the group is
+        // painted in place instead of through a transparency group.
+        $this->assertSame([], $this->getObjectProperty($obj, 'xobjects'));
+    }
+
+    /**
+     * A shape that draws no text does not emit a font selection.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGShapeDoesNotEmitAFontSelection(): void
+    {
+        $shape = $this->renderSVGFragment('<rect x="0" y="0" width="100" height="100" fill="#ff0000"/>');
+        $this->assertStringNotContainsString(' Tf', $shape);
+
+        $text = $this->renderSVGFragment('<text x="10" y="50" font-size="10">Hi</text>');
+        $this->assertStringContainsString(' Tf', $text);
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function svgUseTargetProvider(): array
+    {
+        $defs =
+            '<defs>'
+            . '<rect id="r" width="16" height="10"/>'
+            . '<g id="g"><rect width="16" height="10"/><rect x="20" y="0" width="6" height="6"/></g>'
+            . '<symbol id="s"><rect width="16" height="10"/></symbol>'
+            . '</defs>';
+
+        return [
+            'shape target' => [$defs . '<use href="#r" x="30" y="40" fill="#0a6e46"/>', 'one'],
+            'group target' => [$defs . '<use href="#g" x="30" y="40" fill="#0a6e46"/>', 'two'],
+            'symbol target' => [$defs . '<use href="#s" x="30" y="40" fill="#0a6e46"/>', 'one'],
+            'xlink href' => [$defs . '<use xlink:href="#r" x="30" y="40" fill="#0a6e46"/>', 'one'],
+        ];
+    }
+
+    /**
+     * A use element paints its target, whatever kind of element that is.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('svgUseTargetProvider')]
+    public function testSVGUsePaintsEveryTargetKind(string $body, string $paints): void
+    {
+        $out = $this->renderSVGFragment($body);
+
+        $this->assertSame($paints === 'two' ? 2 : 1, \preg_match_all('/^[fFbBsS]\*?$/m', $out));
+        [$open, $close] = $this->countSVGGraphicStates($out);
+        $this->assertSame($open, $close);
+    }
+
+    /**
+     * The x and y of a use element translate the referenced content.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGUseTranslatesTheReferencedContent(): void
+    {
+        $defs = '<defs><rect id="r" width="16" height="10"/></defs>';
+
+        $atOrigin = $this->renderSVGFragment($defs . '<use href="#r" fill="#0a6e46"/>');
+        $shifted = $this->renderSVGFragment($defs . '<use href="#r" x="30" y="40" fill="#0a6e46"/>');
+
+        $this->assertNotSame($atOrigin, $shifted);
+        // The shift is a translation of the user space, not of the rect geometry.
+        $this->assertStringContainsString('1.000000 0.000000 0.000000 1.000000 22.500000 -30.000000 cm', $shifted);
+    }
+
+    /**
+     * A use element does not leave its own x and y on the referenced element.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGUseDoesNotOverrideTheTargetGeometry(): void
+    {
+        $out = $this->renderSVGFragment('<defs><rect id="r" x="5" y="5" width="16" height="10"/></defs>'
+        . '<use href="#r" x="30" y="40" fill="#0a6e46"/>');
+
+        // The rect keeps its own 5,5 origin inside the translated user space.
+        $this->assertStringContainsString('3.750000', $out);
+        $this->assertStringContainsString('1.000000 0.000000 0.000000 1.000000 22.500000 -30.000000 cm', $out);
+    }
+
+    /**
+     * The transform of the use element applies outside the x/y translation, and
+     * the transform of the target applies inside it.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGUseComposesTheTransformsInOrder(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<defs><rect id="r" width="16" height="10" transform="scale(2)"/></defs>'
+            . '<use href="#r" x="20" y="0" transform="translate(1 0)" fill="#0a6e46"/>',
+        );
+
+        // translate(1) then translate(20) then scale(2): the target scale is kept
+        // and the 21 units of translation are not scaled by it.
+        $this->assertStringContainsString('2.000000 0.000000 0.000000 2.000000 15.750000 ', $out);
+    }
+
+    /**
+     * A use of a container whose subtree holds an element of the same name
+     * closes every element it opens.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGUseOfNestedContainerIsBalanced(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<defs><g id="outer" transform="translate(5 5)">'
+            . '<g><rect x="0" y="0" width="9" height="9" fill="#ff0000"/></g>'
+            . '</g></defs>'
+            . '<use href="#outer"/>'
+            . '<rect x="50" y="50" width="9" height="9" fill="#0000ff"/>',
+        );
+
+        [$open, $close] = $this->countSVGGraphicStates($out);
+        $this->assertSame($open, $close);
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: int}>
+     */
+    public static function svgUseIdChildProvider(): array
+    {
+        return [
+            'one id child' => [
+                '<g id="t"><rect id="inner" width="9" height="9" fill="#ff0000"/></g>',
+                1,
+            ],
+            'two id children' => [
+                '<g id="t"><rect id="a" width="9" height="9" fill="#ff0000"/>'
+                    . '<rect id="b" x="20" width="9" height="9" fill="#00ff00"/></g>',
+                2,
+            ],
+            'id child two levels deep' => [
+                '<g id="t"><g id="mid"><rect id="leaf" width="9" height="9" fill="#ff0000"/></g></g>',
+                1,
+            ],
+            'symbol with an id child' => [
+                '<symbol id="t"><rect id="sr" width="9" height="9" fill="#ff0000"/></symbol>',
+                1,
+            ],
+        ];
+    }
+
+    /**
+     * A use paints the subtree of its target, including the descendants that
+     * carry an id of their own.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('svgUseIdChildProvider')]
+    public function testSVGUseOfContainerWithIdChildren(string $target, int $paints): void
+    {
+        $out = $this->renderSVGFragment(
+            '<defs>' . $target . '</defs><use href="#t" x="10" y="10" width="20" height="20"/>',
+        );
+
+        $this->assertSame($paints, \preg_match_all('/^[fFbBsS]\*?$/m', $out));
+        [$open, $close] = $this->countSVGGraphicStates($out);
+        $this->assertSame($open, $close);
+    }
+
+    /**
+     * A descendant that carries an id is also a target of its own.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGUseOfAnIdChildOfAContainer(): void
+    {
+        $out = $this->renderSVGFragment('<defs><g id="outer"><rect id="inner" width="9" height="9" fill="#ff0000"/></g></defs>'
+        . '<use href="#inner"/>');
+
+        $this->assertSame(1, \preg_match_all('/^[fFbBsS]\*?$/m', $out));
+        [$open, $close] = $this->countSVGGraphicStates($out);
+        $this->assertSame($open, $close);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function svgUseChildlessContainerProvider(): array
+    {
+        return [
+            'text' => ['<text id="t" fill="#ff0000">Hi</text>'],
+            'empty group' => ['<g id="t" transform="translate(5 5)"></g>'],
+        ];
+    }
+
+    /**
+     * A use of a container that captured no child element closes it as well.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('svgUseChildlessContainerProvider')]
+    public function testSVGUseOfChildlessContainerIsBalanced(string $target): void
+    {
+        $out = $this->renderSVGFragment(
+            '<defs>'
+            . $target
+            . '</defs>'
+            . '<use href="#t" x="10" y="20"/>'
+            . '<rect x="50" y="50" width="9" height="9" fill="#0000ff"/>',
+        );
+
+        [$open, $close] = $this->countSVGGraphicStates($out);
+        $this->assertSame($open, $close);
+    }
+
+    /**
+     * An inner viewport without a width or a height scales its viewBox to the
+     * enclosing viewport.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGInnerViewportWithoutSizeScalesTheViewBox(): void
+    {
+        $rect = '<rect x="0" y="0" width="10" height="10" fill="#ff0000"/>';
+        $sized = $this->renderSVGFragment(
+            '<svg x="0" y="0" width="100" height="100" viewBox="0 0 10 10">' . $rect . '</svg>',
+        );
+        $omitted = $this->renderSVGFragment('<svg viewBox="0 0 10 10">' . $rect . '</svg>');
+
+        // An omitted size is the enclosing viewport, so both forms scale alike.
+        $this->assertSame($sized, $omitted);
+        $this->assertStringNotContainsString('0.000000 0.000000 0.000000 0.000000', $omitted);
+        $this->assertSame(1, \preg_match_all('/^[fFbBsS]\*?$/m', $omitted));
+
+        // The viewBox is 10 times smaller than the viewport it is scaled to.
+        $this->assertStringContainsString('10.000000 0.000000 0.000000 10.000000 ', $omitted);
+    }
+
+    /**
+     * An inner viewport scales its viewBox to cover the same area as the
+     * enclosing viewport.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGInnerViewportCoversTheEnclosingViewport(): void
+    {
+        $nested = $this->renderSVGFragment(
+            '<svg x="0" y="0" width="100" height="100" viewBox="0 0 10 10">'
+            . '<rect x="0" y="0" width="10" height="10" fill="#ff0000"/>'
+            . '</svg>',
+        );
+        $plain = $this->renderSVGFragment('<rect x="0" y="0" width="100" height="100" fill="#ff0000"/>');
+
+        // The reference rect covers the whole viewport: the nested one covers the
+        // same width once every transform on its path is applied.
+        $this->bcAssertEqualsWithDelta($this->getSVGPaintedWidth($plain), $this->getSVGPaintedWidth($nested), 0.001);
+    }
+
+    /**
+     * Return the width of the filled rect of a fragment, in points, with every
+     * transform of the fragment applied to it.
+     */
+    private function getSVGPaintedWidth(string $out): float
+    {
+        $match = [];
+        \preg_match('/[\d.\-]+ [\d.\-]+ ([\d.\-]+) [\d.\-]+ re\nf/', $out, $match);
+        $width = \floatval($match[1] ?? 0.0);
+
+        $scales = [];
+        \preg_match_all('/^([\d.\-]+) [\d.\-]+ [\d.\-]+ [\d.\-]+ [\d.\-]+ [\d.\-]+ cm$/m', $out, $scales);
+        foreach ($scales[1] ?? [] as $scale) {
+            $width *= \floatval($scale);
+        }
+
+        return $width;
+    }
+
+    /**
+     * A clipPath and a use replay leave the XML depth of the elements that
+     * follow them unchanged, so the selectors keep matching.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGReplayKeepsTheSelectorDepth(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<style>svg > rect { fill: #00ff00; }</style>'
+            . '<defs>'
+            . '<clipPath id="c"><rect x="0" y="0" width="100" height="40"/></clipPath>'
+            . '<rect id="r" x="0" y="0" width="10" height="10"/>'
+            . '</defs>'
+            . '<rect x="0" y="0" width="10" height="40" clip-path="url(#c)"/>'
+            . '<use href="#r" x="20" y="0"/>'
+            . '<rect x="40" y="0" width="10" height="40"/>',
+        );
+
+        // Both direct children of the svg match; the target of the use is not a
+        // child of the svg, so it keeps the default fill.
+        $this->assertSame(2, \preg_match_all('/0\.000000 1\.000000 0\.000000 rg/', $out));
+    }
+
+    /**
+     * A use element that references a group does not leave the graphics state
+     * stack unbalanced.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGUseOfAGroupKeepsTheGraphicsStateBalanced(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<defs><g id="g"><rect width="16" height="10"/></g></defs>'
+            . '<use href="#g" x="10" y="10" fill="#0a6e46"/>'
+            . '<rect x="50" y="50" width="10" height="10" fill="#d6457b"/>',
+        );
+
+        [$open, $close] = $this->countSVGGraphicStates($out);
+        $this->assertSame($open, $close);
+        // The element after the use is still painted.
+        $this->assertStringContainsString('0.839216 0.270588 0.482353 rg', $out);
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function svgStyleSheetProvider(): array
+    {
+        $rect = '<rect id="r1" class="a b" x="0" y="0" width="10" height="10" fill="#ff0000"/>';
+
+        return [
+            'class selector' => ['<style>.a{fill:#00ff00}</style>' . $rect, '0.000000 1.000000 0.000000 rg'],
+            'type selector' => ['<style>rect{fill:#00ff00}</style>' . $rect, '0.000000 1.000000 0.000000 rg'],
+            'id selector' => ['<style>#r1{fill:#00ff00}</style>' . $rect, '0.000000 1.000000 0.000000 rg'],
+            'universal selector' => ['<style>*{fill:#00ff00}</style>' . $rect, '0.000000 1.000000 0.000000 rg'],
+            'compound selector' => ['<style>rect.a{fill:#00ff00}</style>' . $rect, '0.000000 1.000000 0.000000 rg'],
+            'selector list' => ['<style>circle,.a{fill:#00ff00}</style>' . $rect, '0.000000 1.000000 0.000000 rg'],
+            'comments' => ['<style>/*x*/.a{fill:#00ff00}</style>' . $rect, '0.000000 1.000000 0.000000 rg'],
+            'cdata' => [
+                '<style><![CDATA[.a{fill:#00ff00}]]></style>' . $rect,
+                '0.000000 1.000000 0.000000 rg',
+            ],
+            // An id outranks a class, which outranks a type.
+            'id beats class' => [
+                '<style>.a{fill:#ff0000}#r1{fill:#00ff00}</style>' . $rect,
+                '0.000000 1.000000 0.000000 rg',
+            ],
+            'class beats type' => [
+                '<style>.a{fill:#00ff00}rect{fill:#ff0000}</style>' . $rect,
+                '0.000000 1.000000 0.000000 rg',
+            ],
+            // Equal specificity: the later rule wins.
+            'source order' => [
+                '<style>.a{fill:#ff0000}.b{fill:#00ff00}</style>' . $rect,
+                '0.000000 1.000000 0.000000 rg',
+            ],
+            // A selector with a combinator or a pseudo-class is not supported and
+            // matches nothing, so the presentation attribute survives.
+            'descendant selector' => [
+                '<style>g rect{fill:#0000ff}</style><rect class="a" x="0" y="0" width="10" height="10"'
+                    . ' fill="#00ff00"/>',
+                '0.000000 1.000000 0.000000 rg',
+            ],
+            'unmatched class' => [
+                '<style>.zz{fill:#0000ff}</style><rect class="a" x="0" y="0" width="10" height="10"'
+                    . ' fill="#00ff00"/>',
+                '0.000000 1.000000 0.000000 rg',
+            ],
+        ];
+    }
+
+    /**
+     * A style element applies its rules to the matching elements.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('svgStyleSheetProvider')]
+    public function testSVGStyleSheetRulesAreApplied(string $body, string $expected): void
+    {
+        $this->assertStringContainsString($expected, $this->renderSVGFragment($body));
+    }
+
+    /**
+     * The style attribute outranks a stylesheet rule, and an important rule
+     * declaration outranks the style attribute.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGStyleSheetCascadeAgainstTheStyleAttribute(): void
+    {
+        $attributeWins = $this->renderSVGFragment('<style>.a{fill:#ff0000}</style>'
+        . '<rect class="a" x="0" y="0" width="10" height="10" style="fill:#00ff00"/>');
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 rg', $attributeWins);
+
+        $importantWins = $this->renderSVGFragment(
+            '<style>.a{fill:#00ff00 !important}</style>'
+            . '<rect class="a" x="0" y="0" width="10" height="10" style="fill:#ff0000"/>',
+        );
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 rg', $importantWins);
+    }
+
+    /**
+     * A stylesheet rule reaches every property, and its text is never painted.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGStyleSheetAppliesToStrokeAndIsNotRendered(): void
+    {
+        $out = $this->renderSVGFragment('<style>.a{stroke:#00ff00;stroke-width:2}</style>'
+        . '<rect class="a" x="0" y="0" width="10" height="10" fill="none"/>');
+
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 RG', $out);
+        $this->assertStringContainsString('1.500000 w', $out);
+        $this->assertStringNotContainsString('stroke:', $out);
+        $this->assertSame(0, \preg_match_all('/Tj/', $out));
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: bool}>
+     */
+    public static function svgSelectorProvider(): array
+    {
+        // Each case styles the target green; the target carries a red fallback,
+        // so a rule that fails to match leaves it red.
+        return [
+            'descendant' => ['g rect', true],
+            'descendant deep' => ['g g rect', true],
+            'descendant unmatched' => ['circle rect', false],
+            'child' => ['g > rect', true],
+            'child unmatched' => ['circle > rect', false],
+            'attribute present' => ['[data-tag]', true],
+            'attribute equals' => ['[data-tag="hit"]', true],
+            'attribute equals unmatched' => ['[data-tag="miss"]', false],
+            'attribute prefix' => ['[data-tag^="hi"]', true],
+            'attribute suffix' => ['[data-tag$="it"]', true],
+            'attribute substring' => ['[data-tag*="i"]', true],
+            'attribute word' => ['[data-tag~="hit"]', true],
+            'attribute dash' => ['[data-lang|="en"]', true],
+            'first child' => ['rect:first-child', true],
+            'nth child' => ['rect:nth-child(1)', true],
+            'nth child unmatched' => ['rect:nth-child(2)', false],
+            'negation' => ['rect:not(.other)', true],
+            'negation unmatched' => ['rect:not(.tag)', false],
+            'compound chain' => ['g.box > g > rect.tag[data-tag]', true],
+            'compound chain unmatched' => ['g.box > rect.tag', false],
+            // Needs to look ahead of the element, so it is rejected at compile
+            // time and applies to nothing.
+            'last child unsupported' => ['rect:last-child', false],
+            'only child unsupported' => ['rect:only-child', false],
+            'nth last child unsupported' => ['rect:nth-last-child(1)', false],
+        ];
+    }
+
+    /**
+     * A stylesheet rule applies exactly to the elements its selector picks.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('svgSelectorProvider')]
+    public function testSVGStyleSheetSelectorMatching(string $selector, bool $matches): void
+    {
+        $out = $this->renderSVGFragment(
+            '<style>'
+            . $selector
+            . '{fill:#00ff00}</style>'
+            . '<g class="box"><g>'
+            . '<rect class="tag" data-tag="hit" data-lang="en-GB" x="0" y="0" width="9" height="9" fill="#ff0000"/>'
+            . '</g></g>',
+        );
+
+        $this->assertSame($matches, \str_contains($out, '0.000000 1.000000 0.000000 rg'));
+        $this->assertSame(!$matches, \str_contains($out, '1.000000 0.000000 0.000000 rg'));
+    }
+
+    /**
+     * The sibling combinators see the elements that precede the subject.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGStyleSheetSiblingCombinators(): void
+    {
+        $adjacent =
+            '<rect x="0" y="0" width="4" height="4" fill="#0000ff"/>'
+            . '<circle cx="20" cy="20" r="5" fill="#ff0000"/>';
+        $out = $this->renderSVGFragment('<style>rect + circle{fill:#00ff00}</style>' . $adjacent);
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 rg', $out);
+
+        // An element between them breaks the adjacency but not the general form.
+        $spaced =
+            '<rect x="0" y="0" width="4" height="4" fill="#0000ff"/>'
+            . '<line x1="0" y1="0" x2="1" y2="1" stroke="#0000ff"/>'
+            . '<circle cx="20" cy="20" r="5" fill="#ff0000"/>';
+
+        $out = $this->renderSVGFragment('<style>rect + circle{fill:#00ff00}</style>' . $spaced);
+        $this->assertStringNotContainsString('0.000000 1.000000 0.000000 rg', $out);
+
+        $out = $this->renderSVGFragment('<style>rect ~ circle{fill:#00ff00}</style>' . $spaced);
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 rg', $out);
+    }
+
+    /**
+     * nth-child counts the position among the siblings, one based.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGStyleSheetNthChildCountsSiblings(): void
+    {
+        $body =
+            '<g>'
+            . '<rect x="0" y="0" width="4" height="4" fill="#0000ff"/>'
+            . '<rect x="20" y="0" width="9" height="9" fill="#ff0000"/>'
+            . '<rect x="40" y="0" width="4" height="4" fill="#0000ff"/>'
+            . '</g>';
+
+        foreach (['2', 'even', '2n'] as $arg) {
+            $out = $this->renderSVGFragment('<style>rect:nth-child(' . $arg . '){fill:#00ff00}</style>' . $body);
+            $this->assertStringContainsString('0.000000 1.000000 0.000000 rg', $out, 'nth-child(' . $arg . ')');
+            $this->assertStringNotContainsString('1.000000 0.000000 0.000000 rg', $out, 'nth-child(' . $arg . ')');
+        }
+    }
+
+    /**
+     * A stylesheet applies to the whole document, including the elements that
+     * precede its <style> element.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGStyleSheetAppliesToEarlierElements(): void
+    {
+        $out = $this->renderSVGFragment('<rect x="0" y="0" width="9" height="9" fill="#ff0000"/>'
+        . '<defs><style>rect { fill: #00ff00; }</style></defs>');
+
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 rg', $out);
+        $this->assertStringNotContainsString('1.000000 0.000000 0.000000 rg', $out);
+    }
+
+    /**
+     * Two stylesheets of equal specificity keep their source order, whatever
+     * their position relative to the element.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGStyleSheetKeepsSourceOrderAcrossBlocks(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<style>rect { fill: #ff0000; }</style>'
+            . '<rect x="0" y="0" width="9" height="9"/>'
+            . '<style>rect { fill: #00ff00; }</style>',
+        );
+
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 rg', $out);
+        $this->assertStringNotContainsString('1.000000 0.000000 0.000000 rg', $out);
+    }
+
+    /**
+     * The sibling positions count the element children that render nothing.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGStyleSheetNthChildCountsNonRenderingSiblings(): void
+    {
+        // <title> is the first child and <style> the second, so the first rect
+        // is the third child.
+        $out = $this->renderSVGFragment(
+            '<title>t</title>'
+            . '<style>rect:nth-child(3){fill:#00ff00}</style>'
+            . '<rect x="0" y="0" width="9" height="9" fill="#ff0000"/>'
+            . '<rect x="20" y="0" width="9" height="9" fill="#0000ff"/>',
+        );
+
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 rg', $out);
+        $this->assertStringNotContainsString('1.000000 0.000000 0.000000 rg', $out);
+    }
+
+    /**
+     * A combinator inside an attribute value is part of the value, not a
+     * combinator.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGStyleSheetAttributeValueKeepsCombinatorCharacters(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<style>[data-tag="a ~ b"]{fill:#00ff00}</style>'
+            . '<rect data-tag="a ~ b" x="0" y="0" width="9" height="9" fill="#ff0000"/>',
+        );
+
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 rg', $out);
+    }
+
+    /**
+     * A selector that mixes supported and unsupported parts is rejected whole.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGStyleSheetRejectsPartlyUnsupportedSelectors(): void
+    {
+        $out = $this->renderSVGFragment(
+            '<style>g rect:last-child{fill:#00ff00} rect::before{fill:#00ff00}</style>'
+            . '<g><rect x="0" y="0" width="9" height="9" fill="#ff0000"/></g>',
+        );
+
+        $this->assertStringContainsString('1.000000 0.000000 0.000000 rg', $out);
+        $this->assertStringNotContainsString('0.000000 1.000000 0.000000 rg', $out);
+    }
+
+    /**
+     * The miter limit is a ratio, so the same SVG value is emitted whatever the
+     * document unit is.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGStrokeMiterLimitIsUnitIndependent(): void
+    {
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+            . '<path d="M 10 10 L 90 90" fill="none" stroke="#ff0000" stroke-width="2" stroke-miterlimit="8"/>'
+            . '</svg>';
+
+        foreach ([\Com\Tecnick\Pdf\Page\Unit::Point, \Com\Tecnick\Pdf\Page\Unit::Millimeter] as $unit) {
+            $obj = new \Com\Tecnick\Pdf\Tcpdf($unit);
+            $page = $this->initFontAndPage($obj);
+            $out = $obj->getSetSVG($obj->addSVG($svg, 0, 0, 50, 50, $page['height']));
+
+            $this->assertStringContainsString('8.000000 M', $out);
+        }
     }
 }

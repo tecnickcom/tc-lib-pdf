@@ -437,9 +437,9 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param array<string, TSVGAttribs> $clippaths
      * @throws \Throwable
      */
-    public function exposeParseSVGStyleClipPath(\XMLParser $parser, int $soid, array $clippaths = []): void
+    public function exposeParseSVGStyleClipPath(\XMLParser $parser, int $soid, array $clippaths = []): string
     {
-        $this->parseSVGStyleClipPath($parser, $soid, $clippaths);
+        return $this->parseSVGStyleClipPath($parser, $soid, $clippaths);
     }
 
     /**
@@ -482,6 +482,8 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
     {
         $svgobj = [
             'defsmode' => false,
+            'defsopen' => [],
+            'defsstack' => [],
             'clipmode' => false,
             'clipid' => 0,
             'tagdepth' => 1,
@@ -493,6 +495,12 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
             'gradientid' => '',
             'gradients' => [],
             'clippaths' => [],
+            'groupstack' => [],
+            'cssrules' => [],
+            'selchain' => [],
+            'cssbuffer' => '',
+            'styledepth' => 0,
+            'placement' => self::TMXID,
             'defs' => [],
             'cliptm' => self::TMXID,
             'styles' => [self::DEFSVGSTYLE],
@@ -539,8 +547,11 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
             $current = $this->svgobjs[$soid] ?? [];
         }
 
+        // Merging the TSVGObj shape directly makes the analyzer take over a minute on this file.
+        /** @var array<string, mixed> $base */
+        $base = $current;
         /** @var TSVGObj $svgobj */
-        $svgobj = \array_replace_recursive($current, $patch);
+        $svgobj = \array_replace_recursive($base, $patch);
         $this->svgobjs[$soid] = $svgobj;
     }
 
@@ -598,11 +609,13 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagENDclipPath($soid);
     }
 
+    /** @throws \Throwable */
     public function exposeParseSVGTagENDsvg(int $soid): string
     {
         return $this->parseSVGTagENDsvg($soid);
     }
 
+    /** @throws \Throwable */
     public function exposeParseSVGTagENDg(int $soid): string
     {
         return $this->parseSVGTagENDg($soid);
@@ -641,10 +654,13 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagSTARTdefs($soid);
     }
 
-    /** @phpstan-param TTMatrix $tmx */
-    public function exposeParseSVGTagSTARTclipPath(int $soid, array $tmx = self::TMXID): string
+    /**
+     * @phpstan-param TTMatrix $tmx
+     * @phpstan-param TSVGAttributes $attr
+     */
+    public function exposeParseSVGTagSTARTclipPath(int $soid, array $tmx = self::TMXID, array $attr = []): string
     {
-        return $this->parseSVGTagSTARTclipPath($soid, $tmx);
+        return $this->parseSVGTagSTARTclipPath($soid, $tmx, $attr);
     }
 
     /** @throws \Throwable */

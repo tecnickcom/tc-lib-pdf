@@ -75,6 +75,10 @@ class Specificity
     {
         $matches = [];
 
+        // The content of a quoted attribute value is not part of the selector
+        // structure: a '#', a '.' or a '[' inside it counts for nothing.
+        $selector = (string) \preg_replace('/"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\'/', '', $selector);
+
         // Count ID selectors (#id)
         $idCount = (int) \preg_match_all('/[\#]/', $selector, $matches);
 

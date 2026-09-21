@@ -337,7 +337,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
             'lineWidth' => 0,
             'lineCap' => 'square',
             'lineJoin' => 'miter',
-            'miterLimit' => $this->toUnit(10.0),
+            'miterLimit' => 10.0,
             'dashArray' => [],
             'dashPhase' => 0,
             'lineColor' => 'black',

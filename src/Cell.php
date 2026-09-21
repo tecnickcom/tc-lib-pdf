@@ -44,7 +44,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * Side mapping: T=0, R=1, B=2, L=3.
      * Numeric indexes take precedence when both forms are provided.
      *
-     * @param array<int|string, array<array<int>|float|int|string>|float|string> $styles
+     * @param array<int|string, array<array<int|float>|float|int|string>|float|string> $styles
      *
      * @return array<int|string, StyleDataOpt>
      */

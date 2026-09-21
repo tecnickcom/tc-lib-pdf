@@ -1118,7 +1118,9 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $this->xobjects[$tid] = [
             'spot_colors' => [],
             'extgstate' => [],
+            'gsnames' => [],
             'gradient' => [],
+            'pattern' => [],
             'font' => [],
             'image' => [],
             'xobject' => [],

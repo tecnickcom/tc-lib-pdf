@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="210mm"
+     height="297mm"
+     viewBox="0 0 210 297"
+     version="1.1">
+  <title>SVG Stylesheet, Group Opacity, Dash and Use Regression Showcase</title>
+  <desc>Every case under test is drawn next to a reference shape painted
+        directly in the expected form. A correct render shows each pair as two
+        identical marks. A swatch that keeps its fallback colour, a seam inside
+        a translucent group, a dash pattern that differs from its reference or a
+        use element that paints nothing marks a regression.</desc>
+
+  <style>
+    .fill-ok    { fill: #0a6e46; }
+    rect.type   { fill: #0a6e46; }
+    #by-id      { fill: #0a6e46; }
+    .low        { fill: #d6457b; }
+    .high       { fill: #0a6e46; }
+    .forced     { fill: #0a6e46 !important; }
+    .dashed     { stroke: #18486b; stroke-width: 1.2; fill: none; }
+    g.frame > rect          { fill: #0a6e46; }
+    g.frame circle          { fill: #0a6e46; }
+    rect.lead + rect        { fill: #0a6e46; }
+    [data-swatch="ok"]      { fill: #0a6e46; }
+    g.count rect:nth-child(2) { fill: #0a6e46; }
+    rect.pick:not(.skip)    { fill: #0a6e46; }
+  </style>
+
+  <defs>
+    <rect id="tile" width="16" height="10"/>
+    <g id="pair">
+      <rect width="16" height="10"/>
+      <rect x="20" y="0" width="6" height="10"/>
+    </g>
+    <symbol id="badge">
+      <rect width="16" height="10"/>
+    </symbol>
+  </defs>
+
+  <rect x="0" y="0" width="210" height="297" fill="#ffffff"/>
+  <rect x="6" y="6" width="198" height="285" fill="none" stroke="#18486b" stroke-width="0.6"/>
+
+  <text x="12" y="16" font-family="Helvetica" font-size="6" fill="#18486b">SVG stylesheet, group opacity, dashes and use</text>
+  <text x="12" y="22" font-family="Helvetica" font-size="3.4" fill="#4a6f8a">Each case sits next to its reference. The two must be identical.</text>
+  <line x1="12" y1="25" x2="198" y2="25" stroke="#18486b" stroke-width="0.4"/>
+
+  <!-- Rules from the style element reach the elements they select. -->
+  <text x="12" y="33" font-family="Helvetica" font-size="3.6" fill="#18486b">1. stylesheet: class, type, id and the cascade</text>
+
+  <text x="12" y="39" font-family="Helvetica" font-size="3" fill="#4a6f8a">class</text>
+  <rect class="fill-ok" x="26" y="35" width="16" height="10" fill="#d6457b"/>
+  <rect x="44" y="35" width="16" height="10" fill="#0a6e46"/>
+
+  <text x="66" y="39" font-family="Helvetica" font-size="3" fill="#4a6f8a">type</text>
+  <rect class="type" x="80" y="35" width="16" height="10" fill="#d6457b"/>
+  <rect x="98" y="35" width="16" height="10" fill="#0a6e46"/>
+
+  <text x="120" y="39" font-family="Helvetica" font-size="3" fill="#4a6f8a">id</text>
+  <rect id="by-id" x="130" y="35" width="16" height="10" fill="#d6457b"/>
+  <rect x="148" y="35" width="16" height="10" fill="#0a6e46"/>
+
+  <text x="12" y="51" font-family="Helvetica" font-size="3" fill="#4a6f8a">order</text>
+  <rect class="low high" x="26" y="47" width="16" height="10"/>
+  <rect x="44" y="47" width="16" height="10" fill="#0a6e46"/>
+
+  <text x="66" y="51" font-family="Helvetica" font-size="3" fill="#4a6f8a">style attr</text>
+  <rect class="low" x="86" y="47" width="16" height="10" style="fill:#0a6e46"/>
+  <rect x="104" y="47" width="16" height="10" fill="#0a6e46"/>
+
+  <text x="126" y="51" font-family="Helvetica" font-size="3" fill="#4a6f8a">important</text>
+  <rect class="forced" x="148" y="47" width="16" height="10" style="fill:#d6457b"/>
+  <rect x="166" y="47" width="16" height="10" fill="#0a6e46"/>
+
+  <text x="12" y="63" font-family="Helvetica" font-size="3" fill="#4a6f8a">combinators, attribute and structural selectors</text>
+
+  <g class="frame">
+    <rect x="26" y="66" width="16" height="8"/>
+    <circle cx="52" cy="70" r="4"/>
+  </g>
+  <rect class="lead" x="62" y="66" width="7" height="8" fill="#0a6e46"/>
+  <rect x="71" y="66" width="16" height="8" fill="#d6457b"/>
+  <rect data-swatch="ok" x="95" y="66" width="16" height="8" fill="#d6457b"/>
+  <g class="count">
+    <rect x="119" y="66" width="7" height="8" fill="#0a6e46"/>
+    <rect x="128" y="66" width="16" height="8" fill="#d6457b"/>
+  </g>
+  <rect class="pick" x="152" y="66" width="16" height="8" fill="#d6457b"/>
+  <rect x="172" y="66" width="16" height="8" fill="#0a6e46"/>
+  <text x="12" y="79" font-family="Helvetica" font-size="3" fill="#4a6f8a">Every mark on this row is the same green. A pink one marks a selector regression.</text>
+
+  <!-- A group opacity composites the group once, without internal seams. -->
+  <text x="12" y="90" font-family="Helvetica" font-size="3.6" fill="#18486b">2. group opacity: the overlap has no seam</text>
+  <text x="12" y="96" font-family="Helvetica" font-size="3" fill="#4a6f8a">Left: one translucent group. Right: two translucent elements, which do darken where they meet.</text>
+
+  <g opacity="0.5">
+    <rect x="16" y="100" width="34" height="28" fill="#d6457b"/>
+    <rect x="34" y="112" width="34" height="28" fill="#18486b"/>
+  </g>
+
+  <g>
+    <rect x="116" y="100" width="34" height="28" fill="#d6457b" opacity="0.5"/>
+    <rect x="134" y="112" width="34" height="28" fill="#18486b" opacity="0.5"/>
+  </g>
+
+  <text x="16" y="147" font-family="Helvetica" font-size="3" fill="#4a6f8a">one group, uniform overlap</text>
+  <text x="116" y="147" font-family="Helvetica" font-size="3" fill="#4a6f8a">two elements, darker overlap</text>
+
+  <!-- Dash patterns, offsets and the miter limit. -->
+  <text x="12" y="160" font-family="Helvetica" font-size="3.6" fill="#18486b">3. dashes: separators, odd lists, units and the offset</text>
+
+  <g stroke="#18486b" stroke-width="1.2" fill="none">
+    <path d="M16 166 H92" stroke-dasharray="6 3"/>
+    <path d="M110 166 H186" stroke-dasharray="6,3"/>
+    <path d="M16 173 H92" stroke-dasharray="6 6"/>
+    <path d="M110 173 H186" stroke-dasharray="6"/>
+    <path d="M16 180 H92" stroke-dasharray="6px 3px"/>
+    <path d="M110 180 H186" stroke-dasharray="6 3"/>
+  </g>
+  <text x="16" y="186" font-family="Helvetica" font-size="3" fill="#4a6f8a">Each left rung matches the right rung beside it.</text>
+
+  <path class="dashed" d="M16 193 H92" stroke-dasharray="6 3"/>
+  <path class="dashed" d="M110 193 H186" stroke-dasharray="6 3" stroke-dashoffset="3"/>
+  <text x="16" y="199" font-family="Helvetica" font-size="3" fill="#4a6f8a">No offset.</text>
+  <text x="110" y="199" font-family="Helvetica" font-size="3" fill="#4a6f8a">Offset by 3: the pattern starts in the gap.</text>
+
+  <text x="12" y="208" font-family="Helvetica" font-size="3" fill="#4a6f8a">Miter limit: the left spike keeps its point, the right one is cut off.</text>
+  <path d="M20 226 L28 212 L36 226" fill="none" stroke="#0a6e46" stroke-width="3" stroke-miterlimit="10"/>
+  <path d="M60 226 L68 212 L76 226" fill="none" stroke="#0a6e46" stroke-width="3" stroke-miterlimit="1"/>
+
+  <!-- A use element paints its target, wherever it points. -->
+  <text x="12" y="240" font-family="Helvetica" font-size="3.6" fill="#18486b">4. use: shape, group and symbol targets, placed by x and y</text>
+
+  <g fill="#0a6e46">
+    <use href="#tile" x="16" y="246"/>
+    <use href="#pair" x="52" y="246"/>
+    <use href="#badge" x="98" y="246"/>
+    <use xlink:href="#tile" x="134" y="246"/>
+  </g>
+  <g fill="#0a6e46">
+    <rect x="16" y="257" width="16" height="10"/>
+    <rect x="52" y="257" width="16" height="10"/>
+    <rect x="72" y="257" width="6" height="10"/>
+    <rect x="98" y="257" width="16" height="10"/>
+    <rect x="134" y="257" width="16" height="10"/>
+  </g>
+  <text x="16" y="272" font-family="Helvetica" font-size="3" fill="#4a6f8a">The upper row of marks sits directly above the lower reference row.</text>
+
+  <text x="12" y="276" font-family="Helvetica" font-size="3" fill="#4a6f8a">A use of a group does not swallow what follows it: this swatch must appear.</text>
+  <use href="#pair" x="16" y="279" fill="#d6457b"/>
+  <rect x="60" y="279" width="16" height="10" fill="#18486b"/>
+
+</svg>

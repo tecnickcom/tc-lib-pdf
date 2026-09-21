@@ -32,7 +32,7 @@ Index of the runnable examples bundled with tc-lib-pdf.
 - [E027_annotations.php](E027_annotations.php): Matrix of the supported annotation subtypes.
 - [E028_text_hyphenation.php](E028_text_hyphenation.php): Hyphenation behavior in justified HTML text.
 - [E029_xobject_template.php](E029_xobject_template.php): Reusable Form XObject template example with clipping and transparency.
-- [E030_svg.php](E030_svg.php): SVG rendering showcase using bundled SVG samples.
+- [E030_svg.php](E030_svg.php): SVG rendering showcase using bundled SVG samples, including the regression sheets for paths and text, for the style cascade, opacity, units and clipping, and for stylesheets, group opacity, dashes and the use element.
 - [E031_html_features.php](E031_html_features.php): HTML and CSS parsing and layout feature showcase.
 - [E032_html_lists.php](E032_html_lists.php): Supported HTML list-style and list-item CSS variations.
 - [E033_geometric_transformations.php](E033_geometric_transformations.php): Geometric transforms including scaling, translation, rotation, skewing, mirroring, and reflection.

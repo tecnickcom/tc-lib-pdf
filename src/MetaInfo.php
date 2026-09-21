@@ -437,9 +437,62 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
             'info' => $info === '' ? $identifier : $info,
             'registry' => $registry,
             'iccfile' => $iccfile,
+            'icc' => '',
         ];
 
+        $this->readOutputIntentProfile($iccfile);
+
+        // The colour policy of PDF/X-4 and PDF/X-5 depends on the output intent,
+        // so it is re-evaluated here rather than only at construction time. In
+        // the other modes the policy is the caller's, and is left alone.
+        if (!$this->pdfx) {
+            return $this;
+        }
+
+        $wasForced = $this->color->isForceDeviceCmyk();
+        $this->color->setForceDeviceCmyk($this->requiresPdfxDeviceCmyk());
+        if (!$wasForced && $this->color->isForceDeviceCmyk() && $this->color->hasEmittedDeviceRgb()) {
+            $this->addWarning(
+                'PDF/X: a DeviceRGB colour was emitted before setOutputIntent() supplied a CMYK profile;'
+                . ' call setOutputIntent() before generating content',
+            );
+        }
+
         return $this;
+    }
+
+    /**
+     * Read the output intent ICC profile and record its number of colour components.
+     *
+     * The profile is cached so that the colour space of the printing condition is
+     * known before any content stream is generated. A profile that cannot be read
+     * is reported here and raises the error when the document is written.
+     *
+     * @param string $iccfile Path of the ICC profile, or an empty string.
+     */
+    protected function readOutputIntentProfile(string $iccfile): void
+    {
+        $this->outputintentComponents = 0;
+        if ($iccfile === '') {
+            return;
+        }
+
+        try {
+            $icc = $this->file->fileGetContents($iccfile);
+        } catch (\Com\Tecnick\File\Exception $e) {
+            unset($e);
+            $this->addWarning('Unable to read the output intent ICC profile: ' . $iccfile);
+            return;
+        }
+
+        $this->outputintent['icc'] = $icc;
+        // The number of colour components is taken from the ICC colour space
+        // signature at offset 16 of the profile header.
+        $this->outputintentComponents = match (\substr($icc, 16, 4)) {
+            'GRAY' => 1,
+            'CMYK' => 4,
+            default => 3,
+        };
     }
 
     /**

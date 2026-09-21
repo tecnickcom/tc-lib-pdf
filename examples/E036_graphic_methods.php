@@ -99,7 +99,9 @@ $style4 = [
         'lineWidth' => 0.5,
         'lineCap' => 'butt',
         'lineJoin' => 'miter',
-        'miterLimit' => 0.5,
+        // A miter limit is a ratio with a legal minimum of 1: at 1 every sharp
+        // corner is bevelled.
+        'miterLimit' => 1.0,
         'dashArray' => [],
         'dashPhase' => 0,
         'lineColor' => 'black',

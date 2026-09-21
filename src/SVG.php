@@ -18,6 +18,8 @@ declare(strict_types=1);
 
 namespace Com\Tecnick\Pdf;
 
+use Com\Tecnick\Pdf\CSS\SelectorMatcher;
+use Com\Tecnick\Pdf\CSS\Specificity;
 use Com\Tecnick\Pdf\Exception as PdfException;
 use TSVGAttribs;
 use TSVGStyle;
@@ -88,6 +90,9 @@ use TSVGStyle;
  *    'gradientTransform': array<float>,
  * }
  *
+ * @phpstan-import-type TSelNode from \Com\Tecnick\Pdf\CSS\SelectorMatcher
+ * @phpstan-import-type TSelPart from \Com\Tecnick\Pdf\CSS\SelectorMatcher
+ *
  * @phpstan-type TSVGStyle array{
  *    'alignment-baseline': string,
  *    'baseline-shift': string,
@@ -143,12 +148,12 @@ use TSVGStyle;
  *    'stop-opacity': float,
  *    'stroke': string,
  *    'stroke-dasharray': string,
- *    'stroke-dashoffset': float,
+ *    'stroke-dashoffset': string|float,
  *    'stroke-linecap': string,
  *    'stroke-linejoin': string,
  *    'stroke-miterlimit': float,
  *    'stroke-opacity': float,
- *    'stroke-width': float,
+ *    'stroke-width': string|float,
  *    'text-anchor': string,
  *    'text-decoration': string,
  *    'text-rendering': string,
@@ -419,6 +424,13 @@ use TSVGStyle;
  *
  * @phpstan-type TSVGObj array{
  *    'defsmode': bool,
+ *    'defsopen': array<int, string>,
+ *    'defsstack': array<int, array{
+ *        'name': string,
+ *        'open': string,
+ *        'close': string,
+ *        'records': array<string, string>,
+ *    }>,
  *    'clipmode': bool,
  *    'clipid': int|string,
  *    'tagdepth': int,
@@ -429,7 +441,13 @@ use TSVGStyle;
  *    'refunitval': TRefUnitValues,
  *    'gradientid': string,
  *    'gradients': array<string, TSVGGradient>,
- *    'clippaths': array<string, TSVGAttribs>,
+ *    'clippaths': array<string, array<string, TSVGAttribs>>,
+ *    'groupstack': array<int, array{'offset': int, 'alpha': float, 'blend': string, 'styledepth': int}>,
+ *    'cssrules': array<int, array{'parts': array<int, TSelPart>, 'decl': string, 'sortkey': string}>,
+ *    'selchain': array<int, array{'node': TSelNode, 'prev': array<int, TSelNode>}>,
+ *    'cssbuffer': string,
+ *    'styledepth': int,
+ *    'placement': TTMatrix,
  *    'defs': array<string, TSVGAttribs>,
  *    'cliptm': TTMatrix,
  *    'styles': array<int, TSVGStyle>,
@@ -518,6 +536,36 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'textPath',
         'tref',
         'altGlyph',
+    ];
+
+    /**
+     * SVG tags that emit plain geometry when they are replayed as a clipping
+     * path, each as one transformation followed by one clipping operator.
+     *
+     * @var array<int, string>
+     */
+    protected const SVGCLIPSHAPETAGS = [
+        'path',
+        'rect',
+        'circle',
+        'ellipse',
+        'line',
+        'polygon',
+        'polyline',
+    ];
+
+    /**
+     * SVG container tags, which contribute no geometry of their own to a
+     * clipping path and are not part of its content model.
+     *
+     * @var array<int, string>
+     */
+    protected const SVGCLIPCONTAINERTAGS = [
+        'g',
+        'svg',
+        'a',
+        'switch',
+        'defs',
     ];
 
     /**
@@ -656,6 +704,36 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     ];
 
     /**
+     * A number followed by an optional CSS unit or percent sign.
+     *
+     * @var string
+     */
+    protected const SVGLENGTHREGEX = '/^[+-]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[a-z]{1,4}|%)?$/i';
+
+    /**
+     * SVG style properties holding a length, which may carry a unit suffix.
+     *
+     * @var array<string>
+     */
+    protected const SVGLENGTHPROP = [
+        'stroke-dashoffset',
+        'stroke-width',
+    ];
+
+    /**
+     * SVG style properties holding an alpha value, which may be a percentage.
+     *
+     * @var array<string>
+     */
+    protected const SVGALPHAPROP = [
+        'fill-opacity',
+        'flood-opacity',
+        'opacity',
+        'stop-opacity',
+        'stroke-opacity',
+    ];
+
+    /**
      * Default SVG style.
      *
      * @var TSVGStyle
@@ -728,7 +806,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'visibility' => 'visible',
         'word-spacing' => 'normal',
         'writing-mode' => 'lr-tb',
-        'text-color' => 'black',
+        // Set from the fill of a text-content element; empty elsewhere, so that
+        // a shape does not emit a text fill colour it never uses.
+        'text-color' => '',
         'transfmatrix' => self::TMXID,
     ];
 
@@ -775,6 +855,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected const SVGDEFOBJ = [
         'defsmode' => false,
         'clipmode' => false,
+        'defsopen' => [],
+        'defsstack' => [],
         'clipid' => '',
         'tagdepth' => 0,
         'x0' => 0.0,
@@ -785,6 +867,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'gradientid' => '',
         'gradients' => [],
         'clippaths' => [],
+        'groupstack' => [],
+        'cssrules' => [],
+        'selchain' => [],
+        'cssbuffer' => '',
+        'styledepth' => 0,
+        'placement' => self::TMXID,
         'cliptm' => self::TMXID,
         'defs' => [],
         'styles' => [0 => self::DEFSVGSTYLE],
@@ -904,6 +992,22 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected function svgUnitToUnit(string|float|int $val, int $soid = -1, ?array $ref = null): float
     {
         return $this->toUnit($this->svgUnitToPoints($val, $soid, $ref));
+    }
+
+    /**
+     * Resolve an SVG length to SVG user units.
+     *
+     * Transformation matrices carry their translation in SVG user units, so a
+     * value that may hold a unit suffix is converted back after resolution.
+     *
+     * @param string|float|int $val Value to convert.
+     * @param int $soid SVG object ID.
+     *
+     * @throws \Com\Tecnick\Pdf\Exception
+     */
+    protected function svgLengthToSVGUnit(string|float|int $val, int $soid = -1): float
+    {
+        return $this->unitToSVGUnit($this->svgUnitToUnit($val, $soid), $soid);
     }
 
     /**
@@ -1970,11 +2074,82 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Normalize an SVG opacity value to the 0..1 range.
      *
+     * Accepts a number or a percentage. A value that is neither is fully opaque.
+     *
      * @param string|float|int $alpha Opacity value from parsed SVG style.
      */
     protected function normalizeSVGAlphaValue(string|float|int $alpha): float
     {
+        if (\is_string($alpha)) {
+            $alpha = \trim($alpha);
+            if (\str_ends_with($alpha, '%')) {
+                $pct = \trim(\substr($alpha, 0, -1));
+                return \is_numeric($pct) ? \max(0.0, \min(1.0, (float) $pct / 100)) : 1.0;
+            }
+
+            if (!\is_numeric($alpha)) {
+                return 1.0;
+            }
+        }
+
         return \max(0.0, \min(1.0, (float) $alpha));
+    }
+
+    /**
+     * Coerce a raw style value to a transformation matrix.
+     *
+     * @param mixed $value Raw 'transfmatrix' style value.
+     *
+     * @return TTMatrix
+     */
+    protected function toSVGTransformMatrix(mixed $value): array
+    {
+        if (!\is_array($value) || !isset($value[0], $value[1], $value[2], $value[3], $value[4], $value[5])) {
+            return self::TMXID;
+        }
+
+        return [
+            $this->normalizeSVGStyleFloatValue($value[0], self::TMXID[0]),
+            $this->normalizeSVGStyleFloatValue($value[1], self::TMXID[1]),
+            $this->normalizeSVGStyleFloatValue($value[2], self::TMXID[2]),
+            $this->normalizeSVGStyleFloatValue($value[3], self::TMXID[3]),
+            $this->normalizeSVGStyleFloatValue($value[4], self::TMXID[4]),
+            $this->normalizeSVGStyleFloatValue($value[5], self::TMXID[5]),
+        ];
+    }
+
+    /**
+     * Return the normalized diagonal of the viewport held by the reference values.
+     *
+     * Percentage lengths that are relative to neither axis resolve against it
+     * (SVG 1.1 section 7.10).
+     *
+     * @param TRefUnitValues $ref SVG reference unit values.
+     */
+    protected function getSVGNormalizedDiagonal(array $ref): float
+    {
+        $width = $ref['viewport']['width'];
+        $height = $ref['viewport']['height'];
+        return \sqrt(($width * $width) + ($height * $height)) / \M_SQRT2;
+    }
+
+    /**
+     * Convert a stroke length to user units.
+     *
+     * A percentage stroke length is relative to the normalized diagonal of the
+     * current viewport (SVG 1.1 section 7.10).
+     *
+     * @param string|float|int $val Stroke length.
+     * @param int $soid SVG object ID.
+     *
+     * @throws \Com\Tecnick\Pdf\Exception
+     */
+    protected function svgStrokeUnitToUnit(string|float|int $val, int $soid): float
+    {
+        $ref = $this->svgobjs[$soid]['refunitval'] ?? self::REFUNITVAL;
+        $ref['parent'] = $this->getSVGNormalizedDiagonal($ref);
+
+        return $this->svgUnitToUnit($val, -1, $ref);
     }
 
     /**
@@ -2032,6 +2207,37 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     ];
                 }
 
+                continue;
+            }
+
+            if (\in_array($key, self::SVGALPHAPROP, true)) {
+                $normalized[$key] = $default;
+                if (
+                    isset($style[$key])
+                    && (\is_string($style[$key]) || \is_float($style[$key]) || \is_int($style[$key]))
+                ) {
+                    $normalized[$key] = $this->normalizeSVGAlphaValue($style[$key]);
+                }
+
+                continue;
+            }
+
+            if (\in_array($key, self::SVGLENGTHPROP, true)) {
+                // A length keeps its unit suffix here and is resolved against the
+                // SVG reference values where it is used.
+                if (
+                    isset($style[$key])
+                    && \is_string($style[$key])
+                    && \preg_match(self::SVGLENGTHREGEX, \trim($style[$key])) === 1
+                ) {
+                    $normalized[$key] = \trim($style[$key]);
+                    continue;
+                }
+
+                $normalized[$key] = $this->normalizeSVGStyleFloatValue(
+                    $style[$key] ?? null,
+                    \is_float($default) ? $default : 0.0,
+                );
                 continue;
             }
 
@@ -2103,6 +2309,190 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return \trim($regs[1] ?? '');
         }
         return $default;
+    }
+
+    /**
+     * Parse the content of a <style> element and append its rules to the
+     * stylesheet of the SVG object.
+     *
+     * A selector that SelectorMatcher cannot evaluate is skipped, so it applies
+     * to nothing rather than applying wrongly.
+     *
+     * @param int $soid SVG object ID.
+     * @param string $css Raw content of the style element.
+     */
+    protected function addSVGStyleSheet(int $soid, string $css): void
+    {
+        if (!isset($this->svgobjs[$soid])) {
+            return;
+        }
+
+        // Drop comments and CDATA wrappers.
+        $css = (string) \preg_replace('#/\*.*?\*/#s', ' ', $css);
+        $css = \str_replace(['<![CDATA[', ']]>'], ' ', $css);
+
+        $svgobj = &$this->getSVGObjRef($soid);
+        foreach (\explode('}', $css) as $block) {
+            $parts = \explode('{', $block, 2);
+            if (!isset($parts[1])) {
+                continue;
+            }
+
+            $decl = \trim($parts[1]);
+            if ($decl === '') {
+                continue;
+            }
+
+            foreach (\explode(',', $parts[0]) as $selector) {
+                $selector = \trim(\preg_replace('/\s+/', ' ', $selector) ?? '');
+                if ($selector === '' || $selector[0] === '@') {
+                    // An at-rule prelude is not a selector.
+                    continue;
+                }
+
+                $compiled = SelectorMatcher::compile($selector);
+                if ($compiled === null) {
+                    continue;
+                }
+
+                $svgobj['cssrules'][] = [
+                    'parts' => $compiled,
+                    // The property matcher expects a leading separator.
+                    'decl' => ';' . $decl,
+                    'sortkey' => Specificity::fromSelector($selector)->toSortKey(\count($svgobj['cssrules'])),
+                ];
+            }
+        }
+    }
+
+    /**
+     * Record an element in the chain used to evaluate the stylesheet selectors.
+     *
+     * The chain is indexed by XML depth. Starting an element ends every element
+     * below it, so the sibling lists of the deeper levels are cleared.
+     *
+     * @param int $soid SVG object ID.
+     * @param string $name Element name.
+     * @param TSVGAttributes $attr Element attributes.
+     * @param int $depth XML depth of the element.
+     */
+    protected function pushSVGSelectorNode(int $soid, string $name, array $attr, int $depth): void
+    {
+        $svgobj = &$this->getSVGObjRef($soid);
+
+        $classes = \preg_split('/\s+/', \trim($attr['class'] ?? ''), -1, \PREG_SPLIT_NO_EMPTY);
+        $level = \max(0, $depth - 1);
+
+        foreach (\array_keys($svgobj['selchain']) as $deeper) {
+            if ($deeper <= $level) {
+                continue;
+            }
+
+            unset($svgobj['selchain'][$deeper]);
+        }
+
+        $prev = $svgobj['selchain'][$level]['prev'] ?? [];
+        $node = [
+            'name' => $name,
+            'id' => $attr['id'] ?? '',
+            'classes' => \is_array($classes) ? $classes : [],
+            'attr' => $attr,
+            'index' => \count($prev),
+            'depth' => $level,
+        ];
+
+        $prev[] = $node;
+        $svgobj['selchain'][$level] = [
+            'node' => $node,
+            'prev' => $prev,
+        ];
+    }
+
+    /**
+     * Return the element chain from the root to the element at a given depth.
+     *
+     * @param int $soid SVG object ID.
+     * @param int $depth XML depth of the element.
+     *
+     * @return array<int, array{'node': TSelNode, 'prev': array<int, TSelNode>}>
+     */
+    protected function getSVGSelectorChain(int $soid, int $depth): array
+    {
+        $chain = [];
+        $level = \max(0, $depth - 1);
+        for ($idx = 0; $idx <= $level; $idx++) {
+            if (!isset($this->svgobjs[$soid]['selchain'][$idx])) {
+                return [];
+            }
+
+            $chain[] = $this->svgobjs[$soid]['selchain'][$idx];
+        }
+
+        return $chain;
+    }
+
+    /**
+     * Return the declarations of the stylesheet rules matching an element,
+     * ordered by specificity and then by source order.
+     *
+     * @param int $soid SVG object ID.
+     * @param int $depth XML depth of the element.
+     *
+     * @return array<int, string> Declaration blocks, least specific first.
+     */
+    protected function getSVGMatchedRules(int $soid, int $depth): array
+    {
+        $rules = $this->svgobjs[$soid]['cssrules'] ?? [];
+        if ($rules === []) {
+            return [];
+        }
+
+        $chain = $this->getSVGSelectorChain($soid, $depth);
+        if ($chain === []) {
+            return [];
+        }
+
+        $matched = [];
+        foreach ($rules as $rule) {
+            if (!SelectorMatcher::matches($rule['parts'], $chain)) {
+                continue;
+            }
+
+            $matched[$rule['sortkey']] = $rule['decl'];
+        }
+
+        \ksort($matched, \SORT_STRING);
+
+        return \array_values($matched);
+    }
+
+    /**
+     * Merge the inheritable presentation attributes and style declarations of an
+     * element into the given style array.
+     *
+     * A declaration in the style attribute outranks the presentation attribute
+     * for the same property (SVG 1.1 section 6.4).
+     *
+     * @param array<string, mixed> $style Style array updated in place.
+     * @param TSVGAttributes $attr Element attributes.
+     * @param string $styleTag Content of the style attribute, prefixed with ';'.
+     */
+    protected function mergeSVGInheritedStyle(array &$style, array $attr, string $styleTag): void
+    {
+        foreach (self::SVGINHPROP as $key) {
+            if (isset($attr[$key]) && \is_string($attr[$key]) && $attr[$key] !== '') {
+                $style[$key] = $attr[$key];
+            }
+
+            if ($styleTag === '') {
+                continue;
+            }
+
+            $decl = $this->parseCSSAttrib($styleTag, $key);
+            if ($decl !== '') {
+                $style[$key] = $decl;
+            }
+        }
     }
 
     /**
@@ -2223,28 +2613,35 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 return '';
             }
 
-            $ref = $this->svgobjs[$soid]['refunitval'];
-            $ref['parent'] = 0.0;
-            $strokestyle['lineWidth'] = $this->svgUnitToUnit($svgstyle['stroke-width'], -1, $ref);
+            $strokestyle['lineWidth'] = $this->svgStrokeUnitToUnit($svgstyle['stroke-width'], $soid);
 
             $strokestyle['lineCap'] = $svgstyle['stroke-linecap'];
             $strokestyle['lineJoin'] = $svgstyle['stroke-linejoin'];
-            //  $strokestyle['miterLimit'] = (10.0 / $this->kunit),
+            // The miter limit is a ratio, with a legal minimum of 1.
+            $strokestyle['miterLimit'] = \max(1.0, $this->normalizeSVGStyleFloatValue(
+                $svgstyle['stroke-miterlimit'],
+                4.0,
+            ));
             if ($svgstyle['stroke-dasharray'] === '' || $svgstyle['stroke-dasharray'] === 'none') {
                 $strokestyle['dashArray'] = [];
             } else {
                 // Normalise each dash/gap token to user units so that values with
                 // unit suffixes (px, pt, mm, %, …) produce correct dash lengths.
-                $dashRef = $ref;
-                $dashRef['parent'] = 0.0;
                 $dashArray = [];
-                foreach (\explode(' ', $svgstyle['stroke-dasharray'], 100) as $tok) {
-                    $dashArray[] = (int) \round($this->svgUnitToUnit(\trim($tok), -1, $dashRef));
+                $dashTokens = \preg_split('/[\s,]+/', \trim($svgstyle['stroke-dasharray']), 100, \PREG_SPLIT_NO_EMPTY);
+                foreach (\is_array($dashTokens) ? $dashTokens : [] as $tok) {
+                    $dashArray[] = $this->svgStrokeUnitToUnit($tok, $soid);
+                }
+
+                // An odd list is repeated to make the dash/gap pairs even.
+                if ((\count($dashArray) % 2) === 1) {
+                    $dashArray = \array_merge($dashArray, $dashArray);
                 }
 
                 $strokestyle['dashArray'] = $dashArray;
             }
-            // $strokestyle['dashPhase'] = 0,
+
+            $strokestyle['dashPhase'] = $this->svgStrokeUnitToUnit($svgstyle['stroke-dashoffset'], $soid);
             $strokestyle['lineColor'] = $svgstyle['stroke'];
             unset($strokestyle['fillColor']);
 
@@ -2358,6 +2755,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $maskParser = \xml_parser_create('UTF-8');
             $stream = '';
             $svgobj['patternmode']++;
+            $xmldepth = $svgobj['xmldepth'];
+            $selchain = $svgobj['selchain'];
             try {
                 if (isset($maskDef['child']) && $maskDef['child'] !== []) {
                     $maskChildren = $maskDef['child'];
@@ -2403,6 +2802,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 }
             } finally {
                 $svgobj['patternmode'] = \max(0, $svgobj['patternmode'] - 1);
+                $svgobj['xmldepth'] = $xmldepth;
+                $svgobj['selchain'] = $selchain;
                 unset($maskParser);
             }
 
@@ -3143,6 +3544,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $patParser = \xml_parser_create('UTF-8');
 
             $this->svgobjs[$soid]['patternmode'] = (int) ($this->svgobjs[$soid]['patternmode'] ?? 0) + 1;
+            $xmldepth = $this->svgobjs[$soid]['xmldepth'];
+            $selchain = $this->svgobjs[$soid]['selchain'];
             try {
                 if (isset($patterndef['child']) && $patterndef['child'] !== []) {
                     foreach ($patterndef['child'] as $child) {
@@ -3170,6 +3573,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 }
             } finally {
                 $this->svgobjs[$soid]['patternmode'] = \max(0, (int) $this->svgobjs[$soid]['patternmode'] - 1);
+                $this->svgobjs[$soid]['xmldepth'] = $xmldepth;
+                $this->svgobjs[$soid]['selchain'] = $selchain;
                 unset($patParser);
             }
 
@@ -3401,6 +3806,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $patParser = \xml_parser_create('UTF-8');
 
             $svgobj['patternmode'] = (int) $svgobj['patternmode'] + 1;
+            $xmldepth = $svgobj['xmldepth'];
+            $selchain = $svgobj['selchain'];
             try {
                 for ($iy = $iyStart; $iy <= $iyEnd; ++$iy) {
                     for ($ix = $ixStart; $ix <= $ixEnd; ++$ix) {
@@ -3460,6 +3867,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 }
             } finally {
                 $svgobj['patternmode'] = \max(0, (int) $svgobj['patternmode'] - 1);
+                $svgobj['xmldepth'] = $xmldepth;
+                $svgobj['selchain'] = $selchain;
                 unset($patParser);
             }
 
@@ -3505,10 +3914,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         if ($svgstyle['fill'] === '' || $svgstyle['fill'] === 'none') {
-            return '';
-        }
-
-        if ((int) $this->svgobjs[$soid]['patternmode'] > 0) {
             return '';
         }
 
@@ -3597,17 +4002,42 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $svgstyle['objstyle'] .= $objstyle;
         }
 
-        $out .= $col->getPdfColor();
+        // Emitted through the document colour adapter so that the conformance
+        // rules of the active mode apply to the SVG paints as well.
+        $out .= $this->color->getPdfFillColor($svgstyle['fill']);
 
         return $out;
     }
 
     /**
+     * Return the clipPath id referenced by a clip-path style value.
+     *
+     * Only the url(#id) form is resolved; 'none', an empty value and the CSS
+     * basic shapes yield no reference.
+     *
+     * @param string $value Value of the clip-path style property.
+     */
+    protected function getSVGClipPathRef(string $value): string
+    {
+        $match = [];
+        if (\preg_match('/^url\([\s]*[\'"]?#([^\s\'")]+)[\'"]?[\s]*\)$/i', \trim($value), $match) !== 1) {
+            return '';
+        }
+
+        return $match[1] ?? '';
+    }
+
+    /**
      * Parse the SVG style clip-path.
+     *
+     * Replays the clipPath children as clipping geometry and returns the emitted
+     * commands, so that the caller can place them inside its own graphics state.
      *
      * @param \XMLParser $parser The XML parser.
      * @param int $soid SVG object ID.
-     * @param array<string, TSVGAttribs> $clippaths Clipping paths.
+     * @param array<string, TSVGAttribs> $clippaths Children of the referenced clipPath.
+     *
+     * @return string the Raw PDF clipping commands.
      *
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Exception
@@ -3617,11 +4047,191 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws \Com\Tecnick\Unicode\Exception
      */
-    protected function parseSVGStyleClipPath(\XMLParser $parser, int $soid, array $clippaths = []): void
+    protected function parseSVGStyleClipPath(\XMLParser $parser, int $soid, array $clippaths = []): string
     {
-        foreach ($clippaths as $cp) {
-            $this->handleSVGTagStart($parser, $cp['name'], $cp['attr'], $soid, true, $cp['tm'] ?? self::TMXID);
+        if ($clippaths === [] || !isset($this->svgobjs[$soid])) {
+            return '';
         }
+
+        $svgobj = &$this->getSVGObjRef($soid);
+
+        // The replay writes through the object output buffer: take the emitted
+        // fragment out of it and restore the buffer for the caller.
+        $before = $svgobj['out'];
+        $clipmode = $svgobj['clipmode'];
+        $clipid = $svgobj['clipid'];
+        // The replay goes through the tag handlers, which track the XML nesting
+        // depth and the sibling chain of the selectors: the replayed elements are
+        // not siblings of the elements that follow, so the state is restored.
+        $xmldepth = $svgobj['xmldepth'];
+        $selchain = $svgobj['selchain'];
+        // A replayed element that pushes its own style, or a group, has no
+        // closing tag to pop it either.
+        $styles = $svgobj['styles'];
+        $groupstack = $svgobj['groupstack'];
+        $tagdepth = $svgobj['tagdepth'];
+        // The emitted region undoes its own transformation, so the matrices the
+        // replay registers are dropped with a block of their own rather than
+        // left on the transformation stack of the graph object.
+        $ctmid = $this->graph->getTransformIndex();
+        $this->graph->getStartTransform();
+
+        // The clipping region of a clipPath is the union of its children, which
+        // is a single path with one clipping operator. Only a shape contributes
+        // geometry to it, and only a shape emits nothing besides that geometry.
+        $fragments = [];
+        foreach ($clippaths as $cp) {
+            if (!\in_array($cp['name'], self::SVGCLIPSHAPETAGS, true)) {
+                continue;
+            }
+
+            // The handler leaves the object in capture mode, which would file the
+            // next shape back into the clip paths instead of emitting it.
+            $svgobj['clipmode'] = false;
+            $fraglen = \strlen($svgobj['out']);
+            $this->handleSVGTagStart($parser, $cp['name'], $cp['attr'], $soid, true, $cp['tm'] ?? self::TMXID);
+            $fragments[] = \substr($svgobj['out'], $fraglen);
+        }
+
+        while ($this->graph->getTransformIndex() > $ctmid) {
+            $this->graph->getStopTransform();
+        }
+
+        $out = $this->getMergedSVGClipPath($fragments);
+        if ($out === '') {
+            // Shapes that carry different transforms cannot be merged, because no
+            // transformation may stand between the segments of one path: the
+            // region falls back to the first shape that stands on its own.
+            foreach ($fragments as $fragment) {
+                $out = $this->getMergedSVGClipPath([$fragment]);
+                if ($out !== '') {
+                    $this->addWarning('SVG: a clipPath whose shapes carry different transforms'
+                    . ' is clipped by the first of them');
+                    break;
+                }
+            }
+        }
+
+        if ($out === '') {
+            // Neither a shape nor a region: the element is left unclipped.
+            $this->addWarning('SVG: a clipPath that holds no usable shape does not clip');
+        }
+
+        $svgobj['out'] = $before;
+        $svgobj['clipmode'] = $clipmode;
+        $svgobj['clipid'] = $clipid;
+        $svgobj['xmldepth'] = $xmldepth;
+        $svgobj['selchain'] = $selchain;
+        $svgobj['styles'] = $styles;
+        $svgobj['groupstack'] = $groupstack;
+        $svgobj['tagdepth'] = $tagdepth;
+
+        return $out;
+    }
+
+    /**
+     * Merge the clipping fragments of the children of a clipPath into a single
+     * path, so that the clipping region is their union.
+     *
+     * Each fragment is one transformation, the geometry, and one clipping
+     * operator. No transformation may stand between the segments of a path, so
+     * the merge is possible only when every fragment carries the same one, and
+     * the same clipping rule.
+     *
+     * @param array<int, string> $fragments Clipping fragments of the children.
+     *
+     * @return string Merged fragment, or an empty string when they do not merge.
+     */
+    protected function getMergedSVGClipPath(array $fragments): string
+    {
+        if ($fragments === []) {
+            return '';
+        }
+
+        $ctm = '';
+        $operator = '';
+        $geometry = '';
+        foreach ($fragments as $fragment) {
+            $lines = \explode("\n", \trim($fragment));
+            if (\trim($fragment) === '') {
+                // A shape with no geometry contributes nothing to the region.
+                continue;
+            }
+
+            if (\count($lines) < 3) {
+                return '';
+            }
+
+            $head = \array_shift($lines);
+            $tail = \array_pop($lines);
+            if (!\str_ends_with($head, ' cm') || !\in_array($tail, ['W n', 'W* n'], true)) {
+                return '';
+            }
+
+            if ($ctm === '') {
+                $ctm = $head;
+                $operator = $tail;
+            }
+
+            if ($head !== $ctm || $tail !== $operator) {
+                return '';
+            }
+
+            $geometry .= \implode("\n", $lines) . "\n";
+        }
+
+        if ($geometry === '') {
+            return '';
+        }
+
+        // The clipping region belongs to the graphics state and outlives the
+        // transformation that built it, which is undone rather than closed: a
+        // closing tag would discard the region along with it.
+        return $ctm . "\n" . $geometry . $operator . "\n" . $this->getInverseSVGCtmCmd($ctm);
+    }
+
+    /**
+     * Return the command that undoes a transformation command.
+     *
+     * @param string $cmd Transformation command, as emitted by the graph object.
+     *
+     * @return string Command of the inverse matrix, empty when there is nothing
+     *                to undo or the matrix cannot be inverted.
+     */
+    protected function getInverseSVGCtmCmd(string $cmd): string
+    {
+        $match = [];
+        $count = \preg_match_all('/-?[0-9]+\.[0-9]+/', $cmd, $match);
+        if ($count !== 6) {
+            return '';
+        }
+
+        $values = $match[0] ?? [];
+        $tma = \floatval($values[0] ?? 1.0);
+        $tmb = \floatval($values[1] ?? 0.0);
+        $tmc = \floatval($values[2] ?? 0.0);
+        $tmd = \floatval($values[3] ?? 1.0);
+        $tme = \floatval($values[4] ?? 0.0);
+        $tmf = \floatval($values[5] ?? 0.0);
+
+        if ([$tma, $tmb, $tmc, $tmd, $tme, $tmf] === self::TMXID) {
+            return '';
+        }
+
+        $det = ($tma * $tmd) - ($tmb * $tmc);
+        if (\abs($det) <= self::SVGMINFLOATDIFF) {
+            return '';
+        }
+
+        return \sprintf(
+            '%F %F %F %F %F %F cm' . "\n",
+            $tmd / $det,
+            -$tmb / $det,
+            -$tmc / $det,
+            $tma / $det,
+            (($tmc * $tmf) - ($tmd * $tme)) / $det,
+            (($tmb * $tme) - ($tma * $tmf)) / $det,
+        );
     }
 
     /**
@@ -3667,7 +4277,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 return '';
             }
 
-            $clipPaths = $svgobj['clippaths'] ?? [];
             $gradients = $svgobj['gradients'] ?? [];
 
             $svgstyle['opacity'] = $this->normalizeSVGAlphaValue($svgstyle['opacity']);
@@ -3675,9 +4284,21 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 return '';
             }
 
-            $this->parseSVGStyleClipPath($parser, $soid, $clipPaths);
-
             $out = '';
+            $clipref = $this->getSVGClipPathRef($svgstyle['clip-path']);
+            if ($clipref !== '') {
+                if (isset($svgobj['clippaths'][$clipref])) {
+                    $out .= $this->parseSVGStyleClipPath($parser, $soid, $svgobj['clippaths'][$clipref]);
+                } else {
+                    $this->addWarning(
+                        'SVG: the clip-path reference "#'
+                        . $clipref
+                        . '" does not resolve to a clipPath element;'
+                        . ' the element is painted unclipped',
+                    );
+                }
+            }
+
             $out .= $this->parseSVGStyleColor($svgstyle);
             $out .= $this->parseSVGStyleMask($soid, $svgstyle);
             $out .= $this->parseSVGStyleClip($svgstyle, $posx, $posy, $width, $height);
@@ -3693,7 +4314,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $clip_par,
             );
             $out .= $this->parseSVGStyleStroke($soid, $svgstyle);
-            $out .= $this->parseSVGStyleFont($svgstyle, $prev_svgstyle);
+            // The font metrics are resolved for every element because the style
+            // cascades, but only a text-content element paints with them.
+            $fontout = $this->parseSVGStyleFont($svgstyle, $prev_svgstyle);
+            if ((int) $svgobj['textdepth'] > 0) {
+                $out .= $fontout;
+            }
             $out .= $this->parseSVGStyleRenderingHints($svgstyle);
 
             $objstyle = $svgstyle['objstyle'];
@@ -3724,6 +4350,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     {
         $soid = (int) \array_key_last($this->svgobjs);
         if ($soid < 0 || !isset($this->svgobjs[$soid]['text'])) {
+            return;
+        }
+        if ((int) $this->svgobjs[$soid]['styledepth'] > 0) {
+            // Content of a <style> element: collected as a stylesheet, not drawn.
+            $this->svgobjs[$soid]['cssbuffer'] .= $data;
             return;
         }
         if ((int) $this->svgobjs[$soid]['charskip'] > 0) {
@@ -3814,6 +4445,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         try {
+            if ($name === 'style' && (int) $svgobj['styledepth'] > 0) {
+                // The stylesheet is already registered by the prescan: collecting
+                // it again here would rank an early rule above a later one.
+                $svgobj['styledepth'] = \max(0, (int) $svgobj['styledepth'] - 1);
+                $svgobj['cssbuffer'] = '';
+            }
+
             if (\in_array($name, self::SVGCHARDATASKIPTAGS, true)) {
                 $svgobj['charskip'] = \max(0, (int) $svgobj['charskip'] - 1);
                 return;
@@ -3845,45 +4483,17 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 }
             }
 
-            if ($svgobj['defsmode'] && !\in_array($name, self::SVGDEFSMODEEND, true)) {
-                $lastDefsId = \array_key_last($svgobj['defs']);
-                if ($lastDefsId !== null) {
-                    $last_svgdefs_id = $lastDefsId;
-                    if (
-                        isset($svgobj['defs'][$last_svgdefs_id]['child'])
-                        && $svgobj['defs'][$last_svgdefs_id]['child'] !== []
-                    ) {
-                        foreach ($svgobj['defs'][$last_svgdefs_id]['child'] as $child) {
-                            if (!(isset($child['attr']['id']) && $child['name'] === $name)) {
-                                continue;
-                            }
-
-                            $closeKey = $child['attr']['id'] . '_CLOSE';
-
-                            $svgobj['defs'][$last_svgdefs_id]['child'][$closeKey] = [
-                                'name' => $name,
-                                'attr' => [
-                                    'closing_tag' => true,
-                                    'content' => $svgobj['text'],
-                                ],
-                            ];
-                            return;
-                        }
-                        if ($svgobj['defs'][$last_svgdefs_id]['name'] === $name) {
-                            $closeKey = $last_svgdefs_id . '_CLOSE';
-
-                            $svgobj['defs'][$last_svgdefs_id]['child'][$closeKey] = [
-                                'name' => $name,
-                                'attr' => [
-                                    'closing_tag' => true,
-                                    'content' => $svgobj['text'],
-                                ],
-                            ];
-                            return;
-                        }
-                    }
-                }
+            // The elements of a clipPath are captured rather than emitted, so
+            // their closing tags emit nothing either.
+            if ($svgobj['clipmode'] && $name !== 'clipPath') {
                 return;
+            }
+
+            if ($svgobj['defsmode']) {
+                $this->captureSVGDefsEnd($soid, $name);
+                if (!\in_array($name, self::SVGDEFSMODEEND, true)) {
+                    return;
+                }
             }
 
             $svgobj['out'] .= match ($name) {
@@ -3945,6 +4555,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         $this->svgobjs[$soid]['clipmode'] = false;
+        $this->svgobjs[$soid]['clipid'] = '';
         return '';
     }
 
@@ -3954,6 +4565,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @param int $soid ID of the current SVG object.
      *
      * @return string
+     *
+     * @throws \Com\Tecnick\Pdf\Graph\Exception
      */
     protected function parseSVGTagENDsvg(int $soid): string
     {
@@ -3973,14 +4586,275 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @param int $soid ID of the current SVG object.
      *
      * @return string
+     *
+     * @throws \Com\Tecnick\Pdf\Graph\Exception
      */
     protected function parseSVGTagENDg(int $soid): string
     {
-        if (isset($this->svgobjs[$soid]['styles'])) {
-            \array_pop($this->svgobjs[$soid]['styles']);
+        if (!isset($this->svgobjs[$soid])) {
+            return $this->graph->getStopTransform();
         }
 
-        return $this->graph->getStopTransform();
+        $svgobj = &$this->getSVGObjRef($soid);
+        \array_pop($svgobj['styles']);
+        $stop = $this->graph->getStopTransform();
+
+        $groupstack = $svgobj['groupstack'];
+        $group = \end($groupstack);
+        if (!\is_array($group) || (int) $group['styledepth'] !== (\count($svgobj['styles']) + 1)) {
+            return $stop;
+        }
+
+        \array_pop($svgobj['groupstack']);
+
+        // Cut the finished subtree out of the buffer and paint it as a single
+        // transparency group, so the alpha applies to the composited result
+        // instead of to each child.
+        $svgobj['out'] .= $stop;
+        $offset = (int) $group['offset'];
+        $stream = \substr($svgobj['out'], $offset);
+        $svgobj['out'] =
+            \substr($svgobj['out'], 0, $offset)
+            . $this->getSVGGroupXObject($soid, $stream, $group['alpha'], $group['blend']);
+
+        return '';
+    }
+
+    /**
+     * Register an SVG group as a transparency-group Form XObject and return the
+     * commands that paint it with the given alpha.
+     *
+     * @param int $soid SVG object ID.
+     * @param string $stream Content stream of the group.
+     * @param float $alpha Group opacity.
+     * @param string $blend PDF blend mode name.
+     *
+     * @throws \Com\Tecnick\Pdf\Graph\Exception
+     */
+    protected function getSVGGroupXObject(int $soid, string $stream, float $alpha, string $blend): string
+    {
+        if (\trim($stream) === '') {
+            return '';
+        }
+
+        $oid = ++$this->pon;
+        $tid = 'XT' . $oid;
+        $bbox = $this->getSVGGroupBBox($soid);
+        $keys = $this->getSVGStreamResourceKeys($stream);
+
+        $this->xobjects[$tid] = [
+            'spot_colors' => $keys['spot_colors'],
+            'extgstate' => $keys['extgstate'],
+            'gsnames' => $keys['gsnames'],
+            'gradient' => $keys['gradient'],
+            'pattern' => $keys['pattern'],
+            'font' => $keys['font'],
+            'image' => $keys['image'],
+            'xobject' => $keys['xobject'],
+            'annotations' => [],
+            'transparency' => [
+                // The blending space follows the colour policy of the document:
+                // a PDF/X mode with a CMYK output intent admits no DeviceRGB.
+                'CS' => $this->color->isForceDeviceCmyk() ? 'DeviceCMYK' : 'DeviceRGB',
+                'I' => true,
+                'K' => false,
+            ],
+            'id' => $tid,
+            'n' => $oid,
+            'outdata' => $stream,
+            'x' => $bbox[0],
+            'y' => $bbox[1],
+            'w' => $bbox[2],
+            'h' => $bbox[3],
+            'pheight' => 0.0,
+            'gheight' => 0.0,
+        ];
+
+        return (
+            $this->graph->getStartTransform()
+            . $this->graph->getAlpha($alpha, $blend)
+            . '/'
+            . $tid
+            . ' Do'
+            . "\n"
+            . $this->graph->getStopTransform()
+        );
+    }
+
+    /**
+     * Return the [x, y, width, height] of a group Form XObject, in user units.
+     *
+     * The group is painted in the user space of its parent, so the page box is
+     * mapped back through the transform in effect there to give a box that covers
+     * everything the group can paint.
+     *
+     * @param int $soid SVG object ID.
+     *
+     * @return array{0: float, 1: float, 2: float, 3: float}
+     */
+    protected function getSVGGroupBBox(int $soid): array
+    {
+        $ref = $this->svgobjs[$soid]['refunitval'] ?? self::REFUNITVAL;
+        $ctm = $this->getSVGGroupCTM($soid);
+
+        $det = ($ctm[0] * $ctm[3]) - ($ctm[1] * $ctm[2]);
+        if (\abs($det) <= self::SVGMINFLOATDIFF) {
+            // A singular transform paints nothing: keep the page box as it is.
+            $ctm = self::TMXID;
+            $det = 1.0;
+        }
+
+        $inv = [
+            $ctm[3] / $det,
+            -$ctm[1] / $det,
+            -$ctm[2] / $det,
+            $ctm[0] / $det,
+            (($ctm[2] * $ctm[5]) - ($ctm[3] * $ctm[4])) / $det,
+            (($ctm[1] * $ctm[4]) - ($ctm[0] * $ctm[5])) / $det,
+        ];
+
+        $pagew = $ref['page']['width'];
+        $pageh = $ref['page']['height'];
+        $pagex = [];
+        $pagey = [];
+        foreach ([[0.0, 0.0], [$pagew, 0.0], [0.0, $pageh], [$pagew, $pageh]] as $corner) {
+            $pagex[] = ($inv[0] * $corner[0]) + ($inv[2] * $corner[1]) + $inv[4];
+            $pagey[] = ($inv[1] * $corner[0]) + ($inv[3] * $corner[1]) + $inv[5];
+        }
+
+        $posx = $this->toUnit(\min($pagex));
+        $posy = -$this->toUnit(\min($pagey));
+
+        return [
+            $posx,
+            $posy,
+            $this->toUnit(\max($pagex)) - $posx,
+            $this->toUnit(\max($pagey)) + $posy,
+        ];
+    }
+
+    /**
+     * Return the transformation matrix a group Form XObject is painted under.
+     *
+     * The graph object stacks the matrices of every open transformation block,
+     * and the block of the group itself is closed before the group is registered,
+     * so the product of the stack is the transform of the enclosing user space.
+     *
+     * @param int $soid SVG object ID.
+     *
+     * @return TTMatrix
+     */
+    protected function getSVGGroupCTM(int $soid): array
+    {
+        $ctm = self::TMXID;
+        $stacked = false;
+        foreach ($this->graph->getTransformStack() as $level) {
+            foreach ($level as $matrix) {
+                $ctm = $this->graph->getCtmProduct($ctm, $matrix);
+                $stacked = true;
+            }
+        }
+
+        if (!$stacked) {
+            return $this->svgobjs[$soid]['placement'] ?? self::TMXID;
+        }
+
+        return $ctm;
+    }
+
+    /**
+     * Collect the resource keys referenced by a content stream.
+     *
+     * @param string $stream Content stream.
+     *
+     * @return array{
+     *     'spot_colors': array<string>,
+     *     'extgstate': array<int>,
+     *     'gsnames': array<string>,
+     *     'gradient': array<int>,
+     *     'pattern': array<string>,
+     *     'font': array<string>,
+     *     'image': array<int>,
+     *     'xobject': array<string>,
+     * }
+     */
+    protected function getSVGStreamResourceKeys(string $stream): array
+    {
+        $match = [];
+
+        // The stream carries the PDF resource names, while the font dictionary is
+        // built from the font stack keys, so the names are mapped back.
+        \preg_match_all('/\/F([0-9]+)\s+[0-9\.\-]+\s+Tf\b/', $stream, $match);
+        $fontIndexes = \array_flip(\array_map('intval', $match[1] ?? []));
+        $font = [];
+        foreach ($this->font->getFonts() as $fontkey => $fontdata) {
+            if (!isset($fontIndexes[(int) $fontdata['i']])) {
+                continue;
+            }
+
+            $font[] = $fontkey;
+        }
+
+        \preg_match_all('/\/GS([0-9]+)\s+gs\b/', $stream, $match);
+        $extgstate = \array_values(\array_unique(\array_map('intval', $match[1] ?? [])));
+
+        // The ExtGState resources that carry a name of their own rather than the
+        // GS<n> form: the SVG masks (MSK_…) and the gradient soft masks (TGS<n>).
+        \preg_match_all('/\/([A-Za-z][A-Za-z0-9_]*)\s+gs\b/', $stream, $match);
+        $gsnames = [];
+        foreach ($match[1] ?? [] as $name) {
+            if (\preg_match('/^GS[0-9]+$/', $name) === 1) {
+                continue;
+            }
+
+            $gsnames[$name] = true;
+        }
+
+        \preg_match_all('/\/Sh([0-9]+)\s+sh\b/', $stream, $match);
+        $gradient = \array_values(\array_unique(\array_map('intval', $match[1] ?? [])));
+
+        \preg_match_all('/\/Pattern\s+cs\s+\/(PTN_[0-9A-F]+)\s+scn\b/', $stream, $match);
+        $pattern = \array_values(\array_unique($match[1] ?? []));
+
+        // The stream carries the PDF resource names, while the spot color
+        // dictionary is keyed by color name, so the names are mapped back. The
+        // stroking operator is the upper-case form of the non-stroking one.
+        \preg_match_all('/\/CS([0-9]+)\s+(?:cs|CS)\b/', $stream, $match);
+        $spotIndexes = \array_flip(\array_map('intval', $match[1] ?? []));
+        $spot = [];
+        foreach ($this->color->getSpotColors() as $spotkey => $spotdata) {
+            if (!isset($spotIndexes[(int) $spotdata['i']])) {
+                continue;
+            }
+
+            $spot[] = $spotkey;
+        }
+
+        $image = [];
+        $xobject = [];
+        \preg_match_all('/\/([A-Za-z0-9_]+)\s+Do\b/', $stream, $match);
+        foreach ($match[1] ?? [] as $key) {
+            $imgm = [];
+            if (\preg_match('/^IMG(?:plain|mask)?([0-9]+)$/', $key, $imgm) === 1) {
+                $image[] = (int) ($imgm[1] ?? '0');
+                continue;
+            }
+
+            if (isset($this->xobjects[$key])) {
+                $xobject[] = $key;
+            }
+        }
+
+        return [
+            'spot_colors' => $spot,
+            'extgstate' => $extgstate,
+            'gsnames' => \array_keys($gsnames),
+            'gradient' => $gradient,
+            'pattern' => $pattern,
+            'font' => $font,
+            'image' => \array_values(\array_unique($image)),
+            'xobject' => \array_values(\array_unique($xobject)),
+        ];
     }
 
     /**
@@ -4333,6 +5207,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $svgobj['xmldepth'] = (int) $svgobj['xmldepth'] + 1;
         $xmldepth = (int) $svgobj['xmldepth'];
 
+        // Every element child counts as a sibling for the structural selectors,
+        // including the ones that render nothing.
+        $this->pushSVGSelectorNode($soid, $name, $attr, $xmldepth);
+
+        if ($name === 'style') {
+            $svgobj['styledepth'] = (int) $svgobj['styledepth'] + 1;
+        }
+
         if (\in_array($name, self::SVGCHARDATASKIPTAGS, true)) {
             $svgobj['charskip'] = (int) $svgobj['charskip'] + 1;
             return;
@@ -4381,8 +5263,16 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         if ($svgobj['clipmode']) {
-            $clipKey = 'CP_' . (string) (\count($svgobj['clippaths']) + 1);
-            $svgobj['clippaths'][$clipKey] = [
+            // A container carries no geometry of its own, and replaying it would
+            // open a graphics state that the replay has no closing tag for. Its
+            // children are collected on their own anyway.
+            if (\in_array($name, self::SVGCLIPCONTAINERTAGS, true)) {
+                return;
+            }
+
+            $clipid = (string) $svgobj['clipid'];
+            $clipKey = 'CP_' . (string) (\count($svgobj['clippaths'][$clipid] ?? []) + 1);
+            $svgobj['clippaths'][$clipid][$clipKey] = [
                 'name' => $name,
                 'attr' => $attr,
                 'tm' => $svgobj['cliptm'],
@@ -4390,36 +5280,24 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return;
         }
 
-        if ($svgobj['defsmode'] && !\in_array($name, self::SVGDEFSMODESTART, true)) {
-            if (isset($attr['id'])) {
-                $svgobj['defs'][$attr['id']] = [
+        if ($svgobj['defsmode']) {
+            if (\in_array($name, self::SVGDEFSMODESTART, true)) {
+                // A dedicated handler registers these: only the nesting is
+                // tracked here, so that their children reach them.
+                $elemid = $attr['id'] ?? '';
+                $svgobj['defsstack'][] = [
                     'name' => $name,
-                    'attr' => $attr,
+                    'open' => $elemid,
+                    'close' => '',
+                    'records' => [],
                 ];
+                if ($elemid !== '') {
+                    $svgobj['defsopen'][] = $elemid;
+                }
+            } else {
+                $this->captureSVGDefsStart($soid, $name, $attr);
                 return;
             }
-
-            $lastDefsId = \array_key_last($svgobj['defs']);
-            if ($lastDefsId !== null) {
-                $last_svgdefs_id = $lastDefsId;
-                $defsEntry = $svgobj['defs'][$last_svgdefs_id] ?? null;
-                if (!\is_array($defsEntry)) {
-                    return;
-                }
-                if (!isset($defsEntry['child'])) {
-                    $defsEntry['child'] = [];
-                }
-
-                $attr['id'] = 'DF_' . (\count($defsEntry['child']) + 1);
-                $defsEntry['child'][$attr['id']] = [
-                    'name' => $name,
-                    'attr' => $attr,
-                ];
-                $svgobj['defs'][$last_svgdefs_id] = $defsEntry;
-                return;
-            }
-
-            return;
         }
 
         $svgobj['clipmode'] = $clipmode;
@@ -4456,29 +5334,51 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $attr['style'] = ';' . $attr['style'];
         }
 
+        // Author declarations that apply to this element, least specific first:
+        // the stylesheet rules, then the style attribute.
+        $declblocks = $this->getSVGMatchedRules($soid, $xmldepth);
+        if (isset($attr['style']) && $attr['style'] !== '') {
+            $declblocks[] = $attr['style'];
+        }
+
         foreach ($prev_svgstyle as $key => $val) {
             if (\in_array($key, self::SVGINHPROP, true)) {
                 // inherit previous value
                 $svgstyle[$key] = $val;
             }
             if (isset($attr[$key]) && $attr[$key] !== '') {
-                // specific attribute settings
+                // presentation attribute
                 if ($attr[$key] === 'inherit') {
                     $svgstyle[$key] = $val;
                 } else {
                     $svgstyle[$key] = $attr[$key];
                 }
-            } elseif (isset($attr['style']) && $attr['style'] !== '') {
-                // CSS style syntax
+            }
+            // A declaration outranks the presentation attribute for the same
+            // property (SVG 1.1 section 6.4).
+            $locked = false;
+            foreach ($declblocks as $block) {
                 $attrval = [];
-                if (\preg_match('/[;\"\s]{1}' . $key . '[\s]*:[\s]*([^;\"]*)/si', $attr['style'], $attrval)) {
-                    if (isset($attrval[1])) {
-                        if ($attrval[1] === 'inherit') {
-                            $svgstyle[$key] = $val;
-                        } else {
-                            $svgstyle[$key] = $attrval[1];
-                        }
+                $found = \preg_match_all('/[;\"\s]{1}' . $key . '[\s]*:[\s]*([^;\"]*)/si', $block, $attrval);
+                if ($found === false || $found < 1) {
+                    continue;
+                }
+
+                // A property declared more than once in one block keeps the last
+                // of its values, unless an earlier one is important.
+                foreach ($attrval[1] ?? [] as $raw) {
+                    $decl = \trim($raw);
+                    $important = \preg_match('/!\s*important$/i', $decl) === 1;
+                    if ($important) {
+                        $decl = \trim((string) \preg_replace('/!\s*important$/i', '', $decl));
                     }
+
+                    if ($decl === '' || $locked && !$important) {
+                        continue;
+                    }
+
+                    $svgstyle[$key] = $decl === 'inherit' ? $val : $decl;
+                    $locked = $important;
                 }
             }
         }
@@ -4494,6 +5394,19 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         /** @var TSVGStyle $svgstyle */
         /** @var TSVGStyle $prev_svgstyle */
 
+        if ($prev_svgstyle['display'] === 'none') {
+            // Nothing inside an element that is not rendered is rendered either,
+            // whatever the elements of the subtree ask for.
+            $svgstyle['display'] = 'none';
+        }
+
+        if ($svgstyle['opacity'] <= 0.0) {
+            // A fully transparent element paints nothing, and neither does its
+            // subtree: 'opacity' is not inherited, so it is carried down through
+            // 'display' instead.
+            $svgstyle['display'] = 'none';
+        }
+
         $visibility = $svgstyle['visibility'];
         $display = $svgstyle['display'];
         $this->svgobjs[$soid]['textmode']['invisible'] =
@@ -4506,7 +5419,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         $this->svgobjs[$soid]['out'] .= match ($name) {
             'defs' => $this->parseSVGTagSTARTdefs($soid),
-            'clipPath' => $this->parseSVGTagSTARTclipPath($soid, $tmx),
+            'clipPath' => $this->parseSVGTagSTARTclipPath($soid, $tmx, $attr),
             'svg' => $this->parseSVGTagSTARTsvg($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
             'g' => $this->parseSVGTagSTARTg($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
             'linearGradient' => $this->parseSVGTagSTARTlinearGradient($soid, $attr),
@@ -4566,6 +5479,119 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
+     * Record the start of an element captured inside a defs block.
+     *
+     * An element with an id becomes an entry of its own, so that a reference can
+     * reach it. It is also recorded in every entry that encloses it, because the
+     * child list of an entry is the flat replay of its whole subtree.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param string $name Element name.
+     * @param TSVGAttributes $attr Element attributes.
+     */
+    protected function captureSVGDefsStart(int $soid, string $name, array $attr): void
+    {
+        $svgobj = &$this->getSVGObjRef($soid);
+        $elemid = $attr['id'] ?? '';
+
+        $owners = $svgobj['defsopen'];
+        if ($owners === [] && $elemid === '') {
+            // The entries registered by a dedicated handler are not on the open
+            // stack: an element with no id belongs to the last of them.
+            $lastid = \array_key_last($svgobj['defs']);
+            if ($lastid !== null) {
+                $owners = [$lastid];
+            }
+        }
+
+        $records = [];
+        foreach ($owners as $ownerid) {
+            $entry = $svgobj['defs'][$ownerid] ?? null;
+            if (!\is_array($entry)) {
+                continue;
+            }
+
+            $children = $entry['child'] ?? [];
+            $key = $elemid === '' ? 'DF_' . (\count($children) + 1) : $elemid;
+            $childattr = $attr;
+            $childattr['id'] = $key;
+            $children[$key] = [
+                'name' => $name,
+                'attr' => $childattr,
+            ];
+            $entry['child'] = $children;
+            $svgobj['defs'][$ownerid] = $entry;
+            $records[$ownerid] = $key;
+        }
+
+        if ($elemid !== '') {
+            $svgobj['defs'][$elemid] = [
+                'name' => $name,
+                'attr' => $attr,
+            ];
+            $svgobj['defsopen'][] = $elemid;
+        }
+
+        $svgobj['defsstack'][] = [
+            'name' => $name,
+            'open' => $elemid,
+            'close' => $elemid,
+            'records' => $records,
+        ];
+    }
+
+    /**
+     * Record the end of an element captured inside a defs block.
+     *
+     * The closing tag is recorded next to every start it matches, so that each
+     * replay of the subtree closes what it opens.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param string $name Element name.
+     */
+    protected function captureSVGDefsEnd(int $soid, string $name): void
+    {
+        $svgobj = &$this->getSVGObjRef($soid);
+        $stack = $svgobj['defsstack'];
+        $frame = \end($stack);
+        if (!\is_array($frame) || $frame['name'] !== $name) {
+            return;
+        }
+
+        \array_pop($svgobj['defsstack']);
+
+        $sentinel = [
+            'name' => $name,
+            'attr' => [
+                'closing_tag' => true,
+                'content' => $svgobj['text'],
+            ],
+        ];
+
+        foreach ($frame['records'] as $ownerid => $key) {
+            if (!isset($svgobj['defs'][$ownerid])) {
+                continue;
+            }
+
+            $svgobj['defs'][$ownerid]['child'][$key . '_CLOSE'] = $sentinel;
+        }
+
+        if ($frame['close'] !== '' && isset($svgobj['defs'][$frame['close']])) {
+            $svgobj['defs'][$frame['close']]['child'][$frame['close'] . '_CLOSE'] = $sentinel;
+        }
+
+        if ($frame['open'] === '') {
+            return;
+        }
+
+        $openkey = \array_search($frame['open'], $svgobj['defsopen'], true);
+        if ($openkey !== false) {
+            unset($svgobj['defsopen'][$openkey]);
+            $svgobj['defsopen'] = \array_values($svgobj['defsopen']);
+        }
+    }
+
+    /**
      * Toggle defs capture mode.
      *
      * @param int $soid ID of the current SVG object.
@@ -4580,6 +5606,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         $this->svgobjs[$soid]['defsmode'] = $enabled;
+        if (!$enabled) {
+            // A subtree left open by a malformed defs block does not carry over.
+            $this->svgobjs[$soid]['defsopen'] = [];
+            $this->svgobjs[$soid]['defsstack'] = [];
+        }
+
         return '';
     }
 
@@ -4614,10 +5646,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @param int $soid ID of the current SVG object.
      * @param array<float> $tmx Current transformation matrix (optional).
+     * @param TSVGAttributes $attr SVG attributes (optional).
      *
      * @return string
      */
-    protected function parseSVGTagSTARTclipPath(int $soid, array $tmx = []): string
+    protected function parseSVGTagSTARTclipPath(int $soid, array $tmx = [], array $attr = []): string
     {
         $svgobjs = &$this->svgobjs;
         if (!isset($svgobjs[$soid])) {
@@ -4628,6 +5661,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return '';
         }
 
+        // An id-less clipPath cannot be referenced, but it still needs a bucket
+        // so that its children are collected instead of painted.
+        $clipid = isset($attr['id']) && $attr['id'] !== ''
+            ? $attr['id']
+            : 'CP_' . (string) (\count($svgobj['clippaths']) + 1);
+
+        $svgobj['clipid'] = $clipid;
+        $svgobj['clippaths'][$clipid] ??= [];
         $svgobj['clipmode'] = true;
         $svgobj['cliptm'] = $tmx === [] ? self::TMXID : $tmx;
         return '';
@@ -4677,17 +5718,25 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $svgY = isset($attr['y']) ? $this->svgUnitToUnit($attr['y'], $soid) : 0.0;
         $svgW = isset($attr['width']) ? $this->svgUnitToUnit($attr['width'], $soid) : 0.0;
         $svgH = isset($attr['height']) ? $this->svgUnitToUnit($attr['height'], $soid) : 0.0;
-        // set x, y position using transform matrix
-        $tmx = $this->graph->getCtmProduct($svgstyle['transfmatrix'], [1.0, 0.0, 0.0, 1.0, $svgX, $svgY]);
-        $out .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
+        // Position the inner viewport. The translation of a transformation matrix
+        // is expressed in SVG user units.
+        $tmx = $this->graph->getCtmProduct($svgstyle['transfmatrix'], [
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            $this->unitToSVGUnit($svgX, $soid),
+            $this->unitToSVGUnit($svgY, $soid),
+        ]);
+        $out .= $this->getOutSVGTransformation($tmx, $soid);
         // set clipping for width and height
-        $page = $this->page->getPage();
         $posx = 0;
         $posy = 0;
-        $pageWidth = $page['width'];
-        $pageHeight = $page['height'];
-        $width = $svgW <= 0.0 ? $pageWidth - $svgX : $svgW;
-        $height = $svgH <= 0.0 ? $pageHeight - $svgY : $svgH;
+        // An omitted width or height is 100% of the enclosing viewport.
+        $viewportWidth = $this->toUnit($svgobj['refunitval']['viewport']['width']);
+        $viewportHeight = $this->toUnit($svgobj['refunitval']['viewport']['height']);
+        $width = $svgW <= 0.0 ? $viewportWidth - $svgX : $svgW;
+        $height = $svgH <= 0.0 ? $viewportHeight - $svgY : $svgH;
         // draw clipping rect
         $out .= $this->graph->getRawRect($posx, $posy, $width, $height, 'CNZ');
         // parse viewbox, calculate extra transformation matrix
@@ -4738,8 +5787,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 }
             }
         }
-        $wsr = $svgW / $vbw;
-        $hsr = $svgH / $vbh;
+        // The viewBox is scaled to the resolved viewport, which falls back to the
+        // enclosing one when the width or the height is omitted. The viewport is
+        // a length in user units while the viewBox is in SVG user units, so the
+        // viewport is converted before the ratio is taken.
+        $wsr = $this->unitToSVGUnit($width, $soid) / $vbw;
+        $hsr = $this->unitToSVGUnit($height, $soid) / $vbh;
         $asx = 0;
         $asy = 0;
         if ($fit === 'meet' && $hsr < $wsr || $fit === 'slice' && $hsr > $wsr) {
@@ -4759,9 +5812,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             }
             $hsr = $wsr;
         }
-        $newtmx = [$wsr, 0.0, 0.0, $hsr, ($wsr * ($asx - $vbx)) - $svgX, ($hsr * ($asy - $vby)) - $svgY];
-        $tmx = $this->graph->getCtmProduct($tmx, $newtmx);
-        $out .= $this->getOutSVGTransformation($tmx, $soid);
+        // The viewport translation is already in effect, so the viewBox transform
+        // is emitted relative to it.
+        $newtmx = [$wsr, 0.0, 0.0, $hsr, $wsr * ($asx - $vbx), $hsr * ($asy - $vby)];
+        $out .= $this->getOutSVGTransformation($newtmx, $soid);
         $out .= $this->parseSVGStyle($parser, $soid, $svgstyle, $prev_svgstyle, $posx, $posy, $width, $height);
 
         return $out;
@@ -4799,7 +5853,28 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         $out = '';
 
+        // A group opacity applies to the composited group, not to each child, so
+        // the subtree is collected and painted as a single transparency group.
+        // A mask or pattern replay moves each child out of the output buffer as
+        // soon as it is emitted, so there the subtree cannot be sliced out of it
+        // and the opacity is left on the children instead.
+        $alpha = $this->normalizeSVGAlphaValue($svgstyle['opacity']);
+        $isolate = $this->isTransparencyAllowed() && $alpha > 0.0 && $alpha < 1.0 && (int) $svgobj['patternmode'] === 0;
+        if ($isolate) {
+            $svgstyle['opacity'] = 1.0;
+        }
+
         \array_push($svgobj['styles'], $svgstyle);
+
+        if ($isolate) {
+            $svgobj['groupstack'][] = [
+                'offset' => \strlen($svgobj['out']),
+                'alpha' => $alpha,
+                'blend' => $this->normalizeSVGBlendMode($svgstyle['mix-blend-mode']),
+                'styledepth' => \count($svgobj['styles']),
+            ];
+        }
+
         $out .= $this->graph->getStartTransform();
         $posx = isset($attr['x']) ? $this->svgUnitToUnit($attr['x'], $soid) : 0.0;
         $posy = isset($attr['y']) ? $this->svgUnitToUnit($attr['y'], $soid) : 0.0;
@@ -5447,7 +6522,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return '';
         }
 
-        $strokeWidth = $this->svgUnitToUnit($svgstyle['stroke-width'], $soid);
+        $strokeWidth = $this->svgStrokeUnitToUnit($svgstyle['stroke-width'], $soid);
         if ($strokeWidth <= 0.0) {
             $strokeWidth = 1.0;
         }
@@ -6154,6 +7229,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         // Prevent marker content from recursively emitting nested markers.
 
         $this->svgobjs[$soid]['markermode'] = (int) ($this->svgobjs[$soid]['markermode'] ?? 0) + 1;
+        $xmldepth = $this->svgobjs[$soid]['xmldepth'];
+        $selchain = $this->svgobjs[$soid]['selchain'];
 
         // The replayed children append to the object output buffer, so their
         // stream is moved here to keep it inside the marker transform.
@@ -6174,6 +7251,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             }
         } finally {
             $this->svgobjs[$soid]['markermode'] = \max(0, (int) $this->svgobjs[$soid]['markermode'] - 1);
+            $this->svgobjs[$soid]['xmldepth'] = $xmldepth;
+            $this->svgobjs[$soid]['selchain'] = $selchain;
         }
 
         $currOut = $this->svgobjs[$soid]['out'];
@@ -6603,11 +7682,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $svgstyle,
             $svgobj['textmode']['vertical'] ?? false,
         );
-        if ($svgstyle['stroke'] !== 'none' && $svgstyle['stroke-width'] > 0) {
-            $svgobj['textmode']['stroke'] = $this->svgUnitToUnit($svgstyle['stroke-width'], $soid);
-        } else {
-            $svgobj['textmode']['stroke'] = 0.0;
-        }
+        // A length that carries a unit is a string, so the width is resolved
+        // before it is compared.
+        $strokewidth = $svgstyle['stroke'] === 'none'
+            ? 0.0
+            : $this->svgStrokeUnitToUnit($svgstyle['stroke-width'], $soid);
+        $svgobj['textmode']['stroke'] = \max(0.0, $strokewidth);
 
         // Dominant-baseline / alignment-baseline Y offset.
         $svgobj['textmode']['baseline'] = $svgstyle['dominant-baseline'];
@@ -7857,10 +8937,19 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
         $this->svgobjs[$soid]['usechain'][$svgdefid] = true;
 
+        // The replayed target goes through the tag handlers, which track the XML
+        // nesting depth and the sibling chain of the selectors: the target is not
+        // a sibling of the elements that follow the <use>, and it may have no
+        // closing tag, so the state is restored.
+        $xmldepth = $svgobj['xmldepth'];
+        $selchain = $svgobj['selchain'];
+
         try {
             return $this->expandSVGUse($parser, $soid, $attr, $use);
         } finally {
             unset($this->svgobjs[$soid]['usechain'][$svgdefid]);
+            $this->svgobjs[$soid]['xmldepth'] = $xmldepth;
+            $this->svgobjs[$soid]['selchain'] = $selchain;
         }
     }
 
@@ -7900,19 +8989,21 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         // apply the <use> x/y offset, optional width/height, and the symbol's viewBox.
         if ($use['name'] === 'symbol') {
             $symAttr = $use['attr'];
-            $useX = isset($attr['x']) ? $this->svgUnitToUnit($attr['x'], $soid) : 0.0;
-            $useY = isset($attr['y']) ? $this->svgUnitToUnit($attr['y'], $soid) : 0.0;
+            // The inner viewport is built from SVG user units, so the lengths are
+            // resolved in that space rather than in document units.
+            $useX = isset($attr['x']) ? $this->svgLengthToSVGUnit($attr['x'], $soid) : 0.0;
+            $useY = isset($attr['y']) ? $this->svgLengthToSVGUnit($attr['y'], $soid) : 0.0;
             if (isset($attr['width'])) {
-                $useW = $this->svgUnitToUnit($attr['width'], $soid);
+                $useW = $this->svgLengthToSVGUnit($attr['width'], $soid);
             } elseif (isset($symAttr['width'])) {
-                $useW = $this->svgUnitToUnit($symAttr['width'], $soid);
+                $useW = $this->svgLengthToSVGUnit($symAttr['width'], $soid);
             } else {
                 $useW = 0.0;
             }
             if (isset($attr['height'])) {
-                $useH = $this->svgUnitToUnit($attr['height'], $soid);
+                $useH = $this->svgLengthToSVGUnit($attr['height'], $soid);
             } elseif (isset($symAttr['height'])) {
-                $useH = $this->svgUnitToUnit($symAttr['height'], $soid);
+                $useH = $this->svgLengthToSVGUnit($symAttr['height'], $soid);
             } else {
                 $useH = 0.0;
             }
@@ -7921,8 +9012,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             if (($useW <= 0.0 || $useH <= 0.0) && isset($symAttr['viewBox']) && $symAttr['viewBox'] !== '') {
                 $viewBoxVals = \preg_split('/[\s,]+/', \trim($symAttr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
                 if (\is_array($viewBoxVals) && isset($viewBoxVals[2], $viewBoxVals[3])) {
-                    $vbw = \abs($this->svgUnitToUnit($viewBoxVals[2], $soid));
-                    $vbh = \abs($this->svgUnitToUnit($viewBoxVals[3], $soid));
+                    $vbw = \abs($this->svgLengthToSVGUnit($viewBoxVals[2], $soid));
+                    $vbh = \abs($this->svgLengthToSVGUnit($viewBoxVals[3], $soid));
                     if ($useW <= 0.0 && $vbw > 0.0) {
                         $useW = $vbw;
                     }
@@ -7967,23 +9058,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             if (isset($symAttr['style']) && $symAttr['style'] !== '') {
                 $symbolStyleTag = $symAttr['style'][0] === ';' ? $symAttr['style'] : ';' . $symAttr['style'];
             }
-            foreach (self::SVGINHPROP as $styleKey) {
-                if (isset($symAttr[$styleKey]) && \is_string($symAttr[$styleKey]) && $symAttr[$styleKey] !== '') {
-                    $useStyle[$styleKey] = $symAttr[$styleKey];
-                } elseif ($symbolStyleTag !== '') {
-                    $styleDefault = $useStyle[$styleKey] ?? '';
-                    $useStyle[$styleKey] = $this->parseCSSAttrib(
-                        $symbolStyleTag,
-                        $styleKey,
-                        \is_scalar($styleDefault) ? (string) $styleDefault : '',
-                    );
-                }
-            }
+            $this->mergeSVGInheritedStyle($useStyle, $symAttr, $symbolStyleTag);
 
             if (isset($symAttr['transform']) && $symAttr['transform'] !== '') {
-                $useTransform = \is_array($useStyle['transfmatrix']) ? $useStyle['transfmatrix'] : self::TMXID;
                 $useStyle['transfmatrix'] = $this->graph->getCtmProduct(
-                    $useTransform,
+                    $this->toSVGTransformMatrix($useStyle['transfmatrix'] ?? null),
                     $this->getSVGTransformMatrix($symAttr['transform']),
                 );
             }
@@ -7993,39 +9072,25 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             if (isset($svglikeAttr['style']) && $svglikeAttr['style'] !== '') {
                 $styleTag = $svglikeAttr['style'][0] === ';' ? $svglikeAttr['style'] : ';' . $svglikeAttr['style'];
             }
-            foreach (self::SVGINHPROP as $styleKey) {
-                if (
-                    isset($svglikeAttr[$styleKey])
-                    && \is_string($svglikeAttr[$styleKey])
-                    && $svglikeAttr[$styleKey] !== ''
-                ) {
-                    $useStyle[$styleKey] = $svglikeAttr[$styleKey];
-                } elseif ($styleTag !== '') {
-                    $styleDefault = $useStyle[$styleKey] ?? '';
-                    $useStyle[$styleKey] = $this->parseCSSAttrib(
-                        $styleTag,
-                        $styleKey,
-                        \is_scalar($styleDefault) ? (string) $styleDefault : '',
-                    );
-                }
-            }
+            $this->mergeSVGInheritedStyle($useStyle, $svglikeAttr, $styleTag);
 
             if (isset($svglikeAttr['transform']) && $svglikeAttr['transform'] !== '') {
-                $useTransform = \is_array($useStyle['transfmatrix']) ? $useStyle['transfmatrix'] : self::TMXID;
                 $useStyle['transfmatrix'] = $this->graph->getCtmProduct(
-                    $useTransform,
+                    $this->toSVGTransformMatrix($useStyle['transfmatrix'] ?? null),
                     $this->getSVGTransformMatrix($svglikeAttr['transform']),
                 );
             }
 
-            if (!\is_array($useStyle['transfmatrix'])) {
-                $useStyle['transfmatrix'] = self::TMXID;
-            }
+            $useStyle['transfmatrix'] = $this->toSVGTransformMatrix($useStyle['transfmatrix'] ?? null);
 
             /** @var TSVGStyle $useStyleTyped */
             $useStyleTyped = $useStyle;
 
             $out .= $this->parseSVGTagSTARTsvg($parser, $soid, $svglikeAttr, $useStyleTyped, $defStyle);
+
+            // The replayed children append to the object output buffer, so the
+            // viewport transform has to reach it before they do.
+            $svgobj['out'] .= $out;
 
             // Replay each child element stored under the symbol def.
             if (isset($use['child']) && $use['child'] !== []) {
@@ -8045,21 +9110,21 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 }
             }
 
-            $out .= $this->parseSVGTagENDsvg($soid);
+            $svgobj['out'] .= $this->parseSVGTagENDsvg($soid);
             // parseSVGTagENDsvg calls parseSVGTagENDg which decrements tagdepth via its
             // own stack pop; we also decremented it above, so restore the balance.
             if (isset($this->svgobjs[$soid]['tagdepth'])) {
                 $this->svgobjs[$soid]['tagdepth'] -= 1;
             }
-            return $out;
+            return '';
         }
 
-        if (isset($use['attr']['x'], $attr['x'])) {
-            $attr['x'] = \strval(\floatval($attr['x']) + \floatval($use['attr']['x']));
-        }
-        if (isset($use['attr']['y'], $attr['y'])) {
-            $attr['y'] = \strval(\floatval($attr['y']) + \floatval($use['attr']['y']));
-        }
+        // The x and y of a use element translate the referenced content; they are
+        // not attributes of that content (SVG 1.1 section 5.6).
+        $shiftX = isset($attr['x']) ? $this->svgLengthToSVGUnit($attr['x'], $soid) : 0.0;
+        $shiftY = isset($attr['y']) ? $this->svgLengthToSVGUnit($attr['y'], $soid) : 0.0;
+        unset($attr['x'], $attr['y'], $attr['width'], $attr['height']);
+
         if (!isset($attr['style']) || $attr['style'] === '') {
             $attr['style'] = '';
         }
@@ -8067,14 +9132,57 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             // merge styles
             $attr['style'] = \str_replace(';;', ';', ';' . $use['attr']['style'] . $attr['style']);
         }
+        $useTransform = $attr['transform'] ?? '';
+        $targetTransform = $use['attr']['transform'] ?? '';
+
         /** @var TSVGAttributes $attr */
         $attr = \array_merge($use['attr'], $attr);
+        unset($attr['id']);
+
+        // The x/y translation belongs to the <use> element: it applies inside the
+        // transform of the <use> and outside the transform of the target.
+        $transforms = [];
+        if ($useTransform !== '') {
+            $transforms[] = $useTransform;
+        }
+
+        if ($shiftX !== 0.0 || $shiftY !== 0.0) {
+            $transforms[] = \sprintf('translate(%F %F)', $shiftX, $shiftY);
+        }
+
+        if ($targetTransform !== '') {
+            $transforms[] = $targetTransform;
+        }
+
+        if ($transforms !== []) {
+            $attr['transform'] = \implode(' ', $transforms);
+        }
+
         $useName = $this->normalizeSVGNodeName($use['name']);
         if ($useName === '') {
             return '';
         }
 
         $this->handleSVGTagStart($parser, $useName, $attr, $soid);
+
+        // A container target carries its subtree, including the sentinel for its
+        // own closing tag, in the defs entry: without the replay the container is
+        // opened and never filled or closed.
+        if (isset($use['child']) && $use['child'] !== []) {
+            foreach ($use['child'] as $child) {
+                $childName = $this->normalizeSVGNodeName($child['name']);
+                if ($childName === '') {
+                    continue;
+                }
+
+                if (isset($child['attr']['closing_tag'])) {
+                    $this->handleSVGTagEnd($parser, $childName);
+                } else {
+                    $this->handleSVGTagStart($parser, $childName, $child['attr'], $soid);
+                }
+            }
+        }
+
         return '';
     }
 
@@ -8325,6 +9433,51 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
+     * Pre-scan SVG data to collect the stylesheets before the main parse.
+     *
+     * A CSS rule applies to the whole document, while the main parser matches the
+     * rules as it emits the elements, so the stylesheets are collected first and
+     * the <style> content is discarded during the main parse.
+     *
+     * @param string $data Raw SVG XML string.
+     * @param int    $soid SVG object ID.
+     */
+    protected function prescanSVGStyleSheets(string $data, int $soid): void
+    {
+        $styledepth = 0;
+        $buffer = '';
+        $startHandler = function (\XMLParser $xmlParser, string $name, array $attr) use (&$styledepth): void {
+            unset($xmlParser, $attr);
+            if ($this->removeTagNamespace($name) === 'style') {
+                ++$styledepth;
+            }
+        };
+        $endHandler = function (\XMLParser $xmlParser, string $name) use ($soid, &$styledepth, &$buffer): void {
+            unset($xmlParser);
+            if ($this->removeTagNamespace($name) !== 'style' || $styledepth <= 0) {
+                return;
+            }
+
+            --$styledepth;
+            $this->addSVGStyleSheet($soid, $buffer);
+            $buffer = '';
+        };
+        $dataHandler = static function (\XMLParser $xmlParser, string $text) use (&$styledepth, &$buffer): void {
+            unset($xmlParser);
+            if ($styledepth > 0) {
+                $buffer .= $text;
+            }
+        };
+
+        $scanner = \xml_parser_create('UTF-8');
+        \xml_parser_set_option($scanner, XML_OPTION_CASE_FOLDING, 0);
+        \xml_set_element_handler($scanner, $startHandler, $endHandler);
+        \xml_set_character_data_handler($scanner, $dataHandler);
+        \xml_parse($scanner, $data);
+        unset($scanner);
+    }
+
+    /**
      * Normalize XML parser callback attributes for gradient prescan handlers.
      *
      * @param array<int|string, mixed> $xmlAttr Raw XML callback attributes.
@@ -8539,7 +9692,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid] = self::SVGDEFOBJ;
         $this->svgobjs[$soid]['dir'] = $imgdir;
         $this->svgobjs[$soid]['markupresources'] = $useMarkupResources;
+        $this->svgobjs[$soid]['refunitval']['page']['width'] = $this->toPoints($this->page->getPage()['width']);
         $this->svgobjs[$soid]['refunitval']['page']['height'] = $this->toPoints($pageheight);
+        // The viewBox is the viewport the relative units resolve against.
+        $this->svgobjs[$soid]['refunitval']['viewport']['width'] = $this->toPoints($sizeWidth);
+        $this->svgobjs[$soid]['refunitval']['viewport']['height'] = $this->toPoints($sizeHeight);
 
         $out = '';
         $out .= $this->graph->getStartTransform();
@@ -8558,6 +9715,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             5 => $fsy + $svgoffset_y,
         ];
 
+        // The group transparency groups are emitted inside this transform.
+        $this->svgobjs[$soid]['placement'] = $ctm;
+
         $out .= $this->graph->getTransformation($ctm);
 
         $this->svgobjs[$soid]['out'] .= $out;
@@ -8566,6 +9726,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         // references (e.g. <defs> at the end of the file) are available
         // when elements that use them are processed during the main parse.
         $this->prescanSVGGradients($data, $soid);
+
+        // Pre-scan the stylesheets so that the rules also reach the elements
+        // that precede their <style> element.
+        $this->prescanSVGStyleSheets($data, $soid);
 
         // creates a new XML parser to be used by the other XML functions
         $parser = \xml_parser_create('UTF-8');

@@ -843,9 +843,12 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
         return $this->extractPemCertificates($content);
     }
 
-    public function exposeGetPatternDict(): string
+    /**
+     * @param array<string> $keys
+     */
+    public function exposeGetPatternEntriesByKeys(array $keys): string
     {
-        return $this->getPatternDict();
+        return $this->getPatternEntriesByKeys($keys);
     }
 
     /** @throws \Throwable */
