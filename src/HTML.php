@@ -9315,7 +9315,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (isset($hrc['fontcache'][$cachekey])) {
             // Re-insert when the active font differs from the cached one. The font key
             // and size alone are not enough because distinct stretching/spacing values
-            // share the same key, so compare those too.
+            // share the same key, and so do the styles a family does not ship and that
+            // are synthesized from the one font it does; compare those too.
             $curfont = $this->font->getCurrentFont();
             $cursize = $curfont['size'];
             $curstretch = $curfont['stretching'];
@@ -9325,8 +9326,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if (isset($hrc['fontcache'][$cachekey]['key']) && \is_string($hrc['fontcache'][$cachekey]['key'])) {
                 $cachefontkey = $hrc['fontcache'][$cachekey]['key'];
             }
+
+            $cachefakestyle = '';
+            if (
+                isset($hrc['fontcache'][$cachekey]['fakestyle'])
+                && \is_string($hrc['fontcache'][$cachekey]['fakestyle'])
+            ) {
+                $cachefakestyle = $hrc['fontcache'][$cachekey]['fakestyle'];
+            }
+
             if (
                 $curkey !== $cachefontkey
+                || $curfont['fakestyle'] !== $cachefakestyle
                 || \abs($cursize - $fontsize) > 0.0001
                 || \abs($curstretch - $stretching) > 0.0001
                 || \abs($curspacing - $spacing) > 0.0001
@@ -9404,7 +9415,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // translucent text states from affecting later opaque text fragments.
         $alphaCmd = $this->getHTMLColorAlphaCmd($color, true);
 
-        return $fontout . $alphaCmd . $this->color->getPdfFillColor($color);
+        $out = $fontout . $alphaCmd . $this->color->getPdfFillColor($color);
+
+        // The glyphs are stroked when a stroke width is set and when a missing bold
+        // variation is synthesized; without this the outline would keep the stroke
+        // colour left by an earlier operation.
+        $fakestyle = isset($font['fakestyle']) && \is_string($font['fakestyle']) ? $font['fakestyle'] : '';
+        $strokecolor = '';
+        if ($elm['stroke'] > 0) {
+            $strokecolor = $elm['strokecolor'] === '' ? 'black' : $elm['strokecolor'];
+        } elseif ($this->getSyntheticStyle($fakestyle)['bold']) {
+            // A synthetic bold thickens the glyphs with their own colour.
+            $strokecolor = $color;
+        }
+
+        if ($strokecolor !== '') {
+            $out .= $this->color->getPdfStrokeColor($strokecolor);
+        }
+
+        return $out;
     }
 
     /**

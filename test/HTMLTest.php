@@ -22301,4 +22301,63 @@ class HTMLTest extends TestUtil
         $this->assertGreaterThan(0, \count($rm), 'sanity: MCRs must be present');
         $this->assertSame(0, $orphans, 'every MCR must reference an MCID declared on its own page');
     }
+
+    /**
+     * A stroked text run must set its own stroke colour: without it the outline
+     * keeps the stroke colour left by an earlier operation.
+     *
+     * @throws \Throwable
+     */
+    public function testHTMLStrokedTextSetsStrokeColor(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        // The stroke colour differs from the text colour, so an outline drawn with
+        // the fill colour or with the inherited black is told apart from a correct one.
+        $html = '<p style="color:red">plain <span stroke="0.3" strokecolor="blue">stroked</span></p>';
+
+        $frag = $obj->getHTMLCell($html, 0, 0, 120, 30);
+        $pos = \strpos($frag, '(stroked) Tj');
+        $this->assertNotFalse($pos);
+
+        $this->assertStringContainsString(
+            '0.000000 0.000000 1.000000 RG',
+            \substr($frag, 0, $pos),
+            'The outline must use the requested stroke colour.',
+        );
+    }
+
+    /**
+     * The 'w' operator outlives the text object, so it is written only for a
+     * stroked run and the previous line width is restored after it.
+     *
+     * @throws \Throwable
+     */
+    public function testHTMLTextDoesNotLeakStrokeLineWidth(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $plain = $obj->getHTMLCell('<p>plain</p>', 0, 0, 120, 30);
+        $this->assertStringContainsString('(plain) Tj', $plain);
+        $this->assertDoesNotMatchRegularExpression(
+            '~[0-9.]+ w\s~',
+            $plain,
+            'Text that is not stroked must not set the line width.',
+        );
+
+        $stroked = $obj->getHTMLCell('<p><span stroke="0.3">bold</span></p>', 0, 0, 120, 30);
+        $pos = \strpos($stroked, '(bold) Tj');
+        $this->assertNotFalse($pos);
+        $this->assertSame(1, \preg_match_all('~0\.225000 w~', $stroked));
+
+        $after = \substr($stroked, $pos);
+        $this->assertMatchesRegularExpression(
+            '~[0-9.]+ w\s~',
+            $after,
+            'The line width must be restored after the stroked glyphs.',
+        );
+        $this->assertStringNotContainsString('0.225000 w', $after);
+    }
 }

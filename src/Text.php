@@ -106,6 +106,16 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     protected const TEXTCELL_MIN_FONTSIZE = 4.0;
 
     /**
+     * Divisor of the font size giving the stroke width of the synthetic bold.
+     */
+    protected const SYNTHETIC_BOLD_DIVISOR = 30.0;
+
+    /**
+     * Slant of the synthetic italic in degrees.
+     */
+    protected const SYNTHETIC_ITALIC_ANGLE = 11.0;
+
+    /**
      * Code points that never provide a line break opportunity:
      * Unicode Line_Break GL (glue) and WJ (word joiner).
      *
@@ -184,6 +194,13 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @var bool
      */
     protected bool $autozerowidthbreaks = false;
+
+    /**
+     * Synthetic style rendering parameters, indexed by the style to synthesize.
+     *
+     * @var array<string, array{bold: bool, shear: float}>
+     */
+    protected array $synthstyle = [];
 
     /**
      * Returns the PDF code to render a text block inside a rectangular cell.
@@ -2834,13 +2851,24 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         /**
          * @var array{
          *     ascent: float,
+         *     fakestyle: string,
          *     height: float,
          *     outraw: string,
+         *     size: float,
          *     spacing: float,
          *     stretching: float,
          *     ut: float,
          * } $curfont
          */
+        $synth = $this->getSyntheticStyle($curfont['fakestyle']);
+
+        // Text that is neither filled nor stroked is invisible or a clipping source, so
+        // stroking it to synthesize the bold would paint glyphs that must not be painted.
+        if ($synth['bold'] && ($fill || $stroke)) {
+            $stroke = true;
+            $strokewidth = \max($strokewidth, $this->toUnit($curfont['size'] / self::SYNTHETIC_BOLD_DIVISOR));
+        }
+
         $this->bbox[] = [
             'x' => $posx,
             'y' => $posy - $this->toUnit($curfont['ascent']),
@@ -2850,10 +2878,21 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         $out = $this->getJustifiedString($txt, $ordarr, $dim, $width);
 
-        $out = $this->getOutTextPosXY($out, $posx, $posy, 'Td');
+        // The glyph origin sits on the baseline, so the shear leans the ascenders to the
+        // right and the descenders to the left, as a real italic does.
+        $out = $synth['shear'] === 0.0
+            ? $this->getOutTextPosXY($out, $posx, $posy, 'Td')
+            : $this->getOutTextPosMatrix($out, [
+                1.0,
+                0.0,
+                $synth['shear'],
+                1.0,
+                $this->toPoints($posx),
+                $this->toYPoints($posy),
+            ]);
 
         $trmode = $this->getTextRenderingMode($fill, $stroke, $clip);
-        $out = $this->getOutTextStateOperatorw($out, $this->toPoints($strokewidth));
+        $out = $this->getOutTextStateOperatorw($out, $this->toPoints($strokewidth), $stroke);
         $out = $this->getOutTextStateOperatorTr($out, $trmode);
         $out = $this->getOutTextStateOperatorTw($out, $this->toPoints($wordspacing));
         $out = $this->getOutTextStateOperatorTc($out, $curfont['spacing']);
@@ -3186,6 +3225,33 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
+     * Returns the synthetic style to apply for the specified font style.
+     *
+     * A family that ships no definition file for the requested variation resolves to its
+     * base font, which reports the variation as one to synthesize. The style is then
+     * painted by the text operators: bold by stroking the glyphs, italic by shearing the
+     * text matrix.
+     *
+     * @param string $fakestyle Style the font does not provide ('', 'B', 'I' or 'BI').
+     *
+     * @return array{bold: bool, shear: float} Stroking flag and text matrix shear (0 = upright).
+     */
+    protected function getSyntheticStyle(string $fakestyle): array
+    {
+        if (isset($this->synthstyle[$fakestyle])) {
+            return $this->synthstyle[$fakestyle];
+        }
+
+        $synth = [
+            'bold' => \str_contains($fakestyle, 'B'),
+            'shear' => \str_contains($fakestyle, 'I') ? \tan(\deg2rad(self::SYNTHETIC_ITALIC_ANGLE)) : 0.0,
+        ];
+
+        $this->synthstyle[$fakestyle] = $synth;
+        return $synth;
+    }
+
+    /**
      * Get the PDF code for the Tc (character spacing) Text State Operator.
      *
      * @param string    $raw   Raw PDf data to be wrapped by this command.
@@ -3277,14 +3343,29 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
-     * Get the PDF code for the w (stroke width) Text State Operator.
+     * Get the PDF code for the w (stroke width) Operator.
      *
-     * @param string    $raw   Raw PDf data to be wrapped by this command.
-     * @param int|float $value Raw value to apply in internal units.
+     * The 'w' operator sets a general graphics state parameter that outlives the text
+     * object, so it is written only when the text is stroked and the width in effect
+     * before the text is restored after it.
+     *
+     * @param string    $raw      Raw PDf data to be wrapped by this command.
+     * @param int|float $value    Raw value to apply in internal units.
+     * @param bool      $stroking True when the text rendering mode strokes the glyphs.
      */
-    protected function getOutTextStateOperatorw(string $raw, int|float $value = 0): string
+    protected function getOutTextStateOperatorw(string $raw, int|float $value = 0, bool $stroking = true): string
     {
-        return \sprintf('%F w ' . $this->escapePerc($raw), $value > 0 ? $value : 0);
+        if (!$stroking) {
+            return $raw;
+        }
+
+        $prev = $this->graph->getLastStyleProperty('lineWidth', 1.0 / $this->kunit);
+
+        return \sprintf(
+            '%F w ' . $this->escapePerc($raw) . ' %F w',
+            $value > 0 ? $value : 0,
+            $this->toPoints(\is_numeric($prev) ? (float) $prev : 1.0 / $this->kunit),
+        );
     }
 
     /**

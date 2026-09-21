@@ -1653,6 +1653,14 @@ class TextTest extends TestUtil
         $this->assertStringContainsString('2 Tr raw', $obj->exposeGetOutTextStateOperatorTr('raw', 2));
         $this->assertStringContainsString('0.000000 w raw', $obj->exposeGetOutTextStateOperatorw('raw', -1));
 
+        // 'w' outlives the text object, so it is only written when the glyphs are
+        // stroked and the previous line width is restored after them.
+        $this->assertSame('raw', $obj->exposeGetOutTextStateOperatorw('raw', 3, false));
+        $this->assertMatchesRegularExpression('/^3\.000000 w raw [0-9.]+ w$/', $obj->exposeGetOutTextStateOperatorw(
+            'raw',
+            3,
+        ));
+
         $this->assertSame('', $obj->exposeGetOutTextPosMatrix('raw', [1, 2]));
         $this->assertStringContainsString(' Tm raw', $obj->exposeGetOutTextPosMatrix('raw', [1, 0, 0, 1, 10, 20]));
         $this->assertSame('(abc) Tj', $obj->exposeGetOutTextShowing('abc', 'Tj'));

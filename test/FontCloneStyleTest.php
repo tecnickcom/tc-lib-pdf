@@ -156,22 +156,26 @@ class FontCloneStyleTest extends TestUtil
     }
 
     /**
-     * When no definition file exists for the requested style, the artificial style must be used.
+     * When no definition file exists for the requested style, the base font is reused and
+     * the style is reported as one to synthesize when the text is drawn.
      *
      * @throws \Throwable
      */
-    public function testCloneFontFallsBackToTheArtificialStyle(): void
+    public function testCloneFontFallsBackToTheSyntheticStyle(): void
     {
         $obj = $this->getTestObject();
         $obj->addPage();
-        $obj->font->insert($obj->pon, 'dejavumathtexgyre', '', 12);
+        $regular = $obj->font->insert($obj->pon, 'dejavumathtexgyre', '', 12);
 
         $bold = $obj->font->cloneFont($obj->pon, null, 'B', 12);
 
-        $this->assertSame('dejavumathtexgyreB', $bold['key']);
-        $data = $this->getFontData($obj, 'dejavumathtexgyreB');
-        $this->assertTrue($data['fakestyle'], 'The artificial bold style must be enabled');
-        $this->assertTrue($data['mode']['bold']);
+        $this->assertSame('dejavumathtexgyre', $bold['key']);
+        $this->assertSame('B', $bold['style']);
+        $this->assertSame('B', $bold['fakestyle']);
+        $this->assertSame('', $regular['fakestyle']);
+
+        $data = $this->getFontData($obj, 'dejavumathtexgyre');
+        $this->assertFalse($data['mode']['bold'], 'The reused font is the regular one');
     }
 
     /** @throws \Throwable */

@@ -141,6 +141,40 @@ $pdf->page->addContent($pdf->getTextCell(txt: 'Heading', posx: 15, posy: 20, wid
 
 With a byte font (Core, TrueType, Type1) a mismatch only affects the metrics used for layout, since the character codes mean the same thing in every font. With a `TrueTypeUnicode` font the codes are the glyph indices of the font that encoded them, so a mismatch would draw unrelated glyphs: a text object using such a font therefore selects it explicitly, and the current font of the stack wins over any operator previously added to the page.
 
+### Missing Style Variations
+
+A family ships one definition file per style variation, named after the font key: `unifont.json`, `unifontb.json`, `unifonti.json`, `unifontbi.json`. When the file of the requested style is absent the regular one is loaded in its place and the style is painted by the text operators:
+
+| Style | Rendering |
+|-------|-----------|
+| bold | the glyphs are stroked as well as filled (text rendering mode 2), with a stroke width of a thirtieth of the font size |
+| italic | the text matrix is sheared by the italic angle of the fallback descriptor (11 degrees) |
+
+Nothing has to be enabled. `<b>`, `<i>`, the CSS `font-weight` and `font-style` properties and the `B` / `I` style arguments of `font->insert()` work the same whether the variation exists or not. GNU Unifont, which has no bold and no italic, is the case this covers. See [examples/E052_custom_fonts_fallback.php](../examples/E052_custom_fonts_fallback.php).
+
+Every style of such a family resolves to the one font it does ship, so the glyph program is held in memory once and embedded once no matter how many styles the document uses, and `/BaseFont` names the font that is actually embedded. `font->insert()` returns the requested style in `style` and the part of it being synthesized in `fakestyle`:
+
+```php
+$bold = $pdf->font->insert($pdf->pon, 'unifont', 'B', 12);
+// $bold['key'] === 'unifont', $bold['style'] === 'B', $bold['fakestyle'] === 'B'
+```
+
+A font that does provide the requested variation is never synthesized, and `fakestyle` is then empty.
+
+Limitations:
+
+- **The painted glyphs are wider than the advance they were measured with.** Only the drawing changes; the advance widths that drive line breaking, justification and cell fitting come from the font definition and are untouched, so a synthetic style lays out exactly like the regular one and a document does not reflow. The cost is that the ink spills past the box it was measured in: a stroked stem by half the stroke width on each edge, and a sheared ascender by the slant times the ascent, which at 18 pt Unifont is about 1.2 mm at the end of a run. A synthetic italic run can therefore touch the run that follows it, and an inline background, border or link rectangle can stop short of the ink. A designed italic absorbs this in its side bearings; a synthesized one cannot.
+- **A synthetic bold is stroked with the current stroke colour.** The HTML renderer sets it to the text colour. A caller of `getTextCell()` or `getTextLine()` sets the fill colour itself and must set the stroke colour alongside it, otherwise a coloured synthetic bold is outlined in the stroke colour left by an earlier operation:
+
+```php
+$pdf->page->addContent($pdf->color->getPdfFillColor('red') . $pdf->color->getPdfStrokeColor('red'));
+```
+
+- **Underline, overline and line-through are drawn as rectangles after the text object**, so they are neither sheared with a synthetic italic nor thickened with a synthetic bold.
+- **Text that is neither filled nor stroked is left alone**, so invisible text and text used as a clipping source are not emboldened.
+
+Text extraction, search, `ActualText` and tagging are unaffected: the glyph codes do not change. A real bold or italic font is always preferable; the synthesis is a fallback.
+
 ## Third-Party Fonts
 
 PHP font metadata files under the fonts directory are covered by the project license (GNU LGPL v3). They can be regenerated with the built-in font utilities.

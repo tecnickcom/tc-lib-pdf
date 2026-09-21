@@ -108,9 +108,9 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getOutTextStateOperatorTs($raw, $value);
     }
 
-    public function exposeGetOutTextStateOperatorw(string $raw, int|float $value = 0): string
+    public function exposeGetOutTextStateOperatorw(string $raw, int|float $value = 0, bool $stroking = true): string
     {
-        return $this->getOutTextStateOperatorw($raw, $value);
+        return $this->getOutTextStateOperatorw($raw, $value, $stroking);
     }
 
     /** @phpstan-param array<int, int|float> $matrix */

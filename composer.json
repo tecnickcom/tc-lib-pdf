@@ -38,7 +38,7 @@
     "tecnickcom/tc-lib-barcode": "^2.16",
     "tecnickcom/tc-lib-color": "^3.0",
     "tecnickcom/tc-lib-pdf-image": "^3.14",
-    "tecnickcom/tc-lib-pdf-font": "^4.3",
+    "tecnickcom/tc-lib-pdf-font": "^4.4",
     "tecnickcom/tc-lib-file": "^3.9",
     "tecnickcom/tc-lib-pdf-encrypt": "^2.11",
     "tecnickcom/tc-lib-pdf-sign": "^2.0",

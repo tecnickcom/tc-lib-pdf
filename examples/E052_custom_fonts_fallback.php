@@ -15,6 +15,7 @@ declare(strict_types=1);
  *   (Latin + Greek + Cyrillic + IPA), unifont (full Unicode BMP).
  * - HTML font-family CSS mapping to pre-loaded font slots.
  * - Per-script font selection in addHTMLCell markup.
+ * - Synthetic bold and italic for a family that ships no such variation.
  *
  * Companion libraries: tc-lib-pdf-font, tc-lib-unicode, tc-lib-unicode-data.
  *
@@ -89,6 +90,10 @@ $fDejavu = $pdf->font->insert($pdf->pon, 'dejavusans', '', 11);
 // Hebrew, Thai, Devanagari, and many additional scripts.
 // File size is large; use subset=true when embedding it in production PDFs.
 $fUnifont = $pdf->font->insert($pdf->pon, 'unifont', '', 11);
+
+// DejaVu Sans ExtraLight: a family that ships no bold and no italic variation,
+// used below to show how those styles are synthesized.
+$fExtraLight = $pdf->font->insert($pdf->pon, 'dejavusansextralight', '', 11);
 
 // ===| Page 1 – Font Coverage Overview |=====================================
 
@@ -190,6 +195,66 @@ $unifontHtml = '<h2 style="font-family: unifont; font-size: 11pt; font-weight: n
     This minimises file size while ensuring every glyph is available.
 </p>';
 $pdf->addHTMLCell(html: $unifontHtml, posx: 15, posy: 20, width: 175);
+
+// ===| Page 4 – Synthetic bold and italic |==================================
+
+// A family ships one definition file per style variation, named after the font key:
+// unifont.json, unifontb.json, unifonti.json, unifontbi.json. GNU Unifont and DejaVu
+// Sans ExtraLight ship only the regular one, so the other three styles resolve to it
+// and the requested style is painted by the text operators: bold strokes the glyphs
+// with a width of a thirtieth of the font size, italic shears the text matrix.
+//
+// Nothing has to be enabled: <b>, <i> and the CSS font-weight and font-style
+// properties work the same whether the variation exists or not.
+//
+// The four styles are one font: the glyph program is the same, so it is held once and
+// embedded once no matter how many styles the document uses.
+
+$pdf->addPage(['format' => 'A4']);
+$pdf->page->addContent($fUnifont['out']);
+
+$syntheticHtml = '<h2 style="font-family: helvetica;">Synthetic Bold &amp; Italic</h2>
+<p style="font-family: helvetica; font-size: 10pt;">
+    Helvetica ships all four style variations, so each one below is a distinct font program:
+</p>
+<p style="font-family: helvetica; font-size: 13pt;">
+    Regular · <b>Bold</b> · <i>Italic</i> · <b><i>Bold Italic</i></b>
+</p>
+<p style="font-family: helvetica; font-size: 10pt;">
+    Unifont ships only the regular one, so the other three are painted from it:
+</p>
+<p style="font-family: unifont; font-size: 11pt;">
+    Regular · <b>Bold</b> · <i>Italic</i> · <b><i>Bold Italic</i></b>
+</p>
+<p style="font-family: helvetica; font-size: 10pt;">
+    The same applies to an outline font such as DejaVu Sans ExtraLight:
+</p>
+<p style="font-family: dejavusansextralight; font-size: 13pt;">
+    Regular · <b>Bold</b> · <i>Italic</i> · <b><i>Bold Italic</i></b>
+</p>
+<p style="font-family: dejavusansextralight; font-size: 13pt; color: #cc0000;">
+    A coloured <b>synthetic bold</b> is outlined in its own colour.
+</p>
+<hr/>
+<h3 style="font-family: helvetica;">What to expect</h3>
+<ul style="font-family: helvetica; font-size: 10pt;">
+    <li>The advance widths never change, so a synthetic style wraps and justifies exactly
+        like the regular one and the document does not reflow.</li>
+    <li>The painted glyphs are wider than the advance they were measured with: a stroked
+        stem spills half the stroke width past each edge, and a sheared ascender leans
+        past the end of the run by the slant times the ascent. A synthetic italic run can
+        touch the run that follows it.</li>
+    <li>Only the drawing operators change, so text extraction, search and tagging are
+        unaffected.</li>
+    <li>A real bold or italic font is always better. The synthesis is a fallback, not a
+        substitute for a designed variation.</li>
+</ul>
+<p style="font-family: helvetica; font-size: 10pt;">
+    Low-level callers of getTextCell() and getTextLine() set the fill colour themselves,
+    and must set the stroke colour alongside it for a synthetic bold in a colour other
+    than black. The HTML renderer does it automatically.
+</p>';
+$pdf->addHTMLCell(html: $syntheticHtml, posx: 15, posy: 20, width: 175);
 
 // ----------
 
