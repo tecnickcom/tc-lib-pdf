@@ -182,7 +182,9 @@ class PageResolver
             }
 
             $nodeDict = $this->dict->objectToDict($src->getObject($ref));
-            $nodeType = isset($nodeDict['Type']) && \is_string($nodeDict['Type']) ? \ltrim($nodeDict['Type'], '/') : '';
+            $nodeType = \is_string($nodeDict['Type'] ?? null) && \str_starts_with($nodeDict['Type'], '/')
+                ? \substr($nodeDict['Type'], 1)
+                : '';
             if ($nodeType === 'Page') {
                 $index[] = $this->effectivePageDict($inherited, $nodeDict);
                 continue;

@@ -317,6 +317,22 @@ class ImporterTest extends TestCase
     }
 
     /** @throws \Throwable */
+    public function testImportPageWritesEscapedResourceNamesMatchingTheContent(): void
+    {
+        $data = \file_get_contents(__DIR__ . '/../fixtures/escaped_names_import.pdf');
+        $this->assertNotFalse($data);
+
+        $importer = $this->makeImporter();
+        $srcId = $importer->setImportSourceData($data);
+        $importer->importPage($srcId, 1);
+        $out = $importer->getOutImportedObjects();
+
+        $this->assertStringContainsString('/#2FG1 gs /CS#200 cs', $out);
+        $this->assertMatchesRegularExpression('#/ColorSpace << /CS\#200 \d+ 0 R >>#', $out);
+        $this->assertMatchesRegularExpression('#/ExtGState << /\#2FG1 \d+ 0 R >>#', $out);
+    }
+
+    /** @throws \Throwable */
     public function testImportPageReportsUnextractableContentStream(): void
     {
         // /Contents points to a dictionary that carries no stream.

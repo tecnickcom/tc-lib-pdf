@@ -683,6 +683,105 @@ class ResourceClonerTest extends TestCase
     }
 
     /** @throws \Throwable */
+    public function testGetContentStreamEscapesFilterNames(): void
+    {
+        $src = $this->makeMockSourceDocument([
+            '1_0' => [
+                ['<<', [['/', 'Filter'], ['/', 'My Filter']]],
+                ['stream', 'alpha'],
+            ],
+            '2_0' => [
+                [
+                    '<<',
+                    [
+                        ['/', 'Filter'],
+                        [
+                            '[',
+                            [
+                                ['/', 'ASCII85Decode'],
+                                ['/', 'My#Filter'],
+                            ],
+                        ],
+                    ],
+                ],
+                ['stream', 'alpha'],
+            ],
+        ]);
+        $cloner = new ResourceCloner(0);
+
+        $this->assertSame('/My#20Filter', $cloner->getContentStream(['Contents' => '1_0'], $src)['filter']);
+        $this->assertSame(
+            '[ /ASCII85Decode /My#23Filter ]',
+            $cloner->getContentStream(['Contents' => '2_0'], $src)['filter'],
+        );
+    }
+
+    /** @throws \Throwable */
+    public function testCloneResourcesEscapesNames(): void
+    {
+        $src = $this->loadFixture();
+        $map = new ObjectMap();
+        $cloner = new ResourceCloner(0);
+
+        $output = $cloner->cloneResources(
+            [
+                'Color Space' => '/Device RGB',
+                'ColorSpace' => [
+                    'CS 1' => '/Spot Color',
+                    'CS2' => ['/Separation', '/HKS 13', '/DeviceCMYK'],
+                ],
+                'Properties' => ['MC0' => ['/Key' => '/(Value)']],
+            ],
+            $src,
+            $map,
+        );
+
+        $this->assertStringContainsString('/Color#20Space /Device#20RGB', $output);
+        $this->assertStringContainsString('/CS#201 /Spot#20Color', $output);
+        $this->assertStringContainsString('/CS2 [ /Separation /HKS#2013 /DeviceCMYK ]', $output);
+        $this->assertStringContainsString('/MC0 << /#2FKey /#28Value#29 >>', $output);
+    }
+
+    /** @throws \Throwable */
+    public function testCloneResourcesWritesListAndEmptyEntries(): void
+    {
+        $src = $this->loadFixture();
+        $map = new ObjectMap();
+        $cloner = new ResourceCloner(0);
+
+        $output = $cloner->cloneResources(['ColorSpace' => ['/A', '/B'], 'Font' => []], $src, $map);
+
+        $this->assertStringContainsString('/ColorSpace [ /A /B ]', $output);
+        $this->assertStringContainsString('/Font << >>', $output);
+    }
+
+    /** @throws \Throwable */
+    public function testEnqueueObjectEscapesDictionaryKeysAndNameValues(): void
+    {
+        $src = $this->makeMockSourceDocument([
+            '1_0' => [
+                [
+                    '<<',
+                    [
+                        ['/', 'My Key'],
+                        ['/', 'Some/Value'],
+                        ['/', '/Lead'],
+                        ['[', [['/', 'Separation'], ['/', 'Spot Color']]],
+                    ],
+                ],
+            ],
+        ]);
+        $map = new ObjectMap();
+        $cloner = new ResourceCloner(0);
+
+        $cloner->enqueueObject('1_0', $src, $map);
+        $flushed = $map->flush();
+
+        $this->assertStringContainsString('/My#20Key /Some#2FValue', $flushed);
+        $this->assertStringContainsString('/#2FLead [/Separation /Spot#20Color]', $flushed);
+    }
+
+    /** @throws \Throwable */
     public function testGetContentStreamMultipleFlateRefsAreDecodedBeforeConcatenation(): void
     {
         $streamA = \gzcompress('q 1 0 0 1 10 20 cm');

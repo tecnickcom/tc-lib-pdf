@@ -51,13 +51,13 @@ class DictParserTest extends TestCase
             ['string', 'ignored-non-name-key'],
             ['/', 123],
             ['string', 'ignored-non-string-name'],
-            ['/', '/Literal'],
+            ['/', 'Literal'],
             'plain-text',
-            ['/', '/Ref'],
+            ['/', 'Ref'],
             ['objref'],
-            ['/', '/Unknown'],
+            ['/', 'Unknown'],
             ['keyword', 'fallback-value'],
-            ['/', '/Empty'],
+            ['/', 'Empty'],
             [],
         ]);
 
@@ -76,6 +76,16 @@ class DictParserTest extends TestCase
             ]),
         );
         $this->assertArrayNotHasKey('123', $parsed);
+    }
+
+    public function testParseDictArrayKeepsDecodedNames(): void
+    {
+        $parser = new DictParser();
+
+        $this->assertSame(
+            ['/G1' => '/Spot Color', 'My Key' => '/A#B'],
+            $parser->parseDictArray([['/', '/G1'], ['/', 'Spot Color'], ['/', 'My Key'], ['/', 'A#B']]),
+        );
     }
 
     /** @throws \Throwable */

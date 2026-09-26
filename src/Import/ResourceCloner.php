@@ -223,7 +223,7 @@ class ResourceCloner
                 continue; // already emitted above
             }
 
-            $out .= ' /' . $resType . ' ';
+            $out .= ' ' . PdfName::token($resType) . ' ';
             $out .= $this->cloneResourceEntry($resources[$resType] ?? null, $src, $map, $ownerNum);
         }
 
@@ -248,32 +248,12 @@ class ResourceCloner
     private function cloneResourceEntry(mixed $resVal, SourceDocument $src, ObjectMap $map, int $ownerNum): string
     {
         // Resource subdicts (Font, XObject, ExtGState, ColorSpace, Pattern, Shading) are dicts of name->ref.
-        if (\is_array($resVal)) {
-            $out = '<< ';
-            foreach (\array_keys($resVal) as $name) {
-                if (!\array_key_exists($name, $resVal)) {
-                    continue;
-                }
-
-                $out .=
-                    '/'
-                    . (string) $name
-                    . ' '
-                    . $this->serializeResourceValue($resVal[$name] ?? null, $src, $map, $ownerNum)
-                    . ' ';
-            }
-
-            $out .= '>>';
-            return $out;
+        if ($resVal === []) {
+            return '<< >>';
         }
 
-        if (\is_string($resVal)) {
-            if ($this->isIndirectRef($resVal)) {
-                $destNum = $this->enqueueObject(SourceDocument::refToKey($resVal), $src, $map);
-                return $destNum . ' 0 R';
-            }
-
-            return $this->reencryptStringToken($resVal, $ownerNum);
+        if (\is_array($resVal) || \is_string($resVal)) {
+            return $this->serializeResourceValue($resVal, $src, $map, $ownerNum);
         }
 
         return 'null';
@@ -296,12 +276,7 @@ class ResourceCloner
     private function serializeResourceValue(mixed $value, SourceDocument $src, ObjectMap $map, int $ownerNum): string
     {
         if (\is_string($value)) {
-            if ($this->isIndirectRef($value)) {
-                $destNum = $this->enqueueObject(SourceDocument::refToKey($value), $src, $map);
-                return $destNum . ' 0 R';
-            }
-
-            return $this->reencryptStringToken($value, $ownerNum);
+            return $this->serializeStringValue($value, $src, $map, $ownerNum);
         }
 
         if (\is_array($value)) {
@@ -328,8 +303,7 @@ class ResourceCloner
                 }
 
                 $out .=
-                    '/'
-                    . (string) $key
+                    PdfName::token($key)
                     . ' '
                     . $this->serializeResourceValue($value[$key] ?? null, $src, $map, $ownerNum)
                     . ' ';
@@ -347,6 +321,36 @@ class ResourceCloner
         }
 
         return 'null';
+    }
+
+    /**
+     * Serialize a string value produced by DictParser::parseValue().
+     *
+     * Indirect references are remapped, names are escaped and strings are re-encrypted.
+     *
+     * @param string         $value    String value.
+     * @param SourceDocument $src      Source document.
+     * @param ObjectMap      $map      Object map.
+     * @param int            $ownerNum Number of the object the value is written into.
+     *
+     * @return string PDF token string.
+     *
+     * @throws ImportCorruptedSourceException
+     * @throws ImportException
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
+     */
+    private function serializeStringValue(string $value, SourceDocument $src, ObjectMap $map, int $ownerNum): string
+    {
+        if ($this->isIndirectRef($value)) {
+            $destNum = $this->enqueueObject(SourceDocument::refToKey($value), $src, $map);
+            return $destNum . ' 0 R';
+        }
+
+        if (\str_starts_with($value, '/')) {
+            return PdfName::token(\substr($value, 1));
+        }
+
+        return $this->reencryptStringToken($value, $ownerNum);
     }
 
     /**
@@ -504,7 +508,7 @@ class ResourceCloner
                 continue;
             }
 
-            $key = \ltrim($pair[0][1], '/');
+            $key = $pair[0][1];
             if ($key === 'Length') {
                 continue;
             }
@@ -516,7 +520,7 @@ class ResourceCloner
                 continue;
             }
 
-            $out .= ' /' . $key . ' ' . $serializedVal;
+            $out .= ' ' . PdfName::token($key) . ' ' . $serializedVal;
             $streamDict[$key] = $serializedVal;
         }
 
@@ -554,7 +558,9 @@ class ResourceCloner
                 $map,
                 $ownerNum,
             ),
-            \is_string($raw[0] ?? null) && $raw[0] === '/' => '/' . (\is_string($raw[1] ?? null) ? $raw[1] : ''),
+            \is_string($raw[0] ?? null) && $raw[0] === '/' => PdfName::token(
+                \is_string($raw[1] ?? null) ? $raw[1] : '',
+            ),
             // Parser literal-string token `(` already carries PDF string escapes.
             \is_string($raw[0] ?? null) && $raw[0] === '(' => $this->serializeEscapedLiteralString(
                 \is_string($raw[1] ?? null) ? $raw[1] : '',
@@ -910,7 +916,7 @@ class ResourceCloner
 
                 $vArr = \is_array($valEl) ? $valEl : [];
 
-                $key = \ltrim($keyEl[1], '/');
+                $key = $keyEl[1];
                 if ($key === 'Filter') {
                     $filter = $this->extractFilterToken($vArr);
                     continue;
@@ -961,7 +967,7 @@ class ResourceCloner
         $type = $token[0];
 
         if ($type === '/' && \array_key_exists(1, $token) && \is_string($token[1])) {
-            return '/' . $token[1];
+            return PdfName::token($token[1]);
         }
 
         if ($type !== '[' || !\array_key_exists(1, $token) || !\is_array($token[1])) {
@@ -982,7 +988,7 @@ class ResourceCloner
                 continue;
             }
 
-            $names[] = '/' . $item[1];
+            $names[] = PdfName::token($item[1]);
         }
 
         if ($names === []) {
@@ -1152,7 +1158,7 @@ class ResourceCloner
                 continue;
             }
 
-            if (($pair[0][0] ?? '') !== '/' || \ltrim((string) ($pair[0][1] ?? ''), '/') !== 'EarlyChange') {
+            if (($pair[0][0] ?? '') !== '/' || ($pair[0][1] ?? '') !== 'EarlyChange') {
                 continue;
             }
 

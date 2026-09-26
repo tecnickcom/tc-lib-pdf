@@ -16,11 +16,13 @@
 
 namespace Test;
 
+use Com\Tecnick\Pdf\Import\DictParser;
 use Com\Tecnick\Pdf\Import\ImportPageOutOfRangeException;
 use Com\Tecnick\Pdf\Import\ImportResourceLimitException;
 use Com\Tecnick\Pdf\Import\ImportSourceNotFoundException;
 use Com\Tecnick\Pdf\Import\ImportUnsupportedFeatureException;
 use Com\Tecnick\Pdf\Import\PageTemplate;
+use Com\Tecnick\Pdf\Import\SourceDocument;
 use Com\Tecnick\Pdf\Tcpdf;
 use PHPUnit\Framework\TestCase;
 
@@ -47,6 +49,9 @@ class TcpdfImporterFacadeTest extends TestCase
     /** Path to a fixture with an /Encrypt trailer entry. */
     private string $encryptedPdf;
 
+    /** Path to a fixture with escaped names in resource keys, content and objects. */
+    private string $escapedNamesPdf;
+
     /**
      * @throws \Throwable
      */
@@ -63,6 +68,7 @@ class TcpdfImporterFacadeTest extends TestCase
         $this->rotatedPdf = __DIR__ . '/fixtures/rotated_import.pdf';
         $this->transparencyPdf = __DIR__ . '/fixtures/transparency_import.pdf';
         $this->encryptedPdf = __DIR__ . '/fixtures/encrypted_import_stub.pdf';
+        $this->escapedNamesPdf = __DIR__ . '/fixtures/escaped_names_import.pdf';
     }
 
     // ------------------------------------------------------------------ helpers
@@ -592,6 +598,44 @@ class TcpdfImporterFacadeTest extends TestCase
 
         $raw = $pdf->getOutPDFString();
         $this->assertStringNotContainsString('/Group << /Type /Group /S /Transparency >>', $raw);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testImportedEscapedNamesReadBackUnchanged(): void
+    {
+        $pdf = $this->makePdf();
+        $srcId = $pdf->setImportSourceFile($this->escapedNamesPdf);
+        $tpl = $pdf->importPage($srcId, 1);
+        $pdf->addPage();
+        $pdf->useImportedPage($tpl, 0, 0, 210, 297, ['keepAspectRatio' => false]);
+
+        $doc = new SourceDocument($pdf->getOutPDFString());
+        $dict = new DictParser();
+        $separation = [];
+        $resources = [];
+        foreach (\array_keys($doc->getXref()) as $ref) {
+            $obj = $doc->findObject($ref) ?? [];
+            $arr = $dict->objectToArray($obj);
+            if ($arr !== null && ($arr[0] ?? null) === '/Separation') {
+                $separation = $arr;
+            }
+
+            if (($obj[0][0] ?? null) !== '<<') {
+                continue;
+            }
+
+            $objDict = $dict->objectToDict($obj);
+            if (($objDict['Subtype'] ?? null) === '/Form' && \is_array($objDict['Resources'] ?? null)) {
+                $resources = $objDict['Resources'];
+            }
+        }
+
+        $this->assertCount(4, $separation);
+        $this->assertSame('/Spot Color', $separation[1] ?? null);
+        $this->assertSame(['CS 0'], \array_keys($dict->resolveDict($resources['ColorSpace'] ?? null, $doc)));
+        $this->assertSame(['/G1'], \array_keys($dict->resolveDict($resources['ExtGState'] ?? null, $doc)));
     }
 
     /**

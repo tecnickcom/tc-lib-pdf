@@ -239,6 +239,6 @@ final class FontInspector
      */
     private function nameValue(mixed $value): string
     {
-        return \is_string($value) ? \ltrim($value, '/') : '';
+        return \is_string($value) && \str_starts_with($value, '/') ? \substr($value, 1) : '';
     }
 }

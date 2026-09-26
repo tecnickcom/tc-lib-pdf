@@ -118,7 +118,7 @@ final class DictParser
                 continue;
             }
 
-            $key = \ltrim($pair[0][1], '/');
+            $key = $pair[0][1];
             $dict[$key] = $this->parseValue($pair[1]);
         }
 
