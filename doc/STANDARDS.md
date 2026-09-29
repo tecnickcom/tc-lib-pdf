@@ -158,6 +158,8 @@ $pdf->setDocModificationDate(1600000000);
 $pdf->setFileId('any string, or 32 hexadecimal digits');
 ```
 
+Reproducibility holds for a fixed installation: the same versions of tc-lib-pdf and its dependencies, the same PHP and zlib builds, and the same input assets such as fonts and images. The `/Producer` entry and the XMP `pdf:Producer` property include the library version, and any release can change layout, object numbering or font subsetting, so upgrading can change the output bytes.
+
 `setFileId()` drives the trailer `/ID` array and the XMP `xmpMM:InstanceID` property. A value that is not 32 hexadecimal digits is hashed to that form. It cannot be called on an encrypted document, because the encryption key is derived from the identifier chosen at construction time.
 
 XMP defines `xmpMM:DocumentID` as stable across the renditions of a document and `xmpMM:InstanceID` as unique to one saved instance, so the two never carry the same value. The document identifier is derived from the file identifier unless it is set explicitly:
