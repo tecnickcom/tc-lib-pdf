@@ -12,7 +12,7 @@ Composer does not execute scripts declared by dependencies, so add the font gene
 {
   "scripts": {
     "tc-lib-pdf-fonts": [
-      "[ -d vendor/tecnickcom/tc-lib-pdf-font ] && make -C vendor/tecnickcom/tc-lib-pdf-font deps fonts || true"
+      "@php vendor/tecnickcom/tc-lib-pdf-font/util/build_fonts.php"
     ],
     "post-install-cmd": [
       "@tc-lib-pdf-fonts"
@@ -40,18 +40,13 @@ To also cover `composer dump-autoload` (used in many CI pipelines), add the hook
 ]
 ```
 
-If you prefer to generate fonts manually, run the build in the `tc-lib-pdf-font` package:
+To generate fonts manually, run from your project root:
 
 ```bash
-cd vendor/tecnickcom/tc-lib-pdf-font
-make fonts
+php vendor/tecnickcom/tc-lib-pdf-font/util/build_fonts.php
 ```
 
-Equivalent one-liner from your project root:
-
-```bash
-make -C vendor/tecnickcom/tc-lib-pdf-font deps fonts
-```
+The build requires only PHP and Composer (no `make` or POSIX shell), so it also runs on Windows.
 
 Generated fonts are kept in `vendor/tecnickcom/tc-lib-pdf-font/target/fonts/` and are not regenerated unless explicitly rebuilt.
 

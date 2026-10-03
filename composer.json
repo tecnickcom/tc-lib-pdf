@@ -38,7 +38,7 @@
     "tecnickcom/tc-lib-barcode": "^2.16",
     "tecnickcom/tc-lib-color": "^3.0",
     "tecnickcom/tc-lib-pdf-image": "^3.14",
-    "tecnickcom/tc-lib-pdf-font": "^4.4",
+    "tecnickcom/tc-lib-pdf-font": "^4.5",
     "tecnickcom/tc-lib-file": "^3.9",
     "tecnickcom/tc-lib-pdf-encrypt": "^2.11",
     "tecnickcom/tc-lib-pdf-sign": "^2.0",
@@ -99,7 +99,7 @@
     "report": "mkdir -p target/report && vendor/bin/pdepend --jdepend-xml=target/report/dependencies.xml --summary-xml=target/report/metrics.xml --jdepend-chart=target/report/dependencies.svg --overview-pyramid=target/report/overview-pyramid.svg --ignore=vendor ./src",
     "check-deps": ["@composer validate --strict --no-check-lock", "@composer audit"],
     "qa": ["@check-deps", "@fmt-check", "@cs-check", "@analyse", "@test"],
-    "fonts": "cd vendor/tecnickcom/tc-lib-pdf-font/ && make fonts",
+    "fonts": "@php vendor/tecnickcom/tc-lib-pdf-font/util/build_fonts.php",
     "post-install-cmd": ["@fonts"],
     "post-update-cmd": ["@fonts"]
   }

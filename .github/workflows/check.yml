@@ -199,3 +199,49 @@ jobs:
         run: composer update --prefer-lowest --prefer-stable --no-interaction
       - name: Run unit tests
         run: composer run test
+
+  test-windows:
+    name: Test on php 8.5 and windows-latest
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use php 8.5
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: "8.5"
+          coverage: none
+          extensions: ctype, curl, filter, gd, hash, intl, json, mbstring, openssl, pcre, xml, zlib
+          ini-values: display_errors=on, error_reporting=-1, zend.assertions=1
+      # post-install-cmd generates the fonts without make or a POSIX shell.
+      - name: Install dependencies
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: composer install --no-interaction
+      - name: Run unit tests
+        run: composer run test
+
+  test-macos:
+    name: Test on php 8.5 and macos-latest
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use php 8.5
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: "8.5"
+          coverage: none
+          extensions: ctype, curl, filter, gd, hash, intl, json, mbstring, openssl, pcre, xml, zlib
+          ini-values: display_errors=on, error_reporting=-1, zend.assertions=1
+      # post-install-cmd generates the fonts.
+      - name: Install dependencies
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: composer install --no-interaction
+      - name: Run unit tests
+        run: composer run test
