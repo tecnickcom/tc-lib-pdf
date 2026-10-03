@@ -22360,4 +22360,589 @@ class HTMLTest extends TestUtil
         );
         $this->assertStringNotContainsString('0.225000 w', $after);
     }
+
+    /**
+     * Return the text lines drawn on a page, in content order.
+     *
+     * @return array<int, string>
+     *
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     */
+    private function getPageTjLines(\Com\Tecnick\Pdf\Tcpdf $obj, int $pid): array
+    {
+        $stream = \implode('', $obj->page->getPage($pid)['content']);
+        $match = [];
+        \preg_match_all('/\((.*?)\) Tj/', $stream, $match);
+        return \array_values(\array_map('trim', $match[1] ?? []));
+    }
+
+    /**
+     * Rebuild a paragraph from its rendered lines: a line ending with a hyphen
+     * joins the next line without a space.
+     *
+     * @param array<int, string> $lines
+     */
+    private function joinRenderedLines(array $lines): string
+    {
+        $out = '';
+        foreach ($lines as $line) {
+            if ($line === '') {
+                continue;
+            }
+
+            if ($out !== '' && !\str_ends_with($out, '-')) {
+                $out .= ' ';
+            }
+
+            $out = \rtrim($out, '-') . $line;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    private function getPagedTestObject(): \Com\Tecnick\Pdf\Tcpdf
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $obj->page->enableAutoPageBreak(true);
+        return $obj;
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLProbeTextOffsetSkipsInsertedBreakCodePoints(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $zwsp = 0x200B;
+        $shy = 0x00AD;
+        // "a,b" with an inserted ZWSP after the comma.
+        $ordarr = [0x61, 0x2C, $zwsp, 0x62];
+        $this->assertSame(0, $obj->exposeGetHTMLProbeTextOffset('a,b', $ordarr, 0, 0));
+        $this->assertSame(2, $obj->exposeGetHTMLProbeTextOffset('a,b', $ordarr, 0, 3));
+        $this->assertSame(3, $obj->exposeGetHTMLProbeTextOffset('a,b', $ordarr, 0, 4));
+        $this->assertSame(3, $obj->exposeGetHTMLProbeTextOffset('a,b', $ordarr, 0, 9));
+        // "abcd" with an inserted SHY: the offset after it maps inside the word.
+        $this->assertSame(2, $obj->exposeGetHTMLProbeTextOffset('abcd', [0x61, 0x62, $shy, 0x63, 0x64], 0, 3));
+        // A ZWSP already in the source text maps to itself.
+        $text = 'a' . \mb_chr($zwsp) . 'b';
+        $this->assertSame(2, $obj->exposeGetHTMLProbeTextOffset($text, [0x61, $zwsp, $zwsp, 0x62], 0, 3));
+        // Reordered code points without insertions: the slice length is used.
+        $this->assertSame(3, $obj->exposeGetHTMLProbeTextOffset('a bc', [0x61, 0x20, 0x63, 0x62], 0, 3));
+        // Reordered code points with insertions: inserted code points are not counted.
+        $this->assertSame(3, $obj->exposeGetHTMLProbeTextOffset('a, bc', [0x61, 0x2C, $zwsp, 0x20, 0x63, 0x62], 0, 4));
+        // RTL head slice at the array end.
+        $this->assertSame(2, $obj->exposeGetHTMLProbeTextOffset('abcd', [0x64, 0x63, 0x62, 0x61], 2, 2));
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellVerticalSplitKeepsWordsWithZeroWidthBreakPoints(): void
+    {
+        $text = \str_repeat(
+            'alpha, beta. gamma; delta, epsilon. zeta, eta; theta, iota. kappa, lambda; mu, nu. '
+            . 'xi, omicron; pi, rho. sigma, tau; upsilon, phi. chi, psi; omega. ',
+            2,
+        );
+        $text = \trim($text);
+        $splits = 0;
+
+        foreach ([281.0, 283.5, 286.0, 288.5, 291.0] as $posy) {
+            $obj = $this->getPagedTestObject();
+            $obj->enableZeroWidthBreakPoints(true);
+            $startpid = (int) $obj->page->getPageId();
+
+            $obj->addHTMLCell('<p>' . $text . '</p>', 15, $posy, 60);
+
+            $endpid = (int) $obj->page->getPageId();
+            $this->assertSame($startpid + 1, $endpid, 'posy ' . $posy . ': the paragraph must span two pages');
+            $head = $this->getPageTjLines($obj, $startpid);
+            if ($head !== []) {
+                ++$splits;
+            }
+
+            $lines = \array_merge($head, $this->getPageTjLines($obj, $endpid));
+            $this->assertSame($text, \implode(' ', $lines), 'posy ' . $posy . ': words must not be split');
+        }
+
+        $this->assertGreaterThan(0, $splits, 'at least one paragraph must be split across pages');
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellVerticalSplitKeepsHyphenAtHyphenationPoint(): void
+    {
+        $text = \trim(\str_repeat('hyphenation ', 24));
+        $hyphenSplits = 0;
+
+        for ($posy = 276.0; $posy <= 292.0; $posy += 0.5) {
+            $obj = $this->getPagedTestObject();
+            $obj->setTexHyphenPatterns(['hyphen' => 'hy3phen']);
+            $startpid = (int) $obj->page->getPageId();
+
+            $obj->addHTMLCell('<p>' . $text . '</p>', 15, $posy, 30);
+
+            $endpid = (int) $obj->page->getPageId();
+            $this->assertSame($startpid + 1, $endpid, 'posy ' . $posy . ': the paragraph must span two pages');
+            $head = $this->getPageTjLines($obj, $startpid);
+            $tail = $this->getPageTjLines($obj, $endpid);
+            $this->assertSame(
+                $text,
+                $this->joinRenderedLines(\array_merge($head, $tail)),
+                'posy ' . $posy . ': words split across pages must keep the hyphen',
+            );
+
+            $last = \end($head);
+            if ($last !== false && \str_ends_with($last, '-')) {
+                ++$hyphenSplits;
+            }
+        }
+
+        $this->assertGreaterThan(0, $hyphenSplits, 'at least one page split must fall on a hyphenation point');
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellListMarkerStaysWithItemText(): void
+    {
+        $item = \trim(\str_repeat('alpha beta gamma delta epsilon zeta eta theta ', 4));
+
+        for ($posy = 280.0; $posy <= 294.0; $posy += 0.5) {
+            $obj = $this->getPagedTestObject();
+            $startpid = (int) $obj->page->getPageId();
+
+            $obj->addHTMLCell('<ol><li>' . $item . '</li></ol>', 15, $posy, 80);
+
+            $endpid = (int) $obj->page->getPageId();
+            $markerpid = -1;
+            $textpid = -1;
+            for ($pid = $startpid; $pid <= $endpid; ++$pid) {
+                foreach ($this->getPageTjLines($obj, $pid) as $line) {
+                    if ($markerpid < 0 && \str_starts_with($line, '1.')) {
+                        $markerpid = $pid;
+                    }
+
+                    if ($textpid < 0 && \str_starts_with($line, 'alpha')) {
+                        $textpid = $pid;
+                    }
+                }
+            }
+
+            $this->assertGreaterThanOrEqual(0, $markerpid, 'posy ' . $posy . ': marker not found');
+            $this->assertSame($markerpid, $textpid, 'posy ' . $posy . ': the marker must stay with the item text');
+        }
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function inlineFormControlProvider(): array
+    {
+        return [
+            'checkbox' => ['<input type="checkbox" name="c1" /> label'],
+            'radio' => ['<input type="radio" name="r1" value="a" /> label'],
+            'text' => ['<input type="text" name="t1" /> label'],
+            'button' => ['<input type="submit" name="b1" value="go" /> label'],
+            'select' => ['<select name="s1" size="4"><option>a</option><option>b</option></select> label'],
+            'textarea' => ['<textarea name="a1" rows="8"> </textarea> label'],
+        ];
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    #[DataProvider('inlineFormControlProvider')]
+    public function testAddHTMLCellFormControlMovesToNextPageWhenItDoesNotFit(string $html): void
+    {
+        for ($posy = 260.0; $posy <= 295.0; $posy += 1.0) {
+            $obj = $this->getPagedTestObject();
+            $startpid = (int) $obj->page->getPageId();
+
+            $obj->addHTMLCell($html, 15, $posy, 120);
+
+            $endpid = (int) $obj->page->getPageId();
+            /** @var array<int, array{x: float, y: float, w: float, h: float}> $annots */
+            $annots = $this->getObjectProperty($obj, 'annotation');
+            $found = 0;
+            for ($pid = $startpid; $pid <= $endpid; ++$pid) {
+                $page = $obj->page->getPage($pid);
+                $region = $page['region'][0] ?? null;
+                $this->assertIsArray($region);
+                $bottom = $region['RY'] + $region['RH'];
+                foreach ($page['annotrefs'] as $oid) {
+                    $annot = $annots[$oid] ?? null;
+                    $this->assertIsArray($annot);
+                    ++$found;
+                    $this->assertLessThanOrEqual(
+                        $bottom + 0.01,
+                        $annot['y'] + $annot['h'],
+                        'posy ' . $posy . ': the form field must not cross the region bottom',
+                    );
+
+                    $this->assertStringContainsString(
+                        'label',
+                        \implode(' ', $this->getPageTjLines($obj, $pid)),
+                        'posy ' . $posy . ': the label must follow its form field',
+                    );
+                }
+            }
+
+            $this->assertSame(1, $found, 'posy ' . $posy . ': one form field expected');
+        }
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellImageMovesToNextPageWhenItDoesNotFit(): void
+    {
+        $img = \imagecreate(4, 2);
+        \imagecolorallocate($img, 255, 255, 255);
+        \ob_start();
+        \imagepng($img);
+        $raw = \ob_get_clean();
+        $src = 'data:image/png;base64,' . \base64_encode((string) $raw);
+
+        $obj = $this->getPagedTestObject();
+        $startpid = (int) $obj->page->getPageId();
+
+        $obj->addHTMLCell('<p>text</p><img src="' . $src . '" width="40mm" height="20mm" />', 15, 270, 120);
+
+        $endpid = (int) $obj->page->getPageId();
+        $this->assertSame($startpid + 1, $endpid);
+        $imgPattern = '/q\s+[-0-9.]+\s+0\s+0\s+([-0-9.]+)\s+[-0-9.]+\s+([-0-9.]+)\s+cm\s+\/IMG\d+\s+Do\s+Q/';
+        $first = \implode('', $obj->page->getPage($startpid)['content']);
+        $this->assertSame(0, \preg_match($imgPattern, $first));
+        $second = \implode('', $obj->page->getPage($endpid)['content']);
+        $match = [];
+        $this->assertSame(1, \preg_match($imgPattern, $second, $match));
+        $this->assertGreaterThanOrEqual(0.0, \floatval($match[2] ?? -1), 'the image must be inside the page');
+    }
+
+    /**
+     * Return the number of text lines drawn on a page and the lowest baseline in
+     * user units from the page top.
+     *
+     * @return array{0: int, 1: float}
+     *
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     */
+    private function getPageTextExtent(\Com\Tecnick\Pdf\Tcpdf $obj, int $pid): array
+    {
+        $page = $obj->page->getPage($pid);
+        $stream = \implode('', $page['content']);
+        $match = [];
+        \preg_match_all('/(-?[0-9.]+) (-?[0-9.]+) Td/', $stream, $match);
+        $ys = \array_map('floatval', $match[2] ?? []);
+        if ($ys === []) {
+            return [0, 0.0];
+        }
+
+        return [\count($ys), $page['height'] - ((\min($ys) * 25.4) / 72.0)];
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function bidiParagraphProvider(): array
+    {
+        $words = [];
+        for ($i = 0; $i < 60; ++$i) {
+            $words[] =
+                "\u{05DE}\u{05D9}\u{05DC}\u{05D4}" . \mb_chr(0x05D0 + ($i % 22)) . \mb_chr(0x05D0 + \intdiv($i, 22));
+        }
+
+        $hebrew = \implode(' ', $words);
+        return [
+            'rtl' => ['<p dir="rtl">' . $hebrew . '</p>', ''],
+            'ltr with rtl run' => ['<p>start ' . $hebrew . ' end words.</p>', ''],
+            'ltr with rtl run and zero width breaks' => ['<p>start, ' . $hebrew . ', end words.</p>', 'zw'],
+        ];
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    #[DataProvider('bidiParagraphProvider')]
+    public function testAddHTMLCellBidiParagraphSplitsInsideRegion(string $html, string $mode): void
+    {
+        $reference = $this->getPagedTestObject();
+        $this->initUnicodeFontAndPage($reference);
+        $reference->addHTMLCell($html, 15, 20, 100);
+        [$numlines] = $this->getPageTextExtent($reference, (int) $reference->page->getPageId());
+
+        foreach ([270.0, 275.0, 282.0] as $posy) {
+            $obj = $this->getTestObject();
+            $this->initUnicodeFontAndPage($obj);
+            $obj->page->enableAutoPageBreak(true);
+            $obj->enableZeroWidthBreakPoints($mode === 'zw');
+            $startpid = (int) $obj->page->getPageId();
+
+            $obj->addHTMLCell($html, 15, $posy, 100);
+
+            $endpid = (int) $obj->page->getPageId();
+            $this->assertSame($startpid + 1, $endpid, 'posy ' . $posy . ': the paragraph must span two pages');
+            [$headlines, $headbottom] = $this->getPageTextExtent($obj, $startpid);
+            [$taillines] = $this->getPageTextExtent($obj, $endpid);
+            $this->assertGreaterThan(0, $headlines, 'posy ' . $posy . ': the head must stay on the first page');
+            $this->assertLessThanOrEqual(297.0, $headbottom, 'posy ' . $posy . ': the head must stay inside the page');
+            $this->assertSame($numlines, $headlines + $taillines, 'posy ' . $posy . ': no line may be lost or added');
+        }
+    }
+
+    /**
+     * Returns the text-show operands of a page, in content stream order.
+     *
+     * @return array<int, string>
+     *
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     */
+    private function getPageGlyphTokens(\Com\Tecnick\Pdf\Tcpdf $obj, int $pid): array
+    {
+        $stream = \implode('', $obj->page->getPage($pid)['content']);
+        $matches = [];
+        \preg_match_all(
+            '/(\((?:\\\\.|[^\\\\)])*\)|<[0-9A-Fa-f]*>|\[(?:\\\\.|[^\\\\\]])*\])\s*T[jJ]/s',
+            $stream,
+            $matches,
+        );
+
+        return \array_values($matches[1] ?? []);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function bidiRunParagraphProvider(): array
+    {
+        $words = [];
+        for ($i = 0; $i < 120; ++$i) {
+            $words[] = \str_repeat(\mb_chr(0x05D0 + ($i % 22)), \max(2, 2 + \intdiv($i, 22)));
+        }
+
+        $latin = [];
+        for ($i = 0; $i < 160; ++$i) {
+            $latin[] = 'w' . $i;
+        }
+
+        $hebrew = \implode(' ', $words);
+        return [
+            'ltr with rtl run' => ['<p>start ' . $hebrew . ' end words.</p>'],
+            'rtl with ltr run' => [
+                '<p dir="rtl">' . $words[0] . ' ' . \implode(' ', $latin) . ' ' . ($words[1] ?? '') . '</p>',
+            ],
+        ];
+    }
+
+    /**
+     * A paragraph whose run of the opposite direction wraps over several lines is
+     * split across two pages with the same lines, in the same order, as when it is
+     * rendered on a single page.
+     *
+     * @throws \Throwable
+     */
+    #[DataProvider('bidiRunParagraphProvider')]
+    public function testAddHTMLCellBidiRunKeepsItsLinesAcrossAPageSplit(string $html): void
+    {
+        $reference = $this->getPagedTestObject();
+        $this->initUnicodeFontAndPage($reference);
+        $reference->addHTMLCell($html, 15, 20, 100);
+        $expected = $this->getPageGlyphTokens($reference, (int) $reference->page->getPageId());
+        $this->assertGreaterThan(3, \count($expected));
+
+        $obj = $this->getTestObject();
+        $this->initUnicodeFontAndPage($obj);
+        $obj->page->enableAutoPageBreak(true);
+        $startpid = (int) $obj->page->getPageId();
+        $obj->addHTMLCell($html, 15, 275, 100);
+        $endpid = (int) $obj->page->getPageId();
+        $this->assertSame($startpid + 1, $endpid);
+
+        $head = $this->getPageGlyphTokens($obj, $startpid);
+        $tail = $this->getPageGlyphTokens($obj, $endpid);
+        $this->assertNotSame([], $head);
+        $this->assertNotSame([], $tail);
+        $this->assertSame($expected, \array_merge($head, $tail));
+    }
+
+    /**
+     * The tail of a justified paragraph split after its first line keeps the base
+     * direction of the whole paragraph, also when it starts with an RTL word.
+     *
+     * @throws \Throwable
+     */
+    public function testJustifiedParagraphTailKeepsTheParagraphDirection(): void
+    {
+        $words = [];
+        for ($i = 0; $i < 30; ++$i) {
+            $words[] = \str_repeat(\mb_chr(0x05D0 + ($i % 22)), \max(2, 2 + \intdiv($i, 22)));
+        }
+
+        $text = 'start here ' . \implode(' ', $words) . ' end words.';
+        $lines = [];
+        foreach (['left', 'justify'] as $align) {
+            $obj = $this->getPagedTestObject();
+            $this->initUnicodeFontAndPage($obj);
+            // The following inline fragment makes the justified paragraph split per line.
+            $obj->addHTMLCell('<p style="text-align:' . $align . '">' . $text . ' <b>x</b></p>', 15, 20, 60);
+            $lines[$align] = $this->getPageGlyphTokens($obj, (int) $obj->page->getPageId());
+        }
+
+        $this->assertGreaterThan(2, \count($lines['left']));
+        $this->assertCount(\count($lines['left']), $lines['justify']);
+        // The last line is not justified, so it matches the left aligned one.
+        $this->assertSame(\array_slice($lines['left'], -2), \array_slice($lines['justify'], -2));
+    }
+
+    /**
+     * A justified paragraph followed by another inline fragment is split line by
+     * line; every line but the last is justified, also with a composite font.
+     *
+     * @throws \Throwable
+     */
+    public function testJustifiedParagraphWithFollowingFragmentJustifiesEachLine(): void
+    {
+        $words = [];
+        for ($num = 1; $num <= 40; ++$num) {
+            $words[] = 'w' . $num;
+        }
+
+        $obj = $this->getPagedTestObject();
+        $this->initUnicodeFontAndPage($obj);
+        $obj->addHTMLCell(
+            '<p style="text-align:justify">start ' . \implode(' ', $words) . ' end <b>x</b></p>',
+            15,
+            20,
+            80,
+        );
+
+        $stream = \implode('', $obj->page->getPage((int) $obj->page->getPageId())['content']);
+        $matches = [];
+        \preg_match_all('/[0-9.]+ ([0-9.]+) Td/', $stream, $matches);
+        $numlines = \count(\array_unique($matches[1] ?? []));
+        $this->assertGreaterThan(2, $numlines);
+        $this->assertSame($numlines - 1, \substr_count($stream, 'TJ'));
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellNamedDestinationFollowsMovedInlineBox(): void
+    {
+        $obj = $this->getPagedTestObject();
+        $startpid = (int) $obj->page->getPageId();
+
+        $obj->addHTMLCell('<textarea id="note" name="a1" rows="8"> </textarea>', 15, 280, 120);
+
+        /** @var array<string, array{p: int, x: float, y: float}> $dests */
+        $dests = $this->getObjectProperty($obj, 'dests');
+        $dest = $dests['note'] ?? null;
+        $this->assertIsArray($dest);
+        $this->assertSame($startpid + 1, $dest['p']);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellLineWithTallInlineImageMovesAsAWhole(): void
+    {
+        $img = \imagecreate(4, 2);
+        \imagecolorallocate($img, 255, 255, 255);
+        \ob_start();
+        \imagepng($img);
+        $raw = \ob_get_clean();
+        $src = 'data:image/png;base64,' . \base64_encode((string) $raw);
+
+        $obj = $this->getPagedTestObject();
+        $startpid = (int) $obj->page->getPageId();
+
+        $obj->addHTMLCell('<p>Label: <img src="' . $src . '" width="40mm" height="50mm" /> after</p>', 15, 257, 150);
+
+        $endpid = (int) $obj->page->getPageId();
+        $this->assertSame($startpid + 1, $endpid);
+        $this->assertSame([], $this->getPageTjLines($obj, $startpid));
+        $this->assertSame(['Label:', 'after'], $this->getPageTjLines($obj, $endpid));
+        [, $bottom] = $this->getPageTextExtent($obj, $endpid);
+        $this->assertLessThanOrEqual(297.0, $bottom);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellListMarkerStaysWithItemTextAfterItemMargin(): void
+    {
+        $item = \trim(\str_repeat('alpha beta gamma delta epsilon zeta eta theta ', 4));
+        $html = '<ol><li>first</li><li style="margin-top:4mm">' . $item . '</li></ol>';
+
+        for ($posy = 270.0; $posy <= 290.0; $posy += 0.5) {
+            $obj = $this->getPagedTestObject();
+            $startpid = (int) $obj->page->getPageId();
+
+            $obj->addHTMLCell($html, 15, $posy, 80);
+
+            $endpid = (int) $obj->page->getPageId();
+            $markerpid = -1;
+            $textpid = -1;
+            for ($pid = $startpid; $pid <= $endpid; ++$pid) {
+                foreach ($this->getPageTjLines($obj, $pid) as $line) {
+                    if ($markerpid < 0 && \str_starts_with($line, '2.')) {
+                        $markerpid = $pid;
+                    }
+
+                    if ($textpid < 0 && \str_starts_with($line, 'alpha')) {
+                        $textpid = $pid;
+                    }
+                }
+            }
+
+            $this->assertGreaterThanOrEqual(0, $markerpid, 'posy ' . $posy . ': marker not found');
+            $this->assertSame($markerpid, $textpid, 'posy ' . $posy . ': the marker must stay with the item text');
+        }
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellListItemWithoutBreakOpportunityStaysInPlace(): void
+    {
+        $obj = $this->getPagedTestObject();
+        $startpid = (int) $obj->page->getPageId();
+
+        // One line fits and the text has no break opportunity: the item stays in place.
+        $item = 'https://example.com/' . \str_repeat('abcdefghij', 20);
+        $obj->addHTMLCell('<ol><li>' . $item . '</li></ol>', 15, 290, 80);
+
+        $this->assertSame($startpid, (int) $obj->page->getPageId());
+        $lines = $this->getPageTjLines($obj, $startpid);
+        $this->assertSame('1.', $lines[0] ?? '');
+        $this->assertStringStartsWith('https://example.com/', $lines[1] ?? '');
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellBoxWithoutNextRegionDoesNotSplitBlockBackground(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $obj->page->enableAutoPageBreak(false);
+        $startpid = (int) $obj->page->getPageId();
+
+        $obj->addHTMLCell(
+            '<div style="background-color:#ff0000"><p>text</p><textarea name="a1" rows="8"> </textarea></div>',
+            15,
+            280,
+            120,
+        );
+
+        $this->assertSame($startpid, (int) $obj->page->getPageId());
+        $stream = \implode('', $obj->page->getPage($startpid)['content']);
+        $this->assertSame(1, \substr_count($stream, '1.000000 0.000000 0.000000 rg'));
+    }
 }

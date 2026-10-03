@@ -185,6 +185,16 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         return $this->pageBreak();
     }
 
+    /**
+     * @param array<int, int> $ordarr
+     *
+     * @throws \Throwable
+     */
+    public function exposeGetHTMLProbeTextOffset(string $text, array $ordarr, int $start, int $length): int
+    {
+        return $this->getHTMLProbeTextOffset($text, $ordarr, $start, $length);
+    }
+
     /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeProcessHTMLDOMText(array &$dom, string $element, int $key, int $parent): void
     {

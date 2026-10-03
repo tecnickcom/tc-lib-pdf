@@ -43,6 +43,7 @@ use Com\Tecnick\Unicode\Data\Constant as UnicodeConstant;
  * @phpstan-import-type StyleDataOpt from \Com\Tecnick\Pdf\Cell
  * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TTextDims from \Com\Tecnick\Pdf\Font\Stack
+ * @phpstan-import-type TBidiLevels from \Com\Tecnick\Pdf\Text
  * @phpstan-import-type TAnnotOpts from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TRefUnitValues from \Com\Tecnick\Pdf\Base
  * @phpstan-type THTMLTableCell array{
@@ -292,6 +293,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * and must be justified like an interior line (getTextCell jlast = false).
      */
     protected bool $htmlJustifyContinuationLine = false;
+
+    /**
+     * Set to true while rendering the head fragment of a paragraph split by
+     * splitHTMLTextForVerticalFit(). The head is sized to fit the current
+     * region, so it is not split again.
+     */
+    protected bool $htmlVerticalFitHead = false;
+
+    /**
+     * Base direction ('L' or 'R') used to prepare the text of a fragment whose
+     * element sets no direction. Set while rendering the tail of a split
+     * paragraph, so the tail keeps the base direction of the whole paragraph.
+     */
+    protected string $htmlTextBaseDir = '';
+
+    /**
+     * Word spacing of the justified line rendered by splitHTMLTextJustifyOverflow(),
+     * or null. Set while rendering the head of the split fragment: the head is a
+     * complete line, so it keeps the word spacing measured on the whole fragment.
+     */
+    protected ?float $htmlJustifyHeadWordSpacing = null;
 
     /**
      * Set to true while rendering an HTML cell once a translucent (alpha < 1)
@@ -7884,8 +7906,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $this->getHTMLFontMetric($hrc, $key);
                     $ordarr = [];
                     $dim = $this->getHTMLDefaultTextDims();
-                    $fragmentRtl = false;
-                    $this->prepareHTMLText($text, $ordarr, $dim, $forcedir, $fragmentRtl);
+                    $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
 
                     $fragmentadvance = $this->getHTMLLineAdvance($hrc, $key);
                     if ($width <= 0.0 || $ordarr === []) {
@@ -7894,16 +7915,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         continue;
                     }
 
-                    // RTL base direction reverses line order so lines[0] is the
-                    // logically-first (top) line; the count is unchanged but per-line
-                    // widths follow the top-down layout the renderer will produce.
-                    $lines = $this->splitLines(
-                        $ordarr,
-                        $dim,
-                        $this->toPoints($width),
-                        $this->toPoints($inlinewidth),
-                        $fragmentRtl,
-                    );
+                    $lines = $this->splitLines($ordarr, $dim, $this->toPoints($width), $this->toPoints($inlinewidth));
                     if ($lines === []) {
                         continue;
                     }
@@ -8122,21 +8134,197 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $this->getHTMLFontMetric($hrc, $key);
             $ordarr = [];
             $dim = $this->getHTMLDefaultTextDims();
-            $fragmentRtl = false;
-            $this->prepareHTMLText($text, $ordarr, $dim, $forcedir, $fragmentRtl);
+            $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
 
             $lineadvance = $this->getHTMLLineAdvance($hrc, $key);
             if ($width <= 0.0 || $ordarr === []) {
                 return $lineadvance;
             }
 
-            // Line count is direction-independent, but pass the RTL flag so the
-            // logical-order break matches what the renderer emits (greedy filling
-            // from the logical start can differ at the line boundary).
-            $lines = $this->splitLines($ordarr, $dim, $this->toPoints($width), 0, $fragmentRtl);
+            $lines = $this->splitLines($ordarr, $dim, $this->toPoints($width));
             return \max($lineadvance, \count($lines) * $lineadvance);
         } finally {
             $this->restoreHTMLCallerFontState($callerfont);
+        }
+    }
+
+    /**
+     * Whether the leading text of a list item would be moved to the next region
+     * by the orphans and widows rules of splitHTMLTextForVerticalFit(), leaving
+     * the list marker alone in the current region.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int $key DOM key of the opening li tag.
+     * @param float $tpy Current ordinate.
+     * @param float $width Available line width.
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Throwable
+     */
+    protected function isHTMLListItemTextDeferred(array &$hrc, int $key, float $tpy, float $width): bool
+    {
+        $li = $hrc['dom'][$key] ?? null;
+        if (!\is_array($li)) {
+            return false;
+        }
+
+        // Vertical offset added by openHTMLBlock() before the item text starts.
+        $offset = $li['padding']['T'] ?? 0.0;
+        if ($tpy > $hrc['cellctx']['originy']) {
+            $marginTop = $li['margin']['T'] ?? 0.0;
+            $collapsed = \min($hrc['cellctx']['pendingblockmarginb'], $marginTop);
+            $offset += $marginTop + $this->getHTMLTagVSpace($hrc, $key, 0) - \max(0.0, $collapsed);
+        }
+
+        $remaining = $this->getHTMLRemainingHeight($hrc, $tpy) - \max(0.0, $offset);
+        $numel = \count($hrc['dom']);
+        for ($idx = $key + 1; $idx < $numel; ++$idx) {
+            $elm = $hrc['dom'][$idx] ?? null;
+            if (!\is_array($elm)) {
+                return false;
+            }
+
+            if ($elm['tag']) {
+                if (
+                    !$elm['opening']
+                    || \in_array($elm['value'], self::HTML_BLOCK_TAGS, true)
+                    || \in_array($elm['value'], ['img', 'input', 'output', 'select', 'textarea'], true)
+                ) {
+                    return false;
+                }
+
+                continue;
+            }
+
+            $text = $this->normalizeHTMLText($hrc, $elm['value'], $idx);
+            if (\trim($text) === '') {
+                continue;
+            }
+
+            $lineadvance = $this->getHTMLLineAdvance($hrc, $idx);
+            if ($lineadvance <= 0.0) {
+                return false;
+            }
+
+            $fit = \max(1, (int) \floor(($remaining + self::WIDTH_TOLERANCE) / $lineadvance));
+            $orphans = \max(1, (int) $elm['orphans']);
+            $widows = \max(1, (int) $elm['widows']);
+            if ($fit >= ($orphans + $widows) || !$this->hasHTMLTextBreakOpportunity($hrc, $idx, $text)) {
+                // Enough room for any split, or the text cannot be split.
+                return false;
+            }
+
+            $height = $this->estimateHTMLTextHeight($hrc, $idx, $elm['value'], $width);
+            $lines = (int) \round($height / $lineadvance);
+            if ($lines <= $fit) {
+                return false;
+            }
+
+            if (($lines - $fit) < $widows) {
+                $fit = \max(0, $lines - $widows);
+            }
+
+            return $fit < $orphans;
+        }
+
+        return false;
+    }
+
+    /**
+     * Number of visible text rows of a textarea.
+     *
+     * @param array<string, mixed> $attr Element attributes.
+     */
+    protected function getHTMLTextareaRows(array $attr): int
+    {
+        return isset($attr['rows']) && \is_numeric($attr['rows']) ? \max(1, (int) $attr['rows']) : 3;
+    }
+
+    /**
+     * Number of visible rows of a select element: 1 for a combo box.
+     *
+     * @param array<string, mixed> $attr Attributes of the select element.
+     */
+    protected function getHTMLSelectRows(array $attr): int
+    {
+        $size = isset($attr['size']) && \is_numeric($attr['size']) ? (int) $attr['size'] : 0;
+        if (!$this->isHTMLBooleanAttributeEnabled($attr, 'multiple') && $size <= 1) {
+            return 1;
+        }
+
+        return \max(1, $size);
+    }
+
+    /**
+     * Height of a submit, reset or button input.
+     *
+     * @param THTMLAttrib $elm DOM element.
+     * @param float $lineheight Current line advance.
+     */
+    protected function getHTMLInputButtonHeight(array $elm, float $lineheight): float
+    {
+        $padTop = isset($elm['padding']['T']) ? $elm['padding']['T'] : 0.0;
+        $padBottom = isset($elm['padding']['B']) ? $elm['padding']['B'] : 0.0;
+        return \max($lineheight, $lineheight + $padTop + $padBottom);
+    }
+
+    /**
+     * Estimate the height of an inline form control or image.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int $key DOM key of the opening tag.
+     * @param float $width Available line width.
+     *
+     * @return float Height, or 0 when the element is not a placed inline box.
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Throwable
+     */
+    protected function estimateHTMLInlineBoxHeight(array &$hrc, int $key, float $width): float
+    {
+        $elm = $hrc['dom'][$key] ?? null;
+        if (!\is_array($elm) || !$elm['tag'] || !$elm['opening']) {
+            return 0.0;
+        }
+
+        $attrStr = [];
+        foreach ($elm['attribute'] as $attrName => $attrValue) {
+            if (!\is_string($attrValue)) {
+                continue;
+            }
+
+            $attrStr[$attrName] = $attrValue;
+        }
+
+        $lineheight = $this->getHTMLLineAdvance($hrc, $key);
+        switch ($elm['value']) {
+            case 'img':
+                if (($attrStr['src'] ?? '') === '') {
+                    return $lineheight;
+                }
+
+                $imgdim = $this->getHTMLResolvedImageDimensions($elm, $lineheight, $width);
+                return \max($lineheight, $imgdim['height']);
+            case 'textarea':
+                return $lineheight * (float) $this->getHTMLTextareaRows($elm['attribute']);
+            case 'select':
+                return $lineheight * (float) $this->getHTMLSelectRows($attrStr);
+            case 'button':
+                return $this->getHTMLInputButtonHeight($elm, $lineheight);
+            case 'input':
+                $type = \strtolower(\trim($attrStr['type'] ?? ''));
+                if ($type === 'hidden') {
+                    return 0.0;
+                }
+
+                if ($type === 'submit' || $type === 'button' || $type === 'reset') {
+                    return $this->getHTMLInputButtonHeight($elm, $lineheight);
+                }
+
+                return $lineheight;
+            default:
+                return 0.0;
         }
     }
 
@@ -9905,10 +10093,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param array<int, int> $ordarr Output array of UTF-8 code points.
      * @param TTextDims $dim Output measured text dimensions.
      * @param string $forcedir If 'R' forces RTL, if 'L' forces LTR.
-     * @param bool $baseRtl Out-param: true when the fragment base direction is RTL and the
-     *                      codepoints were Bidi reordered into visual order, so splitLines()
-     *                      must reverse line order and head extraction must use the remapped
-     *                      logically-first line position instead of the front of the array.
+     * @param bool $baseRtl Out-param: true when the fragment base direction is RTL.
+     * @param TBidiLevels $bidi Out-param: Bidi levels of $ordarr (see prepareText()).
      *
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Unicode\Exception
@@ -9919,11 +10105,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         array &$dim,
         string $forcedir = '',
         bool &$baseRtl = false,
+        array &$bidi = self::BIDI_NONE,
     ): void {
         $prevSoftHyphen = $this->htmlRenderSoftHyphen;
         $this->htmlRenderSoftHyphen = true;
         try {
-            $this->prepareText($txt, $ordarr, $dim, $forcedir, $baseRtl);
+            $this->prepareText($txt, $ordarr, $dim, $forcedir, $baseRtl, $bidi);
         } finally {
             $this->htmlRenderSoftHyphen = $prevSoftHyphen;
         }
@@ -11005,9 +11192,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $ordarr = [];
             $dim = $this->getHTMLDefaultTextDims();
             $forcedir = $node['dir'] === 'rtl' ? 'R' : '';
-            $fragmentRtl = false;
-            $this->prepareHTMLText($text, $ordarr, $dim, $forcedir, $fragmentRtl);
-            $lines = $this->splitLines($ordarr, $dim, $this->toPoints($remaining), 0, $fragmentRtl);
+            $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
+            $lines = $this->splitLines($ordarr, $dim, $this->toPoints($remaining));
             if ($lines === []) {
                 continue;
             }
@@ -11023,17 +11209,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 break;
             }
 
-            // For an RTL base direction the visual ord array is reversed, so the
-            // logically-first line occupies [pos, pos+chars) at the tail of the array.
-            // Slice there and restore logical order so the trailing-space / trim
-            // bookkeeping below (which expects the head front-loaded, with any
-            // collapsible space at its logical end) keeps working unchanged.
-            $headpos = $fragmentRtl ? (int) $firstline['pos'] : 0;
-            $chunkordarr = \array_slice($ordarr, $headpos, (int) $firstline['chars']);
-            if ($fragmentRtl) {
-                $chunkordarr = \array_reverse($chunkordarr);
-            }
-
+            $chunkordarr = \array_slice($ordarr, 0, (int) $firstline['chars']);
             $chunktext = \implode('', $this->uniconv->ordArrToChrArr($chunkordarr));
             if ($linewidth > 0.0 && !$spaceonly && \trim($chunktext) === '') {
                 $wrapped = true;
@@ -11116,20 +11292,35 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $ordarr = [];
         $dim = $this->getHTMLDefaultTextDims();
-        $baseRtl = false;
-        $this->prepareHTMLText($text, $ordarr, $dim, $forcedir, $baseRtl);
+        $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
         if ($ordarr === [] || (int) $dim['spaces'] <= 0) {
             return 0;
         }
 
-        // lines[0] is the logically-first (top) line for both directions once the
-        // RTL flag is set, so its space count is the one the renderer puts first.
-        $lines = $this->splitLines($ordarr, $dim, $this->toPoints($maxwidth), 0, $baseRtl);
+        $lines = $this->splitLines($ordarr, $dim, $this->toPoints($maxwidth));
         if ($lines === []) {
             return 0;
         }
 
         return (int) ($lines[0]['spaces'] ?? 0);
+    }
+
+    /**
+     * Returns the base direction of a text fragment: $forcedir when set, otherwise
+     * 'R' or 'L' from its first strong character (see isOrdArrBaseRtl()).
+     *
+     * @param string $text     Text fragment.
+     * @param string $forcedir 'R', 'L' or '' (automatic).
+     *
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function getHTMLTextBaseDir(string $text, string $forcedir): string
+    {
+        if ($forcedir !== '') {
+            return $forcedir;
+        }
+
+        return $this->isOrdArrBaseRtl(\array_values($this->uniconv->strToOrdArr($text)), '') ? 'R' : 'L';
     }
 
     /**
@@ -11153,14 +11344,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $ordarr = [];
         $dim = $this->getHTMLDefaultTextDims();
-        $baseRtl = false;
-        $this->prepareHTMLText($text, $ordarr, $dim, $forcedir, $baseRtl);
+        $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
         $numord = \count($ordarr);
         if ($numord === 0) {
             return null;
         }
 
-        $lines = $this->splitLines($ordarr, $dim, $this->toPoints($maxwidth), 0, $baseRtl);
+        $lines = $this->splitLines($ordarr, $dim, $this->toPoints($maxwidth));
         if (\count($lines) < 2) {
             // Fits on a single line: nothing to split.
             return null;
@@ -11171,27 +11361,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return null;
         }
 
-        if ($baseRtl) {
-            // RTL: the logically-first line sits at the tail of the visual array at
-            // [boundary, boundary+headchars); the tail (logical remainder) is
-            // everything before it. Reverse each slice back to logical order so the
-            // head/tail strings re-render through the normal forward Bidi path.
-            $boundary = (int) ($lines[0]['pos'] ?? 0);
-            if ($boundary <= 0 || $boundary >= $numord) {
-                return null;
-            }
-
-            $headord = \array_reverse(\array_slice($ordarr, $boundary, $headchars));
-            $tailord = \array_reverse(\array_slice($ordarr, 0, $boundary));
-        } else {
-            $tailpos = (int) ($lines[1]['pos'] ?? 0);
-            if ($tailpos <= 0 || $tailpos >= $numord) {
-                return null;
-            }
-
-            $headord = \array_slice($ordarr, 0, $headchars);
-            $tailord = \array_slice($ordarr, $tailpos);
+        $tailpos = (int) ($lines[1]['pos'] ?? 0);
+        if ($tailpos <= 0 || $tailpos >= $numord) {
+            return null;
         }
+
+        $headord = \array_slice($ordarr, 0, $headchars);
+        $tailord = \array_slice($ordarr, $tailpos);
 
         $head = \implode('', $this->uniconv->ordArrToChrArr($this->removeOrdArrSoftHyphens($headord)));
         $tail = \implode('', $this->uniconv->ordArrToChrArr($tailord));
@@ -11246,15 +11422,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $attr = $node['attribute'];
 
                     if ($node['value'] === 'textarea') {
-                        $rows = isset($attr['rows']) && \is_numeric($attr['rows']) ? \max(1, (int) $attr['rows']) : 3;
+                        $rows = $this->getHTMLTextareaRows($attr);
                         $ctlheight = $lineheight * (float) $rows;
                     } elseif ($node['value'] === 'select') {
-                        $size = isset($attr['size']) && \is_numeric($attr['size']) ? (int) $attr['size'] : 0;
-                        $hasMultiple =
-                            isset($attr['multiple']) && $attr['multiple'] !== '0' && $attr['multiple'] !== 'false';
-                        if ($hasMultiple || $size > 1) {
-                            $ctlheight = $lineheight * (float) \max(1, $size);
-                        }
+                        $ctlheight = $lineheight * (float) $this->getHTMLSelectRows($attr);
                     }
 
                     if ($ctlheight <= 0.0) {
@@ -11562,18 +11733,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $ordarr = [];
         $dim = $this->getHTMLDefaultTextDims();
-        $baseRtl = false;
         try {
-            $this->prepareHTMLText($text, $ordarr, $dim, $forcedir, $baseRtl);
+            $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
             // Give splitLines the same tolerance used by wrap guards so boundary fits
             // (for example: one more word after an italic fragment) are not rejected.
-            $lines = $this->splitLines(
-                $ordarr,
-                $dim,
-                $this->toPoints($remainingWidth + self::WIDTH_TOLERANCE),
-                0,
-                $baseRtl,
-            );
+            $lines = $this->splitLines($ordarr, $dim, $this->toPoints($remainingWidth + self::WIDTH_TOLERANCE));
         } catch (\Throwable) {
             return false;
         }
@@ -11591,9 +11755,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return false;
         }
 
-        // $text is still in logical order (prepareHTMLText reorders only the ord
-        // array), and lines[0]['chars'] is the logically-first line's length for
-        // both directions, so the leading-chunk test stays correct under RTL.
+        // The code points are in logical order, so the first line is the leading chunk of $text.
         $chunk = \mb_substr($text, 0, $chars);
         return \trim($chunk) !== '';
     }
@@ -15112,39 +15274,51 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     ) {
                         $liLineAdvance = $this->getHTMLLineAdvance($hrc, $key);
                         if ($liLineAdvance > 0.0) {
-                            $region = $this->page->getRegion();
-                            $regiontop = $region['RY'];
-                            $remaining = $this->getHTMLRemainingHeight($hrc, $tpy);
-                            $willBreak =
-                                $liLineAdvance > ($remaining + self::WIDTH_TOLERANCE)
-                                && $tpy > ($regiontop + self::WIDTH_TOLERANCE);
-
-                            $flush = '';
-                            if ($willBreak && $hrc['blockbuf'] !== []) {
-                                $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
+                            $liRequiredH = $liLineAdvance;
+                            if ($this->isHTMLListItemTextDeferred(
+                                $hrc,
+                                $key,
+                                $tpy,
+                                $hrc['cellctx']['maxwidth'] > 0.0 ? $hrc['cellctx']['maxwidth'] : $tpw,
+                            )) {
+                                // Move the marker together with the text.
+                                $liRequiredH = $this->getHTMLRemainingHeight($hrc, $tpy) + $liLineAdvance;
                             }
 
-                            if ($flush !== '') {
-                                $appendFragment($flush);
-                            }
-
-                            $breakout = $this->breakHTMLIfNeeded($hrc, $liLineAdvance, $tpx, $tpy, $tpw, $tph);
-
-                            if ($willBreak && $hrc['blockbuf'] !== []) {
-                                foreach ($hrc['blockbuf'] as $bidx => $blkEntry) {
-                                    $blkEntry['by'] = $tpy;
-                                    $hrc['blockbuf'][$bidx] = $blkEntry;
-                                }
-                            }
-
-                            if ($willBreak && $hrc['tablestack'] !== []) {
-                                $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
-                            }
-
-                            if ($breakout !== '') {
-                                $appendFragment($breakout);
-                            }
+                            $appendFragment($this->breakHTMLIfHeightDoesNotFit(
+                                $hrc,
+                                $liRequiredH,
+                                $tpx,
+                                $tpy,
+                                $tpw,
+                                $tph,
+                                $appendFragment,
+                            ));
                         }
+                    }
+
+                    if (
+                        \in_array($elm['value'], ['button', 'img', 'input', 'select', 'textarea'], true)
+                        && $hrc['tablestack'] === []
+                        && $hrc['bcellctx'] === []
+                        && $hrc['cellctx']['maxheight'] <= 0.0
+                    ) {
+                        // Move a form control or image that does not fit the
+                        // remaining region height to the next region.
+                        $boxH = $this->estimateHTMLInlineBoxHeight(
+                            $hrc,
+                            $key,
+                            $hrc['cellctx']['maxwidth'] > 0.0 ? $hrc['cellctx']['maxwidth'] : $tpw,
+                        );
+                        $appendFragment($this->breakHTMLIfHeightDoesNotFit(
+                            $hrc,
+                            $boxH,
+                            $tpx,
+                            $tpy,
+                            $tpw,
+                            $tph,
+                            $appendFragment,
+                        ));
                     }
 
                     $idAttr = $elm['attribute']['id'] ?? '';
@@ -15808,6 +15982,145 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Lay out a text as the vertical fit probe does.
+     *
+     * @param string $text Text to lay out.
+     * @param string $forcedir Forced text direction ('R' or '').
+     * @param float $width Available line width.
+     * @param float $offset First line offset.
+     * @param int $fitLines Number of head lines.
+     *
+     * @return array{lines: int, cut: int, shy: bool} Number of lines, and the head
+     *         cut after $fitLines lines (see getHTMLVerticalFitHeadCut()).
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function probeHTMLVerticalFitText(
+        string $text,
+        string $forcedir,
+        float $width,
+        float $offset,
+        int $fitLines,
+    ): array {
+        $ordarr = [];
+        $dim = $this->getHTMLDefaultTextDims();
+        $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
+        $lines = $this->splitLines($ordarr, $dim, $this->toPoints($width), $this->toPoints(\min($offset, $width)));
+        $numlines = \count($lines);
+        $lastFitLine = $lines[\min($fitLines, $numlines) - 1] ?? null;
+        if ($numlines <= $fitLines || !\is_array($lastFitLine)) {
+            return ['lines' => $numlines, 'cut' => \mb_strlen($text), 'shy' => false];
+        }
+
+        $headCut = $this->getHTMLVerticalFitHeadCut(
+            $text,
+            $ordarr,
+            (int) $lastFitLine['pos'],
+            (int) $lastFitLine['chars'],
+        );
+
+        return ['lines' => $numlines, 'cut' => $headCut['cut'], 'shy' => $headCut['shy']];
+    }
+
+    /**
+     * Return the source length of the head lines of a laid out text.
+     *
+     * @param string          $text      Source text.
+     * @param array<int, int> $ordarr    Code points returned by prepareHTMLText() for $text.
+     * @param int             $linePos   Position of the last head line in $ordarr.
+     * @param int             $lineChars Number of code points of the last head line.
+     *
+     * @return array{cut: int, shy: bool} Number of leading characters of $text in
+     *         the head, and whether the head ends at a SOFT HYPHEN.
+     *
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function getHTMLVerticalFitHeadCut(string $text, array $ordarr, int $linePos, int $lineChars): array
+    {
+        $headLen = $linePos + $lineChars;
+
+        return [
+            'cut' => $this->getHTMLProbeTextOffset($text, $ordarr, 0, $headLen),
+            'shy' => ($ordarr[$headLen - 1] ?? 0) === UnicodeConstant::SOFT_HYPHEN,
+        ];
+    }
+
+    /**
+     * Return the length in the source text of a head slice of prepared code points.
+     *
+     * prepareHTMLText() can insert ZERO WIDTH SPACE (automatic break points) and
+     * SOFT HYPHEN (hyphenation) code points, and the Arabic shaping can replace
+     * code points. A slice that does not start at 0 is counted by length.
+     *
+     * @param string          $text   Source text.
+     * @param array<int, int> $ordarr Code points returned by prepareHTMLText() for $text.
+     * @param int             $start  Slice start in $ordarr.
+     * @param int             $length Slice length.
+     *
+     * @return int Number of leading characters of $text covered by the slice.
+     *
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function getHTMLProbeTextOffset(string $text, array $ordarr, int $start, int $length): int
+    {
+        $srcarr = \array_values($this->uniconv->strToOrdArr($text));
+        $numsrc = \count($srcarr);
+        $ordarr = \array_values($ordarr);
+        $slice = \array_values(\array_slice($ordarr, $start, $length));
+
+        if ($start === 0) {
+            $src = $this->alignHTMLProbeOrdArr($srcarr, $slice);
+            if ($src >= 0) {
+                return $src;
+            }
+        }
+
+        if (\count($ordarr) === $numsrc) {
+            // Nothing inserted: the slice is a permutation of the source head.
+            return \count($slice);
+        }
+
+        $src = 0;
+        foreach ($slice as $ord) {
+            if ($ord === UnicodeConstant::ZERO_WIDTH_SPACE || $ord === UnicodeConstant::SOFT_HYPHEN) {
+                continue;
+            }
+
+            ++$src;
+        }
+
+        return $src;
+    }
+
+    /**
+     * Match a prepared code point prefix against the source code points, skipping
+     * inserted ZERO WIDTH SPACE and SOFT HYPHEN code points.
+     *
+     * @param array<int, int> $srcarr Source code points.
+     * @param array<int, int> $prefix Prepared code point prefix.
+     *
+     * @return int Number of source code points matched, or -1 on a mismatch.
+     */
+    protected function alignHTMLProbeOrdArr(array $srcarr, array $prefix): int
+    {
+        $numsrc = \count($srcarr);
+        $src = 0;
+        foreach ($prefix as $ord) {
+            if ($src < $numsrc && ($srcarr[$src] ?? -1) === $ord) {
+                ++$src;
+                continue;
+            }
+
+            if ($ord !== UnicodeConstant::ZERO_WIDTH_SPACE && $ord !== UnicodeConstant::SOFT_HYPHEN) {
+                return -1;
+            }
+        }
+
+        return $src;
+    }
+
+    /**
      * Multi-line vertical fit guard: when a wrappable fragment produces more
      * wrapped lines than fit in the remaining region height, only the lines that
      * fit are rendered, the page breaks, and the remainder is processed
@@ -15857,7 +16170,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         ?callable $appendFragment = null,
     ): ?string {
         if (
-            $hrc['tablestack'] !== []
+            $this->htmlVerticalFitHead
+            || $hrc['tablestack'] !== []
             || $hrc['bcellctx'] !== []
             || $hrc['cellctx']['maxheight'] > 0.0
             || $lineAdvance <= 0.0
@@ -15891,16 +16205,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $probeText = $text;
         $probeOrd = [];
         $probeDim = $this->getHTMLDefaultTextDims();
-        $probeRtl = false;
-        $this->prepareHTMLText($probeText, $probeOrd, $probeDim, $forcedir, $probeRtl);
-        // Count only: the RTL flag keeps the line count consistent with the
-        // top-down render.
+        $this->prepareHTMLText($probeText, $probeOrd, $probeDim, $forcedir);
         $probeLines = $this->splitLines(
             $probeOrd,
             $probeDim,
             $this->toPoints($availableWidthMV),
             $this->toPoints(\min($lineOffsetMV, $availableWidthMV)),
-            $probeRtl,
         );
         $probeCount = \count($probeLines);
 
@@ -15955,22 +16265,52 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
-        $cut = 0;
-        for ($i = 0; $i < $fitLines; ++$i) {
-            $probeLine = $probeLines[$i] ?? null;
-            if (!\is_array($probeLine)) {
-                break;
-            }
-
-            $cut = (int) $probeLine['pos'] + (int) $probeLine['chars'];
-        }
-        $probeLen = \mb_strlen($probeText);
-        if ($cut <= 0 || $cut >= $probeLen) {
+        $lastFitLine = $probeLines[$fitLines - 1] ?? null;
+        if (!\is_array($lastFitLine)) {
             return null;
         }
 
+        $headCut = $this->getHTMLVerticalFitHeadCut(
+            $probeText,
+            $probeOrd,
+            (int) $lastFitLine['pos'],
+            (int) $lastFitLine['chars'],
+        );
+        $probeLen = \mb_strlen($probeText);
+        if ($headCut['cut'] <= 0 || $headCut['cut'] >= $probeLen) {
+            return null;
+        }
+
+        // The head prepared alone (base direction, shaping) can wrap into more
+        // lines than in the whole paragraph: shorten it until it fits the
+        // available lines.
+        for ($iter = 0; $iter < 8; ++$iter) {
+            $headProbe = $this->probeHTMLVerticalFitText(
+                \mb_substr($probeText, 0, $headCut['cut']),
+                $forcedir,
+                $availableWidthMV,
+                $lineOffsetMV,
+                $fitLines,
+            );
+            if ($headProbe['lines'] <= $fitLines) {
+                break;
+            }
+
+            if ($headProbe['cut'] <= 0 || $headProbe['cut'] >= $headCut['cut']) {
+                return null;
+            }
+
+            $headCut = ['cut' => $headProbe['cut'], 'shy' => $headProbe['shy']];
+        }
+
+        $cut = $headCut['cut'];
         $head = \mb_substr($probeText, 0, $cut);
         $tail = \mb_substr($probeText, $cut);
+        $softHyphen = $this->uniconv->chr(UnicodeConstant::SOFT_HYPHEN);
+        if ($headCut['shy'] && !\str_ends_with($head, $softHyphen)) {
+            // The head ends at a hyphenation point: keep the hyphen visible.
+            $head .= $softHyphen;
+        }
         if (!$this->isHTMLPreLikeWhiteSpaceMode($hrc, $key)) {
             $tail = \ltrim($tail);
         }
@@ -15998,9 +16338,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // that line through its own render.
         $prevNoLookahead = $hrc['cellctx']['lineascentnolookahead'];
         $hrc['cellctx']['lineascentnolookahead'] = true;
-        $headOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
-        $hrc['cellctx']['lineascentnolookahead'] = $prevNoLookahead;
-        $this->htmlJustifyContinuationLine = $prevJustifyContinuation;
+        $prevVerticalFitHead = $this->htmlVerticalFitHead;
+        $this->htmlVerticalFitHead = true;
+        try {
+            $headOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+        } finally {
+            $this->htmlVerticalFitHead = $prevVerticalFitHead;
+            $hrc['cellctx']['lineascentnolookahead'] = $prevNoLookahead;
+            $this->htmlJustifyContinuationLine = $prevJustifyContinuation;
+        }
 
         // The head's final line stays open (the cursor remains on it so a
         // following inline fragment can continue it), so tpy is not advanced past
@@ -16043,7 +16389,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tailElm = $origElm;
         $tailElm['value'] = $tail;
         $hrc['dom'][$key] = $tailElm;
-        $tailOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+        $prevTextBaseDir = $this->htmlTextBaseDir;
+        $this->htmlTextBaseDir = $this->getHTMLTextBaseDir($probeText, $forcedir);
+        try {
+            $tailOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+        } finally {
+            $this->htmlTextBaseDir = $prevTextBaseDir;
+        }
 
         $hrc['dom'][$key] = $origElm;
 
@@ -16445,6 +16797,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param string $text Normalized fragment text.
      * @param string $halign Horizontal alignment.
      * @param bool $customJustify Whether the line uses custom word-spacing justification.
+     * @param float $lineWordSpacing Word spacing that justifies the first line of the fragment.
      * @param float $fragmentWidth Natural width of the fragment.
      * @param float $remainingWidth Remaining width on the current line.
      * @param string $forcedir Forced text direction ('R' or '').
@@ -16471,6 +16824,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         string $text,
         string $halign,
         bool $customJustify,
+        float $lineWordSpacing,
         float $fragmentWidth,
         float $remainingWidth,
         string $forcedir,
@@ -16511,8 +16865,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // sharing this line. Measure the head's ascent from its own font only.
         $prevNoLookahead = $hrc['cellctx']['lineascentnolookahead'];
         $hrc['cellctx']['lineascentnolookahead'] = true;
-        $headOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
-        $hrc['cellctx']['lineascentnolookahead'] = $prevNoLookahead;
+        $prevHeadWordSpacing = $this->htmlJustifyHeadWordSpacing;
+        $this->htmlJustifyHeadWordSpacing = $lineWordSpacing;
+        try {
+            $headOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+        } finally {
+            $this->htmlJustifyHeadWordSpacing = $prevHeadWordSpacing;
+            $hrc['cellctx']['lineascentnolookahead'] = $prevNoLookahead;
+        }
 
         $linebottom = $hrc['cellctx']['linebottom'] > 0 ? $hrc['cellctx']['linebottom'] : 0.0;
         $tpy = \max($tpy + $this->getCurrentHTMLLineAdvance($hrc, $key), $linebottom);
@@ -16521,11 +16881,75 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tailElm = $origElm;
         $tailElm['value'] = $justifySplit[1];
         $hrc['dom'][$key] = $tailElm;
-        $tailOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+        $prevTextBaseDir = $this->htmlTextBaseDir;
+        $this->htmlTextBaseDir = $this->getHTMLTextBaseDir($text, $forcedir);
+        try {
+            $tailOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+        } finally {
+            $this->htmlTextBaseDir = $prevTextBaseDir;
+        }
 
         $hrc['dom'][$key] = $origElm;
 
         return $breakoutPrefix . $headOut . $tailOut;
+    }
+
+    /**
+     * Break to the next region when the required height does not fit the
+     * remaining region height and there is a region or page to advance to.
+     * Open block buffers are flushed before the break and rebased after it.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param float $boxh Required height.
+     * @param float $tpx Abscissa of upper-left corner.
+     * @param float $tpy Ordinate of upper-left corner.
+     * @param float $tpw Width.
+     * @param float $tph Height.
+     * @param ?callable(string):void $appendFragment Optional block-buffer flush sink.
+     *
+     * @return string Page-break PDF code, or an empty string when no break occurred.
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     * @throws \Throwable
+     */
+    protected function breakHTMLIfHeightDoesNotFit(
+        array &$hrc,
+        float $boxh,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+        ?callable $appendFragment = null,
+    ): string {
+        if ($boxh <= 0.0) {
+            return '';
+        }
+
+        $region = $this->page->getRegion();
+        $regiontop = $region['RY'];
+        $remaining = $this->getHTMLRemainingHeight($hrc, $tpy);
+        $willBreak = $boxh > ($remaining + self::WIDTH_TOLERANCE) && $tpy > ($regiontop + self::WIDTH_TOLERANCE);
+        if (!$willBreak || !$this->htmlCanAdvanceRegion()) {
+            return '';
+        }
+
+        if ($hrc['blockbuf'] !== [] && $appendFragment !== null) {
+            $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
+            if ($flush !== '') {
+                $appendFragment($flush);
+            }
+        }
+
+        $breakout = $this->breakHTMLIfNeeded($hrc, $boxh, $tpx, $tpy, $tpw, $tph);
+
+        foreach ($hrc['blockbuf'] as $bidx => $blkEntry) {
+            $blkEntry['by'] = $tpy;
+            $hrc['blockbuf'][$bidx] = $blkEntry;
+        }
+
+        return $breakout;
     }
 
     /**
@@ -16582,7 +17006,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $region = $this->page->getRegion();
         $regiontop = $region['RY'];
         $remaining = $this->getHTMLRemainingHeight($hrc, $tpy);
-        $willBreak = $lineAdvance > ($remaining + self::WIDTH_TOLERANCE) && $tpy > ($regiontop + self::WIDTH_TOLERANCE);
+        $willBreak =
+            $lineAdvance > ($remaining + self::WIDTH_TOLERANCE)
+            && $tpy > ($regiontop + self::WIDTH_TOLERANCE)
+            && $this->htmlCanAdvanceRegion();
 
         if ($willBreak && $hrc['blockbuf'] !== [] && $appendFragment !== null) {
             $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
@@ -16716,7 +17143,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $customJustify = $hasFollowingInline || $lineOffset > self::WIDTH_TOLERANCE && $hasLineWordSpacing;
 
             if ($customJustify) {
-                if ($lineOffset <= self::WIDTH_TOLERANCE) {
+                if ($lineOffset <= self::WIDTH_TOLERANCE && $this->htmlJustifyHeadWordSpacing !== null) {
+                    $lineWordSpacing = $this->htmlJustifyHeadWordSpacing;
+                    $hrc['cellctx']['linewordspacing'] = $lineWordSpacing;
+                } elseif ($lineOffset <= self::WIDTH_TOLERANCE) {
                     // Measure the greedy (zero word-spacing) fill of the line, then
                     // distribute the leftover over its spaces. The break point is taken
                     // at zero spacing on purpose: word spacing is derived to fill exactly
@@ -16972,6 +17402,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         } else {
             $halign = (string) $elm['align'];
         }
+
+        if ($forcedir === '') {
+            $forcedir = $this->htmlTextBaseDir;
+        }
         $blockOriginX = $hrc['cellctx']['originx'];
         $lineOriginX = $hrc['cellctx']['lineoriginx'];
         if ($tpx <= ($blockOriginX + self::WIDTH_TOLERANCE)) {
@@ -17066,9 +17500,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $lineAdvance = $this->getHTMLLineAdvance($hrc, $currentkey);
 
+        // At line start, fit the whole line, including taller inline boxes and
+        // fragments that share it.
+        $lineFitH = $lineAdvance;
+        if ($lineOffset <= self::WIDTH_TOLERANCE && $lineascent > $curAscent) {
+            $lineFitH += $lineascent - $curAscent;
+        }
+
         $breakoutPrefix = $this->breakHTMLTextBeforeLine(
             $hrc,
-            $lineAdvance,
+            $lineFitH,
             $tpx,
             $tpy,
             $tpw,
@@ -17189,6 +17630,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $text,
             $halign,
             $customJustify,
+            $lineWordSpacing,
             $fragmentWidth,
             $remainingWidth,
             $forcedir,
@@ -18364,11 +18806,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             case 'reset':
                 $caption = isset($attr['value']) && \is_string($attr['value']) ? $attr['value'] : $type;
                 $action = $this->getHTMLInputButtonAction($hrc, $key, $type, $attrStr);
-                $padTop = isset($elm['padding']['T']) ? $elm['padding']['T'] : 0.0;
-                $padBottom = isset($elm['padding']['B']) ? $elm['padding']['B'] : 0.0;
                 $padLeft = isset($elm['padding']['L']) ? $elm['padding']['L'] : 0.0;
                 $padRight = isset($elm['padding']['R']) ? $elm['padding']['R'] : 0.0;
-                $buttonHeight = \max($lineheight, $lineheight + $padTop + $padBottom);
+                $buttonHeight = $this->getHTMLInputButtonHeight($elm, $lineheight);
                 $buttonWidth = $fieldwidth;
                 $hasExplicitWidth = $explicitwidth > 0;
                 if (!$hasExplicitWidth) {
@@ -19014,7 +19454,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $fieldheight = 0.0;
 
         if ($isListBox) {
-            $fieldheight = $lineheight * (float) \max(1, $size);
+            $fieldheight = $lineheight * (float) $this->getHTMLSelectRows($attrStr);
             $jsp = $fieldjsp;
             if ($hasMultiple) {
                 $jsp['multipleSelection'] = 'true';
@@ -19967,7 +20407,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $fieldelm = $elm;
         $fieldjsp = $this->getHTMLFormFieldJSProperties($attr, 'textarea', $fieldelm);
         $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-        $rows = isset($attr['rows']) && \is_numeric($attr['rows']) ? \max(1, (int) $attr['rows']) : 3;
+        $rows = $this->getHTMLTextareaRows($attr);
         $maxwidth = $tpw > 0 ? $tpw : $hrc['cellctx']['maxwidth'];
         $explicitwidth = $this->getHTMLElementExplicitWidth($elm, $maxwidth);
         $fieldwidth = $explicitwidth > 0 ? $explicitwidth : $maxwidth;

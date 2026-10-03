@@ -85,6 +85,11 @@ use Com\Tecnick\Unicode\TextDirection;
  *          'words': int,
  *      }
  *
+ * @phpstan-type TBidiLevels array{
+ *          'level': array<int, int>,
+ *          'pel': array<int, int>,
+ *      }
+ *
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
 abstract class Text extends \Com\Tecnick\Pdf\Cell
@@ -94,6 +99,16 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * Prevents floating-point boundary artifacts from forcing spurious wraps.
      */
     protected const LINE_FIT_EPSILON = 1.0E-7;
+
+    /**
+     * Bidi levels of a text that needs no reordering (left-to-right only).
+     *
+     * @var TBidiLevels
+     */
+    protected const BIDI_NONE = [
+        'level' => [],
+        'pel' => [],
+    ];
 
     /**
      * Lower bound for text-cell horizontal compression (percentage).
@@ -282,7 +297,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $ordarr = [];
         $dim = self::DIM_DEFAULT;
         $baseRtl = false;
-        $this->prepareText($txt, $ordarr, $dim, $forcedir, $baseRtl);
+        $bidi = self::BIDI_NONE;
+        $this->prepareText($txt, $ordarr, $dim, $forcedir, $baseRtl, $bidi);
         $txt_pwidth = $dim['totwidth'];
 
         $cell = $this->adjustMinCellPadding($styles, $cell);
@@ -308,10 +324,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $cell_pheight - $cell['padding']['T'] - $cell['padding']['B'],
             $offset_points,
             $linespace_points,
-            // $baseRtl stacks the lines of an RTL paragraph top-down.
-            $baseRtl,
+            $bidi,
         );
         $ordarr = $fit_state['ordarr'];
+        $bidi = $fit_state['bidi'];
         $dim = $fit_state['dim'];
         $lines = $fit_state['lines'];
         $txt_pheight = $fit_state['txtheight'];
@@ -365,6 +381,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $clip,
                 $shadow,
                 $baseRtl,
+                $bidi,
             );
 
             if ($fontout_prefix !== '') {
@@ -617,7 +634,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $ordarr = [];
         $dim = self::DIM_DEFAULT;
         $baseRtl = false;
-        $this->prepareText($txt, $ordarr, $dim, $forcedir, $baseRtl);
+        $bidi = self::BIDI_NONE;
+        $this->prepareText($txt, $ordarr, $dim, $forcedir, $baseRtl, $bidi);
         $txt_pwidth = $dim['totwidth'];
         $actualText = $this->isTaggedMode() ? $this->getActualTextForOrdarr($ordarr) : '';
 
@@ -636,9 +654,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $cell_pnth - $cell['padding']['T'] - $cell['padding']['B'],
             $this->toPoints($offset),
             $this->toPoints($linespace),
-            $baseRtl,
+            $bidi,
         );
         $ordarr = $fit_state['ordarr'];
+        $bidi = $fit_state['bidi'];
         $dim = $fit_state['dim'];
         $txt_pwidth = $dim['totwidth'];
         $fontout_prefix = $fit_state['fontout_prefix'];
@@ -698,10 +717,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 if ($use_prefit_layout && $num_blocks === 0) {
                     $lines = $fit_lines;
                 } else {
-                    // $baseRtl reverses the line order for an RTL paragraph. The
-                    // multi-region continuation below slices the remaining text by
-                    // ascending visual pos and is not direction-aware.
-                    $lines = $this->splitLines($ordarr, $dim, $txt_pwidth, $this->toPoints($offset), $baseRtl);
+                    $lines = $this->splitLines($ordarr, $dim, $txt_pwidth, $this->toPoints($offset));
                 }
                 $numlines = \count($lines);
 
@@ -761,6 +777,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                     $clip,
                     $shadow,
                     $baseRtl,
+                    $bidi,
                 );
 
                 if ($drawcell) {
@@ -798,6 +815,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                     break;
                 }
 
+                $bidi = $this->sliceBidiLevels($bidi, $lines[$region_max_lines]['pos']);
                 $ordarr = \array_slice($ordarr, $lines[$region_max_lines]['pos']);
                 $dim = $this->font->getOrdArrDims($ordarr);
                 $posy = 0;
@@ -1085,9 +1103,11 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      *
      * @param array<int, int> $ordarr
      * @param TTextDims $dim
+     * @param TBidiLevels $bidi Bidi levels of $ordarr.
      *
      * @return array{
      *     ordarr: array<int, int>,
+     *     bidi: TBidiLevels,
      *     dim: TTextDims,
      *     lines: array<int, TextLinePos>,
      *     txtheight: float,
@@ -1108,7 +1128,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $inner_pheight,
         float $offset_points,
         float $linespace_points,
-        bool $rtl = false,
+        array $bidi = self::BIDI_NONE,
     ): array {
         $fit = $this->normalizeTextCellFitMode($fit);
 
@@ -1120,7 +1140,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             1.0,
             $offset_points,
             $linespace_points,
-            $rtl,
         );
 
         $lines = $base_layout['lines'];
@@ -1137,14 +1156,15 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         ) {
             switch ($fit) {
                 case 'T':
-                    $ordarr = $this->fitTextCellByTruncation(
+                    $trimmed = $this->fitTextCellByTruncation(
                         $ordarr,
                         $txt_pwidth,
                         $inner_pheight,
                         $offset_points,
                         $linespace_points,
-                        $rtl,
                     );
+                    $bidi = $this->getTruncatedBidiLevels($bidi, $ordarr, $trimmed);
+                    $ordarr = $trimmed;
                     $dim = $this->font->getOrdArrDims($ordarr);
                     $base_layout = $this->getTextCellLayout(
                         $ordarr,
@@ -1154,7 +1174,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                         1.0,
                         $offset_points,
                         $linespace_points,
-                        $rtl,
                     );
                     break;
                 case 'S':
@@ -1165,7 +1184,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                         $inner_pheight,
                         $offset_points,
                         $linespace_points,
-                        $rtl,
                     );
                     $restore_font = $stretch_fit['fontchanged'];
                     $line_width_points = $stretch_fit['linewidth'];
@@ -1180,7 +1198,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                         $inner_pheight,
                         $offset_points,
                         $linespace_points,
-                        $rtl,
                     );
                     $restore_font = $font_fit['fontchanged'];
                     $restore_font_output = $font_fit['fontchanged'];
@@ -1196,6 +1213,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         return [
             'ordarr' => $ordarr,
+            'bidi' => $bidi,
             'dim' => $dim,
             'lines' => $lines,
             'txtheight' => $txt_pheight,
@@ -1225,7 +1243,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $scale,
         float $offsetPoints,
         float $lineSpacePoints,
-        bool $rtl = false,
     ): array {
         if ($ordarr === [] || $splitWidth <= 0 || $displayWidth <= 0 || $scale <= 0) {
             return [
@@ -1235,7 +1252,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             ];
         }
 
-        $lines = $this->splitLines($ordarr, $dim, $splitWidth, $offsetPoints, $rtl);
+        $lines = $this->splitLines($ordarr, $dim, $splitWidth, $offsetPoints);
         $numlines = \count($lines);
 
         $maxwidth = 0.0;
@@ -1297,23 +1314,13 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $maxHeight,
         float $offsetPoints,
         float $lineSpacePoints,
-        bool $rtl = false,
     ): array {
         if ($ordarr === [] || $maxWidth <= 0 || $maxHeight <= 0) {
             return [];
         }
 
         $dim = $this->font->getOrdArrDims($ordarr);
-        $layout = $this->getTextCellLayout(
-            $ordarr,
-            $dim,
-            $maxWidth,
-            $maxWidth,
-            1.0,
-            $offsetPoints,
-            $lineSpacePoints,
-            $rtl,
-        );
+        $layout = $this->getTextCellLayout($ordarr, $dim, $maxWidth, $maxWidth, 1.0, $offsetPoints, $lineSpacePoints);
         if (!$this->textCellLayoutOverflows($layout, $maxWidth, $maxHeight)) {
             return $ordarr;
         }
@@ -1328,7 +1335,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             1.0,
             $offsetPoints,
             $lineSpacePoints,
-            $rtl,
         );
         if ($this->textCellLayoutOverflows($marker_layout, $maxWidth, $maxHeight)) {
             return [];
@@ -1355,7 +1361,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 1.0,
                 $offsetPoints,
                 $lineSpacePoints,
-                $rtl,
             );
 
             if (!$this->textCellLayoutOverflows($candidate_layout, $maxWidth, $maxHeight)) {
@@ -1376,6 +1381,43 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         }
 
         return $trimmed;
+    }
+
+    /**
+     * Returns the Bidi levels of a text truncated by fitTextCellByTruncation().
+     *
+     * The kept code points are a logical prefix of the original text; the
+     * truncation marker gets the paragraph embedding level of the last kept code
+     * point, so it follows the text at its logical end.
+     *
+     * @param TBidiLevels     $bidi    Bidi levels of the original text.
+     * @param array<int, int> $ordarr  Original code points.
+     * @param array<int, int> $trimmed Truncated code points.
+     *
+     * @return TBidiLevels
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     */
+    protected function getTruncatedBidiLevels(array $bidi, array $ordarr, array $trimmed): array
+    {
+        if ($bidi['level'] === [] || $trimmed === $ordarr) {
+            return $bidi;
+        }
+
+        $numtrimmed = \count($trimmed);
+        $kept = $numtrimmed - \count($this->getTextCellTruncationMarkerOrdArr());
+        if ($numtrimmed === 0 || $kept < 0 || $kept > \count($ordarr)) {
+            return self::BIDI_NONE;
+        }
+
+        $out = $this->sliceBidiLevels($bidi, 0, $kept);
+        $pel = $bidi['pel'][\max(0, $kept - 1)] ?? 0;
+        for ($idx = $kept; $idx < $numtrimmed; ++$idx) {
+            $out['level'][] = $pel;
+            $out['pel'][] = $pel;
+        }
+
+        return $out;
     }
 
     /**
@@ -1411,18 +1453,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $maxHeight,
         float $offsetPoints,
         float $lineSpacePoints,
-        bool $rtl = false,
     ): array {
-        $base = $this->getTextCellLayout(
-            $ordarr,
-            $dim,
-            $maxWidth,
-            $maxWidth,
-            1.0,
-            $offsetPoints,
-            $lineSpacePoints,
-            $rtl,
-        );
+        $base = $this->getTextCellLayout($ordarr, $dim, $maxWidth, $maxWidth, 1.0, $offsetPoints, $lineSpacePoints);
         if (!$this->textCellLayoutOverflows($base, $maxWidth, $maxHeight)) {
             return [
                 'fontchanged' => false,
@@ -1444,7 +1476,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $probe_stretch / 100.0,
             $offsetPoints,
             $lineSpacePoints,
-            $rtl,
         );
 
         if (!$this->textCellLayoutOverflows($probe_layout, $maxWidth, $maxHeight)) {
@@ -1464,7 +1495,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                     $mid / 100.0,
                     $offsetPoints,
                     $lineSpacePoints,
-                    $rtl,
                 );
 
                 if ($this->textCellLayoutOverflows($mid_layout, $maxWidth, $maxHeight)) {
@@ -1525,19 +1555,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $maxHeight,
         float $offsetPoints,
         float $lineSpacePoints,
-        bool $rtl = false,
     ): array {
         $basedim = $this->font->getOrdArrDims($ordarr);
-        $base = $this->getTextCellLayout(
-            $ordarr,
-            $basedim,
-            $maxWidth,
-            $maxWidth,
-            1.0,
-            $offsetPoints,
-            $lineSpacePoints,
-            $rtl,
-        );
+        $base = $this->getTextCellLayout($ordarr, $basedim, $maxWidth, $maxWidth, 1.0, $offsetPoints, $lineSpacePoints);
         if (!$this->textCellLayoutOverflows($base, $maxWidth, $maxHeight)) {
             return [
                 'fontchanged' => false,
@@ -1570,7 +1590,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $maxHeight,
             $offsetPoints,
             $lineSpacePoints,
-            $rtl,
         );
         $best_size = $probe['size'];
         $best_dim = $probe['dim'];
@@ -1589,7 +1608,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                     $maxHeight,
                     $offsetPoints,
                     $lineSpacePoints,
-                    $rtl,
                 );
 
                 if (!$mid_eval['fits']) {
@@ -1610,7 +1628,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $maxHeight,
                 $offsetPoints,
                 $lineSpacePoints,
-                $rtl,
             );
             if (!$min_eval['fits']) {
                 $best_size = $min_eval['size'];
@@ -1632,7 +1649,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                         $maxHeight,
                         $offsetPoints,
                         $lineSpacePoints,
-                        $rtl,
                     );
 
                     if (!$mid_eval['fits']) {
@@ -1683,7 +1699,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $maxHeight,
         float $offsetPoints,
         float $lineSpacePoints,
-        bool $rtl = false,
     ): array {
         $curfont = $this->font->getCurrentFont();
         $this->font->cloneFont($this->pon, $curfont['idx'], null, $size);
@@ -1697,7 +1712,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 1.0,
                 $offsetPoints,
                 $lineSpacePoints,
-                $rtl,
             );
         } finally {
             $this->font->popLastFont();
@@ -2097,6 +2111,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param bool        $clip        If true activate clipping mode.
      * @param ?TextShadow $shadow      Text shadow parameters.
      * @param bool        $baseRtl     True when the paragraph base direction is RTL.
+     * @param TBidiLevels $bidi        Bidi levels of $ordarr, used to reorder each line.
      *
      * @return string PDF code to render the text.
      *
@@ -2127,6 +2142,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         bool $clip = false,
         ?array $shadow = null,
         bool $baseRtl = false,
+        array $bidi = self::BIDI_NONE,
     ): string {
         if ($ordarr === [] || $lines === []) {
             return '';
@@ -2162,8 +2178,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         $out = '';
         foreach ($lines as $i => $data) {
-            $line_ordarr = \array_slice($ordarr, $data['pos'], $data['chars']);
-            $line_ordarr = $this->removeOrdArrSoftHyphens($line_ordarr);
+            $line_ordarr = $this->getVisualLineOrdArr($ordarr, $bidi, $data['pos'], $data['chars']);
             $line_txt = \implode('', $this->uniconv->ordArrToChrArr($line_ordarr));
             $line_dim = [
                 'chars' => $data['chars'],
@@ -2199,6 +2214,14 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 }
             }
 
+            // The Tw operator applies only to the single-byte code 32, so a composite
+            // font gets the word spacing as the equivalent justification width.
+            $wordSpacingWidth = $line_ws > 0 && $jwidth <= 0 && $this->isunicode && !$this->font->isCurrentByteFont();
+            if ($wordSpacingWidth) {
+                $jwidth = $this->toUnit($data['totwidth']) + ($data['spaces'] * $line_ws);
+                $line_ws = 0;
+            }
+
             $out .= $this->getOutTextLine(
                 $line_txt,
                 $line_ordarr,
@@ -2218,6 +2241,12 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $clip,
                 $shadow,
             );
+
+            $lastbbox = \array_key_last($this->bbox);
+            if ($wordSpacingWidth && $line_txt !== '' && $lastbbox !== null) {
+                // As with the Tw operator, the box width excludes the word spacing.
+                $this->bbox[$lastbbox]['w'] = $this->toUnit($data['totwidth']);
+            }
 
             $offset = 0;
             $line_posx = $posx;
@@ -2316,7 +2345,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         $ordarr = [];
         $dim = self::DIM_DEFAULT;
-        $this->prepareText($txt, $ordarr, $dim, $forcedir);
+        $baseRtl = false;
+        $bidi = self::BIDI_NONE;
+        $this->prepareText($txt, $ordarr, $dim, $forcedir, $baseRtl, $bidi);
+        $ordarr = $this->reorderOrdArr($ordarr, $bidi);
         // $posx is in user units while the measured width is in points.
         $totWidth = $this->toUnit($dim['totwidth']);
 
@@ -2506,14 +2538,18 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     /**
      * Cleanup the input text, convert it to UTF-8 array and get the dimensions.
      *
+     * The code points are returned in logical order. When the text needs Bidi
+     * reordering, $bidi holds the embedding levels used to reorder each line
+     * after line breaking (see getVisualLineOrdArr()).
+     *
      * @param string          $txt      Clean text string to be processed.
      * @param array<int, int> $ordarr   Array of UTF-8 codepoints (integer values).
      * @param TTextDims $dim Array of dimensions
      * @param string|TextDirection $forcedir If 'R' forces RTL, if 'L' forces LTR.
-     * @param bool            $baseRtl  Out-param: set to true when the paragraph base
-     *                                  direction is RTL and the codepoints were Bidi
-     *                                  reordered into visual order (so splitLines() must
-     *                                  reverse its line breaking).
+     * @param bool            $baseRtl  Out-param: true when the paragraph base direction is RTL.
+     * @param TBidiLevels     $bidi     Out-param: resolved embedding level and paragraph
+     *                                  embedding level of each code point, or empty arrays
+     *                                  when no reordering is needed.
      *
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Unicode\Exception
@@ -2524,10 +2560,12 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         array &$dim,
         string|TextDirection $forcedir = '',
         bool &$baseRtl = false,
+        array &$bidi = self::BIDI_NONE,
     ): void {
         $forcedir = $forcedir instanceof TextDirection ? $forcedir->value : $forcedir;
 
         $baseRtl = false;
+        $bidi = self::BIDI_NONE;
 
         if ($txt === '') {
             return;
@@ -2538,32 +2576,202 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $ordarr = \array_values($this->uniconv->strToOrdArr($txt));
 
         if ($this->isunicode && !$this->font->isCurrentByteFont()) {
-            // Resolve the base direction from the logical codepoints before Bidi
-            // reorders $ordarr into visual order; splitLines() only sees the
-            // visual array and receives the direction through this flag.
             $baseRtl = $this->isOrdArrBaseRtl($ordarr, $forcedir);
-            $bidi = new Bidi($txt, null, $ordarr, $forcedir);
-            /** @var array<int, int> $bidiarr */
-            $bidiarr = \array_values($bidi->getOrdArray());
-            if ($baseRtl && $bidiarr === $ordarr) {
-                // An RTL paragraph whose content is a single left-to-right run is left
-                // in logical order by the reordering, so the line breaking runs forward
-                // over it like an LTR paragraph.
-                $baseRtl = false;
-            }
-
-            $ordarr = $this->replaceUnicodeChars($bidiarr);
+            $bidiobj = new Bidi($txt, null, $ordarr, $forcedir);
+            /** @var array<int, int> $ordarr */
+            $ordarr = \array_values($bidiobj->getLogicalOrdArray());
+            $bidi = $this->getTextBidiLevels($bidiobj);
+            [$ordarr, $bidi] = $this->mapOrdArrByLevelRun($ordarr, $bidi, $this->replaceUnicodeChars(...));
         }
 
         if ($this->hyphen_patterns !== []) {
-            $ordarr = $this->hyphenateTextOrdArr($this->hyphen_patterns, $ordarr);
+            $patterns = $this->hyphen_patterns;
+            [$ordarr, $bidi] = $this->mapOrdArrByLevelRun(
+                $ordarr,
+                $bidi,
+                /**
+                 * @param array<int, int> $run
+                 *
+                 * @return array<int, int>
+                 *
+                 * @throws \Com\Tecnick\Unicode\Exception
+                 */
+                fn(array $run): array => $this->hyphenateTextOrdArr($patterns, $run),
+            );
         }
 
         if ($this->autozerowidthbreaks) {
-            $ordarr = $this->addOrdArrBreakPoints($ordarr);
+            [$ordarr, $bidi] = $this->mapOrdArrByLevelRun($ordarr, $bidi, $this->addOrdArrBreakPoints(...));
         }
 
         $dim = $this->font->getOrdArrDims($ordarr);
+    }
+
+    /**
+     * Returns the Bidi levels of the logical output, or empty arrays when every
+     * code point is at level 0.
+     *
+     * @return TBidiLevels
+     */
+    protected function getTextBidiLevels(Bidi $bidiobj): array
+    {
+        /** @var array<int, int> $levels */
+        $levels = \array_values($bidiobj->getLogicalLevels());
+        if ($levels === [] || \max($levels) === 0) {
+            return self::BIDI_NONE;
+        }
+
+        /** @var array<int, int> $pels */
+        $pels = \array_values($bidiobj->getLogicalParagraphLevels());
+
+        return [
+            'level' => $levels,
+            'pel' => $pels,
+        ];
+    }
+
+    /**
+     * Apply a code point transformation to each run of code points that share the
+     * same embedding level and paragraph embedding level. The output code points
+     * of a run get the levels of that run.
+     *
+     * @param array<int, int> $ordarr Code points in logical order.
+     * @param TBidiLevels     $bidi   Bidi levels of $ordarr.
+     * @param callable(array<int, int>): array<int, int> $transform Code point transformation.
+     *
+     * @return array{0: array<int, int>, 1: TBidiLevels}
+     */
+    protected function mapOrdArrByLevelRun(array $ordarr, array $bidi, callable $transform): array
+    {
+        if ($bidi['level'] === []) {
+            return [\array_values($transform($ordarr)), $bidi];
+        }
+
+        $outord = [];
+        $outlevel = [];
+        $outpel = [];
+        $num = \count($ordarr);
+        $start = 0;
+        for ($idx = 1; $idx <= $num; ++$idx) {
+            $level = $bidi['level'][$start] ?? 0;
+            $pel = $bidi['pel'][$start] ?? 0;
+            if ($idx < $num && ($bidi['level'][$idx] ?? 0) === $level && ($bidi['pel'][$idx] ?? 0) === $pel) {
+                continue;
+            }
+
+            foreach ($transform(\array_slice($ordarr, $start, $idx - $start)) as $ord) {
+                $outord[] = $ord;
+                $outlevel[] = $level;
+                $outpel[] = $pel;
+            }
+
+            $start = $idx;
+        }
+
+        return [$outord, ['level' => $outlevel, 'pel' => $outpel]];
+    }
+
+    /**
+     * Reorder code points from logical to visual order, as a single line of each
+     * paragraph (UAX #9 rules L1, L2 and L4).
+     *
+     * @param array<int, int> $ordarr Code points in logical order.
+     * @param TBidiLevels     $bidi   Bidi levels of $ordarr.
+     *
+     * @return array<int, int> Code points in visual order.
+     *
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function reorderOrdArr(array $ordarr, array $bidi): array
+    {
+        $ordarr = \array_values($ordarr);
+        if ($bidi['level'] === [] || $ordarr === []) {
+            return $ordarr;
+        }
+
+        $visual = [];
+        $num = \count($ordarr);
+        $start = 0;
+        for ($idx = 0; $idx <= $num; ++$idx) {
+            $ord = $ordarr[$idx] ?? null;
+            $pel = $bidi['pel'][$start] ?? 0;
+            $separator = $ord !== null && UnicodeType::getType($ord) === 'B';
+            if ($ord !== null && !$separator && ($bidi['pel'][$idx] ?? 0) === $pel) {
+                continue;
+            }
+
+            if ($idx > $start) {
+                $len = $idx - $start;
+                \array_push($visual, ...Bidi::reorderLine(
+                    \array_slice($ordarr, $start, $len),
+                    \array_slice($bidi['level'], $start, $len),
+                    $pel,
+                ));
+            }
+
+            $start = $idx;
+            if ($separator) {
+                $visual[] = $ord;
+                $start = $idx + 1;
+            }
+        }
+
+        return $visual;
+    }
+
+    /**
+     * Returns the code points of a line in visual order, ready to be rendered.
+     *
+     * A SOFT HYPHEN at the logical end of the line is rendered as a HYPHEN; the
+     * other SOFT HYPHEN and ZERO WIDTH SPACE code points are removed.
+     *
+     * @param array<int, int> $ordarr Code points of the paragraph in logical order.
+     * @param TBidiLevels     $bidi   Bidi levels of $ordarr.
+     * @param int             $pos    Position of the first code point of the line.
+     * @param int             $chars  Number of code points of the line.
+     *
+     * @return array<int, int>
+     *
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function getVisualLineOrdArr(array $ordarr, array $bidi, int $pos, int $chars): array
+    {
+        $line = \array_values(\array_slice($ordarr, $pos, $chars));
+        $last = \count($line) - 1;
+        if ($last >= 0 && ($line[$last] ?? 0) === UnicodeConstant::SOFT_HYPHEN) {
+            $line[$last] = UnicodeConstant::HYPHEN;
+        }
+
+        $line = $this->reorderOrdArr($line, $this->sliceBidiLevels($bidi, $pos, $chars));
+
+        return \array_values(\array_filter(
+            $line,
+            static fn(int $ord): bool => (
+                $ord !== UnicodeConstant::SOFT_HYPHEN
+                && $ord !== UnicodeConstant::ZERO_WIDTH_SPACE
+            ),
+        ));
+    }
+
+    /**
+     * Returns the slice of the Bidi levels from $pos, optionally limited to $length entries.
+     *
+     * @param TBidiLevels $bidi   Bidi levels.
+     * @param int         $pos    Start position.
+     * @param ?int        $length Number of entries, or null for all the remaining entries.
+     *
+     * @return TBidiLevels
+     */
+    protected function sliceBidiLevels(array $bidi, int $pos, ?int $length = null): array
+    {
+        if ($bidi['level'] === []) {
+            return self::BIDI_NONE;
+        }
+
+        return [
+            'level' => \array_values(\array_slice($bidi['level'], $pos, $length)),
+            'pel' => \array_values(\array_slice($bidi['pel'], $pos, $length)),
+        ];
     }
 
     /**
@@ -2604,45 +2812,17 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param TTextDims       $dim      Array of dimensions.
      * @param float           $pwidth   Max line width in internal points.
      * @param float           $poffset  Horizontal offset to apply to the line start in internal points.
-     * @param bool            $rtl      When true the ord array is in RTL visual (reversed) order, so
-     *                                  the line breaking is computed in logical reading order and the
-     *                                  resulting lines are returned top-to-bottom (logically-first on top).
      *
      * @return array<int, TextLinePos> Array of lines metrics.
      *
      * @param TTextDims       $dim
      * @throws \Com\Tecnick\Pdf\Font\Exception
      */
-    protected function splitLines(
-        array $ordarr,
-        array $dim,
-        float $pwidth,
-        float $poffset = 0,
-        bool $rtl = false,
-    ): array {
+    protected function splitLines(array $ordarr, array $dim, float $pwidth, float $poffset = 0): array
+    {
         if ($ordarr === []) {
             // no lines
             return [];
-        }
-
-        if ($rtl) {
-            // For an RTL base direction $ordarr is in visual (reversed) order. Reverse
-            // it back to logical reading order, break it forward (top line filled first,
-            // ragged line last), then translate each line position back into the visual
-            // array coordinates used by outTextLines().
-            $logicalOrdArr = \array_reverse($ordarr);
-            $logicalDim = $this->font->getOrdArrDims($logicalOrdArr);
-            $lines = $this->splitLines($logicalOrdArr, $logicalDim, $pwidth, $poffset);
-            $total = \count($ordarr);
-            foreach ($lines as &$line) {
-                // A logical line spans logical indices [pos, pos + chars); the same glyphs
-                // occupy visual indices [total - pos - chars, total - pos).
-                $line['pos'] = $total - $line['pos'] - $line['chars'];
-            }
-
-            unset($line);
-
-            return $lines;
         }
 
         $line_width = $pwidth - $poffset;

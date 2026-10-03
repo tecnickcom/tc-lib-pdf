@@ -21,6 +21,7 @@ namespace Test;
  * @phpstan-import-type TTMatrix from \Com\Tecnick\Pdf\Graph\Base
  * @phpstan-import-type TextShadow from \Com\Tecnick\Pdf\Text
  * @phpstan-import-type TextLinePos from \Com\Tecnick\Pdf\Text
+ * @phpstan-import-type TBidiLevels from \Com\Tecnick\Pdf\Text
  */
 class TestableText extends \Com\Tecnick\Pdf\Tcpdf
 {
@@ -238,6 +239,62 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /**
+     * @phpstan-return array{0: string, 1: array<int, int>, 2: TTextDims, 3: bool, 4: TBidiLevels}
+     * @throws \Throwable
+     */
+    public function exposePrepareTextWithBidi(string $txt, string $forcedir = ''): array
+    {
+        $ordarr = [];
+        $dim = self::DIM_DEFAULT;
+        $baseRtl = false;
+        $bidi = self::BIDI_NONE;
+        $this->prepareText($txt, $ordarr, $dim, $forcedir, $baseRtl, $bidi);
+        return [$txt, $ordarr, $dim, $baseRtl, $bidi];
+    }
+
+    /**
+     * @phpstan-param array<int, int> $ordarr
+     * @phpstan-param TBidiLevels $bidi
+     * @phpstan-return array<int, int>
+     * @throws \Throwable
+     */
+    public function exposeGetVisualLineOrdArr(array $ordarr, array $bidi, int $pos, int $chars): array
+    {
+        return $this->getVisualLineOrdArr($ordarr, $bidi, $pos, $chars);
+    }
+
+    /**
+     * @phpstan-param array<int, int> $ordarr
+     * @phpstan-param TBidiLevels $bidi
+     * @phpstan-return array<int, int>
+     * @throws \Throwable
+     */
+    public function exposeReorderOrdArr(array $ordarr, array $bidi): array
+    {
+        return $this->reorderOrdArr($ordarr, $bidi);
+    }
+
+    /**
+     * @phpstan-param array<int, int> $ordarr
+     * @phpstan-param TBidiLevels $bidi
+     * @phpstan-param callable(array<int, int>): array<int, int> $transform
+     * @phpstan-return array{0: array<int, int>, 1: TBidiLevels}
+     */
+    public function exposeMapOrdArrByLevelRun(array $ordarr, array $bidi, callable $transform): array
+    {
+        return $this->mapOrdArrByLevelRun($ordarr, $bidi, $transform);
+    }
+
+    /**
+     * @phpstan-param TBidiLevels $bidi
+     * @phpstan-return TBidiLevels
+     */
+    public function exposeSliceBidiLevels(array $bidi, int $pos, ?int $length = null): array
+    {
+        return $this->sliceBidiLevels($bidi, $pos, $length);
+    }
+
+    /**
      * @phpstan-param array<int, int> $logicalOrdArr
      * @throws \Throwable
      */
@@ -252,14 +309,9 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-return array<int, TextLinePos>
      * @throws \Throwable
      */
-    public function exposeSplitLines(
-        array $ordarr,
-        array $dim,
-        float $pwidth,
-        float $poffset = 0,
-        bool $rtl = false,
-    ): array {
-        return $this->splitLines($ordarr, $dim, $pwidth, $poffset, $rtl);
+    public function exposeSplitLines(array $ordarr, array $dim, float $pwidth, float $poffset = 0): array
+    {
+        return $this->splitLines($ordarr, $dim, $pwidth, $poffset);
     }
 
     /**
@@ -473,6 +525,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param array<int, int> $ordarr
      * @phpstan-param array<int, TextLinePos> $lines
      * @phpstan-param TextShadow|null $shadow
+     * @phpstan-param TBidiLevels $bidi
      * @throws \Throwable
      */
     public function exposeOutTextLines(
@@ -497,6 +550,8 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         bool $overline = false,
         bool $clip = false,
         ?array $shadow = null,
+        bool $baseRtl = false,
+        array $bidi = self::BIDI_NONE,
     ): string {
         if ($ordarr === [] || $lines === []) {
             return '';
@@ -523,6 +578,8 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
             $overline,
             $clip,
             $shadow,
+            $baseRtl,
+            $bidi,
         );
     }
 
