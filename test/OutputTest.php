@@ -6386,7 +6386,7 @@ class OutputTest extends TestUtil
     public function testCustomFontPathFromAllowedPathsIsEmbedded(): void
     {
         $bundled = (string) \realpath((string) \constant('K_PATH_FONTS'));
-        $customDir = \sys_get_temp_dir() . '/tc-lib-pdf-fonts-' . \bin2hex(\random_bytes(6));
+        $customDir = (string) \realpath(\sys_get_temp_dir()) . '/tc-lib-pdf-fonts-' . \bin2hex(\random_bytes(6));
         $this->assertTrue(\mkdir($customDir, 0o777, true));
 
         try {

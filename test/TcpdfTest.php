@@ -38,6 +38,19 @@ class TcpdfTest extends TestUtil
     }
 
     /**
+     * Return a path in the form stored in the allowedPaths list: '/' separators and a lowercase drive letter.
+     */
+    private function allowedPathForm(string $path): string
+    {
+        $path = \str_replace('\\', '/', $path);
+        if (\preg_match('/^[A-Za-z]:\//', $path) === 1) {
+            $path = \strtolower($path[0]) . \substr($path, 1);
+        }
+
+        return $path;
+    }
+
+    /**
      * @return array{pid: int}
      * @throws \Throwable
      */
@@ -319,7 +332,7 @@ class TcpdfTest extends TestUtil
 
         /** @var array<string> $allowedPaths */
         $allowedPaths = $this->getObjectProperty($file, 'allowedPaths');
-        $this->assertContains((string) \realpath(__DIR__ . '/..'), $allowedPaths);
+        $this->assertContains($this->allowedPathForm((string) \realpath(__DIR__ . '/..')), $allowedPaths);
     }
 
     /** @throws \Throwable */
@@ -335,8 +348,8 @@ class TcpdfTest extends TestUtil
         /** @var array<string> $allowedPaths */
         $allowedPaths = $this->getObjectProperty($file, 'allowedPaths');
 
-        $this->assertNotContains((string) \realpath(__DIR__ . '/..'), $allowedPaths);
-        $this->assertContains($customDir, $allowedPaths);
+        $this->assertNotContains($this->allowedPathForm((string) \realpath(__DIR__ . '/..')), $allowedPaths);
+        $this->assertContains($this->allowedPathForm($customDir), $allowedPaths);
     }
 
     /** @throws \Throwable */
@@ -353,7 +366,7 @@ class TcpdfTest extends TestUtil
         $fallbackMarkupFile = $this->getObjectProperty($fallback, 'markupFile');
         /** @var array<string> $fallbackMarkupPaths */
         $fallbackMarkupPaths = $this->getObjectProperty($fallbackMarkupFile, 'allowedPaths');
-        $this->assertSame([$customDir], $fallbackMarkupPaths);
+        $this->assertSame([$this->allowedPathForm($customDir)], $fallbackMarkupPaths);
 
         $override = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, '', null, [
             'allowedPaths' => [$customDir],
@@ -364,7 +377,7 @@ class TcpdfTest extends TestUtil
         $overrideMarkupFile = $this->getObjectProperty($override, 'markupFile');
         /** @var array<string> $overrideMarkupPaths */
         $overrideMarkupPaths = $this->getObjectProperty($overrideMarkupFile, 'allowedPaths');
-        $this->assertSame([$markupDir], $overrideMarkupPaths);
+        $this->assertSame([$this->allowedPathForm($markupDir)], $overrideMarkupPaths);
     }
 
     /** @throws \Throwable */

@@ -15676,7 +15676,7 @@ class HTMLTest extends TestUtil
     public function testGetHTMLliBulletFallsBackToVectorWhenBulletGlyphMissing(): void
     {
         $bundled = (string) \realpath((string) \constant('K_PATH_FONTS'));
-        $customDir = \sys_get_temp_dir() . '/tc-lib-pdf-nobullet-' . \bin2hex(\random_bytes(6));
+        $customDir = (string) \realpath(\sys_get_temp_dir()) . '/tc-lib-pdf-nobullet-' . \bin2hex(\random_bytes(6));
         $this->assertTrue(\mkdir($customDir, 0o777, true));
 
         try {
