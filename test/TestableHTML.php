@@ -871,7 +871,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /**
-     * @return array{0: string, 1: string}|null
+     * @return array{0: string, 1: string, 2: bool}|null
      * @throws \Throwable
      */
     public function exposeSplitHTMLJustifyFirstLine(string $text, string $forcedir, float $maxwidth): ?array

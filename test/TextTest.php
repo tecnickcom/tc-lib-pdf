@@ -402,7 +402,7 @@ class TextTest extends TestUtil
         [$txt, $ordarr, $dim] = $obj->exposePrepareText('a b c', 'L');
         $out = $obj->exposeGetJustifiedString($txt, $ordarr, $dim, 40);
 
-        // One TJ adjustment replaces each of the two spaces.
+        // One TJ adjustment follows each of the two spaces.
         $this->assertSame(2, \preg_match_all('#\) -?[0-9.]+ \(#', $out));
 
         // The character codes are 2 bytes wide, so searching the encoded string for the
@@ -2104,7 +2104,18 @@ class TextTest extends TestUtil
         $actualTokens = $glyphTokens($out);
 
         $width = $obj->toUnit($renderWidthPts);
-        $expected = $glyphTokens($obj->exposeOutTextLines($ordarr, $lines, 5, 20, $width, 0, 5, 0));
+        $expected = $glyphTokens($obj->exposeOutTextLines(
+            $ordarr,
+            $lines,
+            5,
+            20,
+            $width,
+            0,
+            5,
+            0,
+            baseRtl: true,
+            bidi: $bidi,
+        ));
 
         $this->assertNotEmpty($actualTokens);
         $this->assertSame($expected, $actualTokens);
@@ -2459,8 +2470,11 @@ class TextTest extends TestUtil
         $content = \implode('', \array_slice($pageObj->getPage($pid)['content'], $beforeCount));
         $matches = [];
         \preg_match_all('/\((?:\\\\.|[^\\\\)])*\)\s*Tj/s', $content, $matches);
+        // The word separators of the wrapped lines are not lines.
+        $separator = '(' . $obj->exposeGetOutCompositeStr([0x20]) . ') Tj';
+        $shown = \array_filter($matches[0] ?? [], static fn(string $tj): bool => $tj !== $separator);
         $this->assertGreaterThan(8, \count($lines));
-        $this->assertCount(\count($lines), $matches[0] ?? []);
+        $this->assertCount(\count($lines), $shown);
     }
 
     /**
@@ -3979,5 +3993,236 @@ class TextTest extends TestUtil
         $obj->addTextCell(txt: 'Hello world', linespace: -$fontHeight);
 
         $this->assertNotSame('', $obj->getOutPDFString());
+    }
+
+    /**
+     * A wrapped line ends with the word separator skipped at the line break. The
+     * separator is outside the line metrics, so the line position is unchanged.
+     *
+     * @throws \Throwable
+     */
+    public function testWrappedLineEndsWithTheSkippedWordSeparator(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        $txt = 'Open the settings menu and choose';
+        $left = $obj->getTextCell($txt, 10, 20, 40, 0, 0, 0, 'T', 'L');
+        $this->assertStringContainsString('(Open the settings menu ) Tj', $left);
+        $this->assertStringContainsString('(and choose) Tj', $left);
+
+        $justified = $obj->getTextCell($txt, 10, 20, 40, 0, 0, 0, 'T', 'J');
+        $this->assertStringContainsString('(Open the settings menu ) Tj', $justified);
+
+        $matches = [];
+        $right = $obj->getTextCell($txt, 10, 20, 40, 0, 0, 0, 'T', 'R');
+        $this->assertSame(1, \preg_match('/([0-9.]+) [0-9.]+ Td \(Open the settings menu \) Tj/', $right, $matches));
+        $single = $obj->getTextCell('Open the settings menu', 10, 20, 40, 0, 0, 0, 'T', 'R');
+        $this->assertStringContainsString(($matches[1] ?? '') . ' ', $single);
+
+        $breaks = $obj->getTextCell("Open\nthe settings\u{200B}choose", 10, 20, 25, 0, 0, 0, 'T', 'L');
+        $this->assertStringContainsString('(Open ) Tj', $breaks);
+        $this->assertStringContainsString('(the settings) Tj', $breaks);
+        $this->assertStringContainsString('(choose) Tj', $breaks);
+    }
+
+    /** @throws \Throwable */
+    public function testIsWrapWordSeparator(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $this->assertTrue($obj->exposeIsWrapWordSeparator(0x20));
+        $this->assertTrue($obj->exposeIsWrapWordSeparator(0x09));
+        $this->assertTrue($obj->exposeIsWrapWordSeparator(0x0A));
+        $this->assertTrue($obj->exposeIsWrapWordSeparator(0x2003));
+        $this->assertFalse($obj->exposeIsWrapWordSeparator(null));
+        $this->assertFalse($obj->exposeIsWrapWordSeparator(0x61));
+        $this->assertFalse($obj->exposeIsWrapWordSeparator(UnicodeConstant::ZERO_WIDTH_SPACE));
+        $this->assertFalse($obj->exposeIsWrapWordSeparator(UnicodeConstant::SOFT_HYPHEN));
+        foreach (self::NO_BREAK_CODEPOINTS as $ord) {
+            $this->assertFalse($obj->exposeIsWrapWordSeparator($ord), \sprintf('U+%04X', $ord));
+        }
+    }
+
+    /**
+     * A justified line with a composite font keeps its space glyphs: the TJ
+     * adjustment after each space adds the justification width only.
+     *
+     * @throws \Throwable
+     */
+    public function testJustifiedUnicodeStringKeepsTheSpaceGlyphs(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initUnicodeFont($obj);
+        $obj->addPage();
+        $this->setObjectProperty($obj, 'isunicode', true);
+
+        [$txt, $ordarr, $dim] = $obj->exposePrepareText('a b c', 'L');
+        $out = $obj->exposeGetJustifiedString($txt, $ordarr, $dim, 40);
+
+        $spaced = $obj->exposeGetOutCompositeStr([0x61, 0x20]);
+        $this->assertStringStartsWith('[(' . $spaced . ') ', $out);
+
+        $matches = [];
+        $this->assertSame(2, \preg_match_all('#\) (-?[0-9.]+) \(#', $out, $matches));
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        $curfont = $font->getCurrentFont();
+        $stretching = $curfont['stretching'] > 0.0 ? $curfont['stretching'] : 1.0;
+        $pwidth = (40 * 72) / 25.4;
+        $expected = (($pwidth - $dim['totwidth'] + $dim['totspacewidth']) / $dim['spaces']) / $stretching;
+        $adjust = \floatval($matches[1][0] ?? 0.0);
+        $advance =
+            ((-$adjust * $curfont['size']) / 1000) + ($font->getCharWidth(0x20) / $stretching) + $curfont['spacing'];
+        $this->assertEqualsWithDelta($expected, $advance, 1.0E-5);
+    }
+
+    /**
+     * A text that starts with the word separator skipped at the first line break
+     * writes it before the next line.
+     *
+     * @throws \Throwable
+     */
+    public function testLeadingWrappedSeparatorIsWrittenBeforeTheNextLine(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        $plain = $obj->getTextCell('choose the', 10, 20, 40, 0, 35, 0, 'T', 'L');
+        $this->assertSame(1, \preg_match_all('/ Tj ET/', $plain));
+
+        $out = $obj->getTextCell(' choose the', 10, 20, 40, 0, 35, 0, 'T', 'L');
+        $objects = [];
+        $pattern = '/^BT 0 Tr ([0-9.]+) ([0-9.]+) Td \((.+?)\) Tj ET$/m';
+        $this->assertSame(2, \preg_match_all($pattern, $out, $objects));
+        $this->assertSame([' ', 'choose the'], $objects[3] ?? []);
+        $this->assertSame($objects[2][0] ?? '', $objects[2][1] ?? '');
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        $this->assertEqualsWithDelta(
+            \floatval($objects[1][1] ?? 0.0) - $font->getCharWidth(0x20),
+            \floatval($objects[1][0] ?? 0.0),
+            1.0E-5,
+        );
+    }
+
+    /**
+     * The separator flags add a space before the first line and after the last
+     * line without moving the text.
+     *
+     * @throws \Throwable
+     */
+    public function testTextSeparatorFlagsKeepTheTextPosition(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        $plain = $obj->getTextCell('Hello', 10, 20, 40, 0, 0, 0, 'T', 'L');
+        $this->assertStringContainsString('(Hello) Tj', $plain);
+
+        $this->setObjectProperty($obj, 'textTrailSeparator', true);
+        $trail = $obj->getTextCell('Hello', 10, 20, 40, 0, 0, 0, 'T', 'L');
+        $this->assertSame(\str_replace('(Hello) Tj', '(Hello ) Tj', $plain), $trail);
+
+        $this->setObjectProperty($obj, 'textTrailSeparator', false);
+        $this->setObjectProperty($obj, 'textLeadSeparator', true);
+        $lead = $obj->getTextCell('Hello', 10, 20, 40, 0, 0, 0, 'T', 'L');
+        $this->setObjectProperty($obj, 'textLeadSeparator', false);
+
+        $hello = [];
+        $this->assertSame(1, \preg_match('/BT 0 Tr ([0-9.]+) ([0-9.]+) Td \(Hello\) Tj ET/', $plain, $hello));
+        $this->assertStringContainsString("\n" . ($hello[0] ?? ''), $lead);
+        $sep = [];
+        $this->assertSame(1, \preg_match('/^BT 0 Tr ([0-9.]+) ([0-9.]+) Td \( \) Tj ET\n/', $lead, $sep));
+        $this->assertSame($hello[2] ?? '', $sep[2] ?? '');
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        $this->assertEqualsWithDelta(
+            \floatval($hello[1] ?? 0.0) - $font->getCharWidth(0x20),
+            \floatval($sep[1] ?? 0.0),
+            1.0E-5,
+        );
+    }
+
+    /**
+     * The separators of an RTL line are written in visual order: the trailing one
+     * before the line, at its left, and the leading one after the line, at its right.
+     *
+     * @throws \Throwable
+     */
+    public function testRtlLineSeparatorsAreWrittenInVisualOrder(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initUnicodeFont($obj);
+        $obj->addPage();
+
+        $word = \str_repeat("\u{05D0}", 6);
+        $space = $obj->exposeGetOutCompositeStr([0x20]);
+        $glyphs = $obj->exposeGetOutCompositeStr(\array_fill(0, 6, 0x05D0));
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        $spacewidth = $font->getCharWidth(0x20);
+        $wordwidth = $font->getOrdArrWidth(\array_fill(0, 6, 0x05D0));
+        $pattern = '/^BT \/F1 [0-9.]+ Tf 0 Tr ([0-9.]+) ([0-9.]+) Td \((.+?)\) Tj ET$/m';
+
+        $wrapped = $obj->getTextCell($word . ' ' . $word, 10, 20, 20, 0, 0, 0, 'T', 'R');
+        $objects = [];
+        $this->assertSame(3, \preg_match_all($pattern, $wrapped, $objects));
+        $this->assertSame([$space, $glyphs, $glyphs], $objects[3] ?? []);
+        $this->assertSame($objects[2][0] ?? '', $objects[2][1] ?? '');
+        $this->assertEqualsWithDelta(
+            \floatval($objects[1][1] ?? 0.0) - $spacewidth,
+            \floatval($objects[1][0] ?? 0.0),
+            1.0E-5,
+        );
+
+        $this->setObjectProperty($obj, 'textLeadSeparator', true);
+        $lead = $obj->getTextCell($word, 10, 20, 20, 0, 0, 0, 'T', 'R');
+        $this->setObjectProperty($obj, 'textLeadSeparator', false);
+        $objects = [];
+        $this->assertSame(2, \preg_match_all($pattern, $lead, $objects));
+        $this->assertSame([$glyphs, $space], $objects[3] ?? []);
+        $this->assertEqualsWithDelta(
+            \floatval($objects[1][0] ?? 0.0) + $wordwidth,
+            \floatval($objects[1][1] ?? 0.0),
+            1.0E-5,
+        );
+    }
+
+    /**
+     * Each page of a text cell split across pages carries the ActualText of the
+     * text rendered on that page only.
+     *
+     * @throws \Throwable
+     */
+    public function testAddTextCellActualTextCoversOnlyTheBlockText(): void
+    {
+        $obj = new TestableText('mm', true, false, false, 'pdfua');
+        $this->initUnicodeFont($obj);
+        $obj->addPage();
+
+        $txt = "The of\u{FB01}ce. " . \str_repeat('Lorem ipsum dolor sit amet consectetur. ', 30) . "Of\u{FB01}ce end.";
+        $obj->addTextCell($txt, -1, 10, 270, 60, 0);
+
+        $actual = [];
+        $numpages = 0;
+        foreach ($obj->page->getPages() as $page) {
+            ++$numpages;
+            $matches = [];
+            \preg_match_all('/\/ActualText <([0-9a-f]+)>/', \implode('', $page['content']), $matches);
+            foreach ($matches[1] ?? [] as $hex) {
+                $actual[] = (string) \mb_convert_encoding(\substr((string) \hex2bin($hex), 2), 'UTF-8', 'UTF-16BE');
+            }
+        }
+
+        $this->assertSame(2, $numpages);
+        $this->assertCount(2, $actual);
+        $this->assertStringStartsWith('The office. ', $actual[0] ?? '');
+        $this->assertStringEndsWith('Office end.', $actual[1] ?? '');
+        $this->assertSame(\str_replace("\u{FB01}", 'fi', $txt), \implode('', $actual));
     }
 }

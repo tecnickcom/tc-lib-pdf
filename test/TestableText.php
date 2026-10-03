@@ -714,6 +714,20 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         return $this->formatPdfUaActualText($txt);
     }
 
+    public function exposeIsWrapWordSeparator(?int $ord): bool
+    {
+        return $this->isWrapWordSeparator($ord);
+    }
+
+    /**
+     * @phpstan-param array<int, int> $ordarr
+     * @throws \Throwable
+     */
+    public function exposeGetOutCompositeStr(array $ordarr): string
+    {
+        return $this->getOutCompositeStr($ordarr);
+    }
+
     public function exposeTagPdfUaTextContent(string $content, int $pid, string $actualText = ''): string
     {
         return $this->tagPdfUaTextContent($content, $pid, $actualText);

@@ -218,6 +218,29 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     protected array $synthstyle = [];
 
     /**
+     * If true, outTextLines() writes a word separator before the first line.
+     * Set by callers whose text follows a word break that was removed from it.
+     */
+    protected bool $textLeadSeparator = false;
+
+    /**
+     * If true, outTextLines() writes a word separator after the last line.
+     * Set by callers whose text is followed by a word break that was removed from it.
+     */
+    protected bool $textTrailSeparator = false;
+
+    /**
+     * If true, outTextLines() moves the first line start right by the offset for any
+     * base direction. Set by callers whose offset is a left-to-right cursor position.
+     */
+    protected bool $textOffsetFromLeft = false;
+
+    /**
+     * Number of lines with glyphs written by outTextLines().
+     */
+    protected int $textGlyphLines = 0;
+
+    /**
      * Returns the PDF code to render a text block inside a rectangular cell.
      *
      * @param string      $txt         Text string to be processed.
@@ -637,7 +660,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $bidi = self::BIDI_NONE;
         $this->prepareText($txt, $ordarr, $dim, $forcedir, $baseRtl, $bidi);
         $txt_pwidth = $dim['totwidth'];
-        $actualText = $this->isTaggedMode() ? $this->getActualTextForOrdarr($ordarr) : '';
 
         $ocell = $this->adjustMinCellPadding($cstyles, $cell);
         $cell = $ocell;
@@ -803,6 +825,13 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
                 if ($fontout_prefix !== '' && $num_blocks === 0) {
                     $out = $fontout_prefix . $out;
+                }
+
+                // The ActualText covers only the text rendered in this block.
+                $actualText = '';
+                if ($this->isTaggedMode()) {
+                    $blockchars = $lastblock ? null : $lines[$region_max_lines]['pos'] ?? null;
+                    $actualText = $this->getActualTextForOrdarr(\array_slice($ordarr, 0, $blockchars));
                 }
 
                 $this->page->addContent($this->tagPdfUaTextContent($out, $pid, $actualText), $pid);
@@ -2172,13 +2201,26 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         // The offset shortens the first line at the side that line starts from:
         // the right one for an RTL paragraph, where the line box is trimmed
-        // instead of being moved.
-        $line_posx = $baseRtl ? $posx : $posx + $offset;
+        // instead of being moved, unless the offset is a left-to-right cursor position.
+        $line_posx = $baseRtl && !$this->textOffsetFromLeft ? $posx : $posx + $offset;
         $line_posy = $posy + $fontascent;
 
         $out = '';
+        $leadseparator = $this->textLeadSeparator;
         foreach ($lines as $i => $data) {
             $line_ordarr = $this->getVisualLineOrdArr($ordarr, $bidi, $data['pos'], $data['chars']);
+            $nextord = $ordarr[$data['pos'] + $data['chars']] ?? null;
+            // The word separator after the line (skipped at the line break, or removed
+            // by the caller after the text) is written as a space, so that the extracted
+            // and tagged text keeps the word break. The line metrics exclude it, so the
+            // layout is unchanged.
+            $trailseparator =
+                $line_ordarr !== []
+                && ($this->isWrapWordSeparator($nextord) || $nextord === null && $this->textTrailSeparator);
+            if ($trailseparator && !$baseRtl) {
+                $line_ordarr[] = UnicodeConstant::SPACE;
+                $this->font->addSubsetChar($this->font->getCurrentFont()['key'], UnicodeConstant::SPACE);
+            }
             $line_txt = \implode('', $this->uniconv->ordArrToChrArr($line_ordarr));
             $line_dim = [
                 'chars' => $data['chars'],
@@ -2222,6 +2264,13 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $line_ws = 0;
             }
 
+            // The separators of an RTL line are written in visual order, as its glyphs:
+            // the trailing one at the left and the leading one at the right.
+            $lineseparator = $leadseparator && $line_txt !== '';
+            if ($lineseparator && !$baseRtl || $trailseparator && $baseRtl) {
+                $out .= $this->getOutWordSeparator($txt_posx, $line_posy);
+            }
+
             $out .= $this->getOutTextLine(
                 $line_txt,
                 $line_ordarr,
@@ -2241,6 +2290,20 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $clip,
                 $shadow,
             );
+
+            if ($lineseparator && $baseRtl) {
+                $line_pwidth = $jwidth > 0 ? $jwidth : $this->toUnit($data['totwidth']) + ($data['spaces'] * $line_ws);
+                $out .= $this->getOutWordSeparator($txt_posx + $line_pwidth, $line_posy, true);
+            }
+
+            // A text that starts with the word separator skipped at the line break has an
+            // empty first line: the separator is written before the next line instead.
+            $leadseparator =
+                $leadseparator && !$lineseparator
+                || $i === 0 && $line_txt === '' && $this->isWrapWordSeparator($nextord);
+            if ($line_txt !== '') {
+                ++$this->textGlyphLines;
+            }
 
             $lastbbox = \array_key_last($this->bbox);
             if ($wordSpacingWidth && $line_txt !== '' && $lastbbox !== null) {
@@ -2751,6 +2814,58 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 && $ord !== UnicodeConstant::ZERO_WIDTH_SPACE
             ),
         ));
+    }
+
+    /**
+     * Returns true when the given code point is a word separator that splitLines()
+     * drops at a line break: a whitespace, segment or paragraph separator.
+     * Boundary neutrals (zero width space, soft hyphen) and no-break spaces are excluded.
+     *
+     * @param ?int $ord Code point following a line, or null at the end of the text.
+     */
+    protected function isWrapWordSeparator(?int $ord): bool
+    {
+        if ($ord === null || isset(self::NO_BREAK_ORD[$ord])) {
+            return false;
+        }
+
+        $type = UnicodeType::getType($ord);
+
+        return $type === 'WS' || $type === 'S' || $type === 'B';
+    }
+
+    /**
+     * Returns a text object that shows a single space ending (or starting) at the
+     * given position. The space has no ink: it marks a word break in the text
+     * content without changing the rendered output.
+     *
+     * @param float $posx  Abscissa of the end of the space, or of its start when $start is true.
+     * @param float $posy  Ordinate of the font baseline.
+     * @param bool  $start If true, the space starts at $posx.
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function getOutWordSeparator(float $posx, float $posy, bool $start = false): string
+    {
+        $curfont = $this->font->getCurrentFont();
+        $this->font->addSubsetChar($curfont['key'], UnicodeConstant::SPACE);
+        $str = ' ';
+        if ($this->isunicode && !$this->font->isCurrentByteFont()) {
+            $str = $this->encrypt->escapeString($this->getOutCompositeStr([UnicodeConstant::SPACE]));
+        }
+
+        $width = $this->toUnit($this->font->getCharWidth(UnicodeConstant::SPACE));
+        $out = $this->getOutTextShowing($str, 'Tj');
+        $out = $this->getOutTextPosXY($out, $start ? $posx : $posx - $width, $posy, 'Td');
+        // An explicit fill mode: an inherited clipping mode would clip with an empty path.
+        $out = $this->getOutTextStateOperatorTr($out, 0);
+        if ($this->font->isCurrentGidEncoded()) {
+            $out = $curfont['outraw'] . ' ' . $out;
+        }
+
+        return $this->getOutTextObject($out);
     }
 
     /**
@@ -3270,21 +3385,21 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         // The TJ inter-word adjustment is scaled by the horizontal scale (Tz/100) at
         // render time, so divide by the stretching ratio to fill exactly to $pwidth.
         $spacewidth = (($pwidth - $totWidth + $totSpaceWidth) / $spaces) / $stretching;
+        // Each space glyph is kept, so that the text keeps its word breaks: the
+        // adjustment that follows it excludes the glyph advance (width and Tc).
+        $spacewidth -= ($this->font->getCharWidth(UnicodeConstant::SPACE) / $stretching) + $font['spacing'];
         $spacewidth = (-1000 * $spacewidth) / $fontsize;
 
-        // Each space is dropped and replaced by the equivalent TJ adjustment. The split
-        // is done on the codepoints: searching the encoded string for the character code
-        // of the space would also match the halves of two adjacent codes.
+        // The split is done on the codepoints: searching the encoded string for the
+        // character code of the space would also match the halves of two adjacent codes.
         $chunks = [];
         $chunk = [];
         foreach ($ordarr as $ord) {
-            if ($ord === 32) {
+            $chunk[] = $ord;
+            if ($ord === UnicodeConstant::SPACE) {
                 $chunks[] = $chunk;
                 $chunk = [];
-                continue;
             }
-
-            $chunk[] = $ord;
         }
 
         $chunks[] = $chunk;

@@ -302,6 +302,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected bool $htmlVerticalFitHead = false;
 
     /**
+     * Set while rendering the head fragment of a split text node: true when the
+     * word separator at the split point was removed, so the head ends with a word
+     * break. Null when the rendered fragment ends where its text node ends.
+     */
+    protected ?bool $htmlTrailWordSeparator = null;
+
+    /**
+     * Set to true when a whitespace-only fragment of the block is not rendered:
+     * it is a word break before the next text fragment.
+     */
+    protected bool $htmlLeadWordSeparator = false;
+
+    /**
+     * Set to true when the last text fragment written in the block ends with a
+     * word break: a whitespace glyph or a word separator.
+     */
+    protected bool $htmlWordBreakWritten = false;
+
+    /**
      * Base direction ('L' or 'R') used to prepare the text of a fragment whose
      * element sets no direction. Set while rendering the tail of a split
      * paragraph, so the tail keeps the base direction of the whole paragraph.
@@ -480,6 +499,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * that is any "\s" character except the non-breaking ones.
      */
     protected const HTML_COLLAPSIBLE_SPACE = '[^\S' . self::NO_BREAK_SPACE_CLASS . ']';
+
+    /**
+     * Inline tags rendered as atomic boxes: they end a sequence of collapsible spaces.
+     *
+     * @var array<string>
+     */
+    protected const HTML_ATOMIC_INLINE_TAGS = [
+        'button',
+        'img',
+        'input',
+        'select',
+        'textarea',
+    ];
 
     /**
      * HTML character replacements.
@@ -1295,7 +1327,60 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $this->recomputeHTMLDOMCSSAgainstFinalTree($dom, $css);
         }
 
+        $this->collapseHTMLDOMInlineSpaces($dom);
+
         return $dom;
+    }
+
+    /**
+     * Removes the collapsible spaces that follow another collapsible space in the
+     * same inline formatting context, across inline element boundaries.
+     * Blocks, atomic inline elements and preserved white space end the sequence.
+     * Hidden nodes are skipped.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     */
+    protected function collapseHTMLDOMInlineSpaces(array &$dom): void
+    {
+        $afterspace = false;
+        foreach ($dom as $key => $node) {
+            if ($key === 0 || $node['hide']) {
+                continue;
+            }
+
+            if ($node['tag']) {
+                // A closing tag ends the box of the element opened by its parent node.
+                $elm = $node['opening'] ? $node : $dom[$node['parent']] ?? $node;
+                if ($elm['hide']) {
+                    continue;
+                }
+
+                if (
+                    $elm['block']
+                    || $elm['display'] !== 'inline'
+                    || \in_array($elm['value'], self::HTML_ATOMIC_INLINE_TAGS, true)
+                ) {
+                    $afterspace = false;
+                }
+
+                continue;
+            }
+
+            if (!\in_array(\strtolower(\trim($node['white-space'])), ['', 'normal', 'nowrap'], true)) {
+                $afterspace = false;
+                continue;
+            }
+
+            $value = $node['value'];
+            if ($afterspace) {
+                $value = \preg_replace('/^' . self::HTML_COLLAPSIBLE_SPACE . '+/u', '', $value) ?? $value;
+                $dom[$key]['value'] = $value;
+            }
+
+            if ($value !== '') {
+                $afterspace = \preg_match('/' . self::HTML_COLLAPSIBLE_SPACE . '$/u', $value) === 1;
+            }
+        }
     }
 
     /**
@@ -11324,14 +11409,42 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Returns true when the text node is followed by a line break element,
+     * after the closing tags of its inline elements.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int $key DOM array key of the text node.
+     */
+    protected function isHTMLTextFollowedByLineBreak(array $hrc, int $key): bool
+    {
+        for ($idx = $key + 1; isset($hrc['dom'][$idx]); ++$idx) {
+            $node = $hrc['dom'][$idx];
+            if (!$node['tag']) {
+                return false;
+            }
+
+            if ($node['opening']) {
+                return $node['value'] === 'br';
+            }
+
+            if ($node['block']) {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Split a justified inline text fragment at its first visual line break.
      *
-     * Returns [head, tail] where head is the portion that fits on the current
-     * line (within $maxwidth) and tail is the remainder, or null when the text
-     * fits on a single line or cannot be split safely. Each wrapped visual line
-     * of a justified paragraph then computes its own word spacing.
+     * Returns [head, tail, separator] where head is the portion that fits on the
+     * current line (within $maxwidth), tail is the remainder and separator is true
+     * when a word separator between them was removed, or null when the text fits
+     * on a single line or cannot be split safely. Each wrapped visual line of a
+     * justified paragraph then computes its own word spacing.
      *
-     * @return array{0: string, 1: string}|null
+     * @return array{0: string, 1: string, 2: bool}|null
      *
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Unicode\Exception
@@ -11375,7 +11488,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return null;
         }
 
-        return [$head, $tail];
+        return [$head, $tail, $tailpos > $headchars && $this->isWrapWordSeparator($ordarr[$headchars] ?? null)];
     }
 
     /**
@@ -11997,6 +12110,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tpw = $hrc['cellctx']['maxwidth'];
         $hrc['cellctx']['textindentapplied'] = false;
         $hrc['cellctx']['firstlineinset'] = 0.0;
+        $this->htmlLeadWordSeparator = false;
+        $this->htmlWordBreakWritten = false;
         if ($tpw > 0) {
             $tpw = \max(0.0, $tpw - $marginLeft - $marginRight - $paddingLeft - $paddingRight);
         }
@@ -15131,14 +15246,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             }
                             ++$key;
                         }
-                        if ($key >= $numel) {
-                            break;
-                        }
-                        $elm = $dom[$key] ?? null;
-                        if (!\is_array($elm)) {
-                            ++$key;
-                            continue;
-                        }
+
+                        // The node after the hidden element is dispatched by its own type.
+                        continue;
                     }
 
                     $hasExplicitBreakBefore = ($elm['attribute']['pagebreak'] ?? '') !== '';
@@ -15721,6 +15831,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $savedAlphaState = $this->htmlTranslucentAlphaEmitted;
         $this->htmlTranslucentAlphaEmitted = false;
         $callerfont = $this->captureHTMLCallerFontState();
+        $this->htmlLeadWordSeparator = false;
+        $this->htmlWordBreakWritten = false;
 
         $dom = $this->getHTMLDOM($html);
 
@@ -15813,6 +15925,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $savedAlphaState = $this->htmlTranslucentAlphaEmitted;
         $this->htmlTranslucentAlphaEmitted = false;
         $callerfont = $this->captureHTMLCallerFontState();
+        $this->htmlLeadWordSeparator = false;
+        $this->htmlWordBreakWritten = false;
         $dom = $this->getHTMLDOM($html);
         $hrc = $this->newHTMLRenderContext($dom);
         $outbypage = [];
@@ -15959,7 +16073,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $headElm = $origElm;
             $headElm['value'] = $head;
             $headHrc['dom'][$key] = $headElm;
-            $headOut = $this->parseHTMLText($headHrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+            // The removed newline is a word break at the end of the head.
+            $prevTrailWordSeparator = $this->htmlTrailWordSeparator;
+            $this->htmlTrailWordSeparator = true;
+            try {
+                $headOut = $this->parseHTMLText($headHrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+            } finally {
+                $this->htmlTrailWordSeparator = $prevTrailWordSeparator;
+            }
             $hrc = $headHrc;
         }
 
@@ -16311,8 +16432,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             // The head ends at a hyphenation point: keep the hyphen visible.
             $head .= $softHyphen;
         }
+        $headSeparator = false;
         if (!$this->isHTMLPreLikeWhiteSpaceMode($hrc, $key)) {
-            $tail = \ltrim($tail);
+            $trimmedTail = \ltrim($tail);
+            $headSeparator = $trimmedTail !== $tail;
+            $tail = $trimmedTail;
         }
 
         if ($head === '' || $tail === '') {
@@ -16340,10 +16464,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hrc['cellctx']['lineascentnolookahead'] = true;
         $prevVerticalFitHead = $this->htmlVerticalFitHead;
         $this->htmlVerticalFitHead = true;
+        $prevTrailWordSeparator = $this->htmlTrailWordSeparator;
+        $this->htmlTrailWordSeparator = $headSeparator;
         try {
             $headOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
         } finally {
             $this->htmlVerticalFitHead = $prevVerticalFitHead;
+            $this->htmlTrailWordSeparator = $prevTrailWordSeparator;
             $hrc['cellctx']['lineascentnolookahead'] = $prevNoLookahead;
             $this->htmlJustifyContinuationLine = $prevJustifyContinuation;
         }
@@ -16867,10 +16994,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hrc['cellctx']['lineascentnolookahead'] = true;
         $prevHeadWordSpacing = $this->htmlJustifyHeadWordSpacing;
         $this->htmlJustifyHeadWordSpacing = $lineWordSpacing;
+        $prevTrailWordSeparator = $this->htmlTrailWordSeparator;
+        $this->htmlTrailWordSeparator = $justifySplit[2];
         try {
             $headOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
         } finally {
             $this->htmlJustifyHeadWordSpacing = $prevHeadWordSpacing;
+            $this->htmlTrailWordSeparator = $prevTrailWordSeparator;
             $hrc['cellctx']['lineascentnolookahead'] = $prevNoLookahead;
         }
 
@@ -17389,6 +17519,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
+        // Fragment text before any collapsible space is removed from its ends.
+        $sourceText = $text;
+
         $preLineOut = $this->splitHTMLTextPreLineNewline($hrc, $key, $text, $tpx, $tpy, $tpw, $tph, $appendFragment);
         if ($preLineOut !== null) {
             return $preLineOut;
@@ -17439,6 +17572,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
+        // Text already rendered in the block, on this line or on a previous one.
+        $followsText = $lineOffset > self::WIDTH_TOLERANCE || $hrc['cellctx']['textindentapplied'];
+
         // Extract CSS text-indent for first-line offset (will be passed to getTextCell).
         // Positive values create a first-line indent; negative values create a hanging indent.
         // The text-indent is applied only to the first line by splitLines when used as offset parameter.
@@ -17458,6 +17594,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // center/right alignment for wrapped inline runs.
         if (!$this->isHTMLPreLikeWhiteSpaceMode($hrc, $key) && $lineOffset <= self::WIDTH_TOLERANCE) {
             if (\trim($text) === '') {
+                $this->htmlLeadWordSeparator = $this->htmlLeadWordSeparator || $followsText;
                 return '';
             }
 
@@ -17710,6 +17847,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $tpw = \max(0.0, $hrc['cellctx']['maxwidth'] - ($tpx - $hrc['cellctx']['originx']));
                 }
 
+                // The whitespace-only fragment is a word break before the next one.
+                $this->htmlLeadWordSeparator = $this->htmlLeadWordSeparator || $followsText;
                 return $out;
             }
         }
@@ -17743,11 +17882,30 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $elmStroke = $elm['stroke'];
         $elmFill = $elm['fill'];
         $elmClip = $elm['clip'];
+        // A collapsible space removed from either end of the fragment, or a line
+        // break after it, is a word break: it is written as a separator that leaves
+        // the layout unchanged.
+        $leadSeparator =
+            !$this->htmlWordBreakWritten
+            && (
+                $this->htmlLeadWordSeparator
+                || $followsText
+                && \ltrim($sourceText) !== $sourceText
+                && \ltrim($text) === $text
+            );
+        $this->htmlLeadWordSeparator = false;
+        $nodeTrailSeparator =
+            \rtrim($sourceText) !== $sourceText && \rtrim($text) === $text
+            || $this->isHTMLTextFollowedByLineBreak($hrc, $key);
+        $trailSeparator = $this->htmlTrailWordSeparator ?? $nodeTrailSeparator;
         if ($this->isTaggedMode()) {
             $ordarr = [];
             $dim = self::DIM_DEFAULT;
             $this->prepareText($text, $ordarr, $dim, $forcedir);
             $actualText = $this->getActualTextForOrdarr($ordarr);
+            if ($actualText !== '') {
+                $actualText = ($leadSeparator ? ' ' : '') . $actualText . ($trailSeparator ? ' ' : '');
+            }
         }
         // When this fragment is the head of a paragraph split across regions or
         // bands, its final visual line is not the paragraph's last line (the
@@ -17756,6 +17914,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // last line too.
         $jlastRender = !$this->htmlJustifyContinuationLine;
         $this->htmlRenderSoftHyphen = true;
+        $prevLeadSeparator = $this->textLeadSeparator;
+        $prevTrailSeparator = $this->textTrailSeparator;
+        $prevOffsetFromLeft = $this->textOffsetFromLeft;
+        $this->textLeadSeparator = $leadSeparator;
+        $this->textTrailSeparator = $trailSeparator;
+        // A fragment that starts mid-line follows the text already placed at its left.
+        $this->textOffsetFromLeft = $lineOffset > self::WIDTH_TOLERANCE;
+        $glyphLines = $this->textGlyphLines;
         try {
             $textout = $this->getTextCell(
                 $text,
@@ -17785,6 +17951,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             );
         } finally {
             $this->htmlRenderSoftHyphen = $prevSoftHyphen;
+            $this->textLeadSeparator = $prevLeadSeparator;
+            $this->textTrailSeparator = $prevTrailSeparator;
+            $this->textOffsetFromLeft = $prevOffsetFromLeft;
+        }
+
+        if ($this->textGlyphLines > $glyphLines) {
+            $this->htmlWordBreakWritten = $trailSeparator || \rtrim($text) !== $text;
+        } elseif ($followsText && \trim($text) === '') {
+            // The whitespace-only fragment was wrapped away: it is a word break
+            // before the next fragment.
+            $this->htmlLeadWordSeparator = true;
         }
 
         if ($textout !== '' && $this->isTaggedMode()) {

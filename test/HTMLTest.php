@@ -5965,6 +5965,52 @@ class HTMLTest extends TestUtil
     }
 
     /**
+     * A fragment with an RTL base direction that starts mid-line is placed after
+     * the text at its left, not at the line origin.
+     *
+     * @throws \Throwable
+     */
+    public function testGetHTMLCellPlacesMidLineRtlFragmentAfterPrecedingText(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+        $fontfile = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusans.json');
+        $font = $obj->font->insert($obj->pon, 'dejavusans', '', 10, null, null, $fontfile);
+        $obj->page->addContent($font['out']);
+
+        $cellWidth = 150.0;
+        $hebrew = '&#1502;&#1494;&#1500; [mazel]';
+        $cases = [
+            'dir rtl centered' => [
+                '<div style="text-align:center">The words <span dir="rtl">' . $hebrew . '</span> mean X</div>',
+                true,
+            ],
+            'dir rtl' => ['<div>The words <span dir="rtl">' . $hebrew . '</span> mean X</div>', false],
+            'rtl text' => ['<div>The words <span>' . $hebrew . '</span> mean X</div>', false],
+        ];
+
+        foreach ($cases as $name => [$html, $centered]) {
+            $obj->exposeResetBBoxTrace();
+            $out = $obj->getHTMLCell($html, 0, 0, $cellWidth, 40);
+            $this->assertNotSame('', $out, $name);
+
+            $trace = $obj->exposeGetBBoxTrace();
+            $this->assertCount(3, $trace, $name);
+            assert(isset($trace[0], $trace[1], $trace[2]), "\$trace[0..2] must be set");
+            $this->assertGreaterThan(0.0, $trace[0]['bbox_w'], $name);
+            $this->assertEqualsWithDelta($trace[0]['bbox_end_x'], $trace[1]['bbox_x'], 1e-9, $name);
+            $this->assertEqualsWithDelta($trace[1]['bbox_end_x'], $trace[2]['bbox_x'], 1e-9, $name);
+            if ($centered) {
+                $lineMid = ($trace[0]['bbox_x'] + $trace[2]['bbox_end_x']) / 2;
+                $this->assertEqualsWithDelta($cellWidth / 2, $lineMid, 1e-9, $name);
+            } else {
+                $this->assertEqualsWithDelta(0.0, $trace[0]['bbox_x'], 1e-9, $name);
+            }
+        }
+    }
+
+    /**
      * @throws \Throwable
      */
     public function testGetHTMLCellCentersWrappedInlineSpansPerLine(): void
@@ -14570,13 +14616,14 @@ class HTMLTest extends TestUtil
             );
             $content = \implode("\n", $page->getPage()['content']);
 
+            // A wrapped line ends with the word separator skipped at the break.
             if ($breaks) {
-                $this->assertStringContainsString('(AAAA BBBB CCCC) Tj', $content);
+                $this->assertStringContainsString('(AAAA BBBB CCCC ) Tj', $content);
                 continue;
             }
 
-            $this->assertStringContainsString('(AAAA BBBB) Tj', $content, $separator);
-            $this->assertStringNotContainsString('(AAAA BBBB CCCC) Tj', $content, $separator);
+            $this->assertStringContainsString('(AAAA BBBB ) Tj', $content, $separator);
+            $this->assertStringNotContainsString('(AAAA BBBB CCCC ) Tj', $content, $separator);
         }
     }
 
@@ -14601,7 +14648,7 @@ class HTMLTest extends TestUtil
         $this->assertStringNotContainsString($obj->exposeKeptSpace(), $content);
         $this->assertNotSame(
             $this->getShowTextPosY($content, '(AAAA BBBB ) Tj'),
-            $this->getShowTextPosY($content, '(CCCC DDDD) Tj'),
+            $this->getShowTextPosY($content, '(CCCC DDDD ) Tj'),
         );
     }
 
@@ -21430,16 +21477,21 @@ class HTMLTest extends TestUtil
 
     /**
      * Text placement abscissas of a content stream, in user units and render order.
+     * Word separators (text objects that show a single glyph) are skipped.
      *
      * @return array<int, float>
      */
     private function getHTMLTextPlacementsX(string $out): array
     {
         $matches = [];
-        \preg_match_all('/(-?\d+\.?\d*) -?\d+\.?\d* Td/', $out, $matches);
+        \preg_match_all('/(-?\d+\.?\d*) -?\d+\.?\d* Td (?:\((.{1,2})\) Tj ET)?/s', $out, $matches);
         $points = $matches[1] ?? [];
         $xs = [];
-        foreach ($points as $point) {
+        foreach ($points as $idx => $point) {
+            if (($matches[2][$idx] ?? '') !== '') {
+                continue;
+            }
+
             $xs[] = \is_numeric($point) ? (float) $point / 2.83464566929134 : 0.0;
         }
 
@@ -22944,5 +22996,138 @@ class HTMLTest extends TestUtil
         $this->assertSame($startpid, (int) $obj->page->getPageId());
         $stream = \implode('', $obj->page->getPage($startpid)['content']);
         $this->assertSame(1, \substr_count($stream, '1.000000 0.000000 0.000000 rg'));
+    }
+
+    /**
+     * Text of the literal strings shown by the text showing operators, in content
+     * stream order.
+     */
+    private function getShownLiteralText(string $content): string
+    {
+        $matches = [];
+        \preg_match_all('/\((?:\\\\.|[^\\\\)])*\)(?=\s*(?:Tj|\]|-?[0-9.]+\s*\())/', $content, $matches);
+        $text = '';
+        foreach ($matches[0] ?? [] as $literal) {
+            $text .= \stripcslashes(\substr($literal, 1, -1));
+        }
+
+        return $text;
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: float, 2: string}>
+     */
+    public static function wordBreakFragmentProvider(): array
+    {
+        $nodes = '<b>Open</b> <b>the</b> <b>settings</b> <b>menu</b> <b>and</b> <b>choose</b> <b>the</b> <b>option</b>';
+        $words = 'Open the settings menu and choose the option';
+        return [
+            'inline elements' => [
+                '<p>Open the <b>settings</b> menu and <i>choose the option</i> you need.</p>',
+                40.0,
+                'Open the settings menu and choose the option you need.',
+            ],
+            'line break' => ['<p>alpha<br>beta</p>', 100.0, 'alpha beta'],
+            'narrow inline elements' => [
+                '<p>Open the <b>settings</b> menu and <i>choose the option</i> you need.</p>',
+                16.0,
+                'Open the settings menu and choose the option you need.',
+            ],
+            'space across inline elements' => [
+                '<p>Open the settings <b>menu </b> <i>and choose</i> the option</p>',
+                30.0,
+                'Open the settings menu and choose the option',
+            ],
+            'hidden inline element' => [
+                '<div>Open the <span style="display:none">hidden </span> settings menu</div>',
+                100.0,
+                'Open the settings menu',
+            ],
+            'space after line break' => [
+                '<p>aaaa bbbb cccc dddd <b>eeee</b><br> ffff</p>',
+                40.0,
+                'aaaa bbbb cccc dddd eeee ffff',
+            ],
+            'justified trailing space before space node' => [
+                '<p style="text-align:justify">Open the settings <b>menu </b> <i>and choose</i> the option</p>',
+                40.0,
+                'Open the settings menu and choose the option',
+            ],
+            'space nodes' => ['<p>' . $nodes . '</p>', 30.0, $words],
+            'justified space nodes' => ['<p style="text-align:justify">' . $nodes . '</p>', 30.0, $words],
+            'justified text' => ['<p style="text-align:justify">' . $words . '</p>', 30.0, $words],
+            'pre-line' => [
+                "<p style=\"white-space:pre-line\">alpha beta\ngamma delta</p>",
+                100.0,
+                'alpha beta gamma delta',
+            ],
+        ];
+    }
+
+    /**
+     * The shown text keeps a word separator at every line wrap, line break and
+     * fragment boundary.
+     *
+     * @throws \Throwable
+     */
+    #[DataProvider('wordBreakFragmentProvider')]
+    public function testHTMLCellKeepsWordBreaksInTheShownText(string $html, float $width, string $expected): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell($html, 10, 10, $width);
+
+        $this->assertSame($expected, \trim($this->getShownLiteralText($out)));
+    }
+
+    /**
+     * A collapsible space that follows another collapsible space across inline
+     * element boundaries is removed. Atomic inline elements, preserved white space
+     * and blocks end the sequence; hidden nodes are skipped.
+     *
+     * @throws \Throwable
+     */
+    public function testHTMLDOMCollapsesSpacesAcrossInlineElements(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $dom = $obj->exposeGetHTMLDOM(
+            '<p>Open <b> the</b> <i> </i> menu <img src="x.png"> and '
+            . '<span style="white-space:pre">  choose</span> <span style="display:none">x </span> the</p>'
+            . '<p>option </p>',
+        );
+
+        $texts = [];
+        foreach ($dom as $node) {
+            if (!$node['tag'] && $node['value'] !== '') {
+                $texts[] = $node['value'];
+            }
+        }
+
+        $this->assertSame(['Open ', 'the', ' ', 'menu ', ' and ', '  choose', ' ', 'x ', 'the', 'option '], $texts);
+    }
+
+    /**
+     * A fragment whose leading space is removed at the start of a wrapped line
+     * keeps the word break in its ActualText.
+     *
+     * @throws \Throwable
+     */
+    public function testHTMLCellActualTextKeepsTheRemovedLeadingSpace(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, false, 'pdfua');
+        $this->initUnicodeFontAndPage($obj);
+
+        $obj->addHTMLCell('<p>Open the settings<i> of&#xFB01;ce menu</i> now</p>', 10, 10, 34);
+
+        $matches = [];
+        $content = \implode('', $obj->page->getPage()['content']);
+        $this->assertSame(1, \preg_match_all('/\/ActualText <([0-9a-f]+)>/', $content, $matches));
+        $actual = (string) \mb_convert_encoding(
+            \substr((string) \hex2bin($matches[1][0] ?? ''), 2),
+            'UTF-8',
+            'UTF-16BE',
+        );
+        $this->assertSame(' office menu', $actual);
     }
 }
