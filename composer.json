@@ -43,7 +43,7 @@
     "tecnickcom/tc-lib-pdf-encrypt": "^2.11",
     "tecnickcom/tc-lib-pdf-sign": "^2.0",
     "tecnickcom/tc-lib-unicode-data": "^3.0",
-    "tecnickcom/tc-lib-unicode": "^3.0",
+    "tecnickcom/tc-lib-unicode": "^3.1",
     "tecnickcom/tc-lib-pdf-page": "^4.16",
     "tecnickcom/tc-lib-pdf-graph": "^2.18",
     "tecnickcom/tc-lib-pdf-parser": "^3.16"
@@ -55,7 +55,7 @@
   "minimum-stability": "stable",
   "prefer-stable": true,
   "require-dev": {
-    "carthage-software/mago": "1.50.0",
+    "carthage-software/mago": "1.51.2",
     "pdepend/pdepend": "^2.16",
     "phpunit/phpunit": "^11.5 || ^12.5 || ^13.3"
   },
