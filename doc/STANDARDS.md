@@ -125,6 +125,8 @@ When a PDF/UA mode is active the library:
 - Nests every annotation in a structure element with an `OBJR` reference and a `/StructParent`: `Form` for a widget, `Link` for a link, `Annot` for the rest. `PrinterMark` and `Popup` annotations take none
 - Gives a form field a `/TU` description, falling back to the field name when the `tu` option is not set
 
+Pages imported from another PDF are not tagged: the source structure tree is not copied (see [PDF_IMPORT.md](PDF_IMPORT.md)), so imported content is not PDF/UA compliant.
+
 To provide the document language explicitly:
 
 ```php
