@@ -49,7 +49,7 @@ jobs:
       - name: Cache module
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/.composer/cache/
+          path: ~/.cache/composer/
           key: composer-${{ runner.os }}-${{ matrix.php-version }}-${{ hashFiles('composer.json') }}
           restore-keys: composer-${{ runner.os }}-${{ matrix.php-version }}-
       - name: Install dependencies
@@ -120,16 +120,16 @@ jobs:
       #      --run-id=${{ github.run_id }}
       #    cat target/report/renderability-score.md >> "$GITHUB_STEP_SUMMARY"
       #    cat target/report/renderability-trend.md >> "$GITHUB_STEP_SUMMARY"
-      - name: Upload CSS renderability reports
-        if: matrix.php-version == '8.4'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: css-renderability-reports-${{ github.run_id }}
-          path: |
-            target/report/renderability-score.json
-            target/report/renderability-score.md
-            target/report/renderability-trend.json
-            target/report/renderability-trend.md
+      #- name: Upload CSS renderability reports
+      #  if: matrix.php-version == '8.4'
+      #  uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      #  with:
+      #    name: css-renderability-reports-${{ github.run_id }}
+      #    path: |
+      #      target/report/renderability-score.json
+      #      target/report/renderability-score.md
+      #      target/report/renderability-trend.json
+      #      target/report/renderability-trend.md
       # make install, resources/autoload.php and the packaging descriptors are
       # what reaches RPM/DEB users; nothing else in CI touches them. Install into
       # a throwaway prefix and load the library through the shipped autoloader,
@@ -170,6 +170,7 @@ jobs:
   test-lowest:
     name: Test lowest supported dependencies on php 8.2
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -187,7 +188,7 @@ jobs:
       - name: Cache module
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/.composer/cache/
+          path: ~/.cache/composer/
           key: composer-lowest-${{ hashFiles('composer.json') }}
           restore-keys: composer-lowest-
       # composer.lock is not committed, so the default install always resolves
@@ -202,6 +203,7 @@ jobs:
   test-no-gd:
     name: Test without the gd extension on php 8.4
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -221,10 +223,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp composer.json composer.json.orig
-          php -r '$c = json_decode(file_get_contents("composer.json"), true); unset($c["require-dev"]); file_put_contents("composer.json", json_encode($c));'
-          composer update --no-interaction --dry-run
-          mv composer.json.orig composer.json
+          php -r '$c = json_decode(file_get_contents("composer.json"), true); unset($c["require-dev"]); file_put_contents("composer.runtime.json", json_encode($c));'
+          COMPOSER=composer.runtime.json composer update --no-interaction --dry-run
       # The development dependencies list gd for the image tests, which skip without it.
       - name: Install dependencies
         env:
