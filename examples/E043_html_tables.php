@@ -425,6 +425,28 @@ $html7 = '<h2>HTML TABLES (F): CELL PADDING</h2>
 
 $pdf->addHTMLCell(html: $html7, posx: 20, posy: 10, width: 180);
 
+// ----------
+
+$page7 = $pdf->addPage();
+
+// The column count comes from every row: a row with more cells adds columns
+// inside the table width, and a row span from a previous row takes its column.
+$html8 = '<h2>HTML TABLES (G): IRREGULAR ROWS</h2>
+<p>later rows with more cells than the first row</p>
+<table border="1" cellspacing="0" cellpadding="3" style="border-collapse:collapse; width:100%;">
+	<tr><th>Item</th><th>Amount</th></tr>
+	<tr><td>Widget</td><td>2</td><td>pieces</td></tr>
+	<tr><td>Cable</td><td>10</td><td>meters</td><td>spare</td></tr>
+</table>
+<p>a row span keeps its column in the following row</p>
+<table border="1" cellspacing="0" cellpadding="3" style="border-collapse:collapse; width:100%;">
+	<tr><td rowspan="2" style="background-color:#eeeeff;">Group (rowspan 2)</td><td>first</td></tr>
+	<tr><td>second</td><td>extra</td></tr>
+	<tr><td>A</td><td>B</td><td>C</td></tr>
+</table>';
+
+$pdf->addHTMLCell(html: $html8, posx: 20, posy: 10, width: 180);
+
 // =============================================================
 
 // ----------

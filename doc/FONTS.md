@@ -183,4 +183,4 @@ Original source files are renamed for compatibility and compressed with PHP `gzc
 | `dejavu` | [DejaVu Fonts 2.35](https://sourceforge.net/projects/dejavu/files/dejavu/2.35/dejavu-fonts-ttf-2.35.zip) | Bitstream Vera (with DejaVu public-domain changes) |
 | `unifont` | [GNU Unifont 15.1.03](https://www.unifoundry.com/pub/unifont/unifont-15.1.03/unifont-15.1.03.tar.gz) | GPL v2+ with font embedding exception (also distributed under SIL OFL 1.1) |
 | `cid0` | [GNU Unifont](http://unifoundry.com/unifont.html) (CID mappings) | GPL v2+ with font embedding exception |
-| `core` | [Adobe Core14 AFM](https://partners.adobe.com/public/developer/en/pdf/Core14_AFMs.zip) | Adobe copyright terms (see AFM notices) |
+| `core` | [Adobe Core14 AFM](https://github.com/tecnickcom/tc-font-core14-afms) | Adobe copyright terms (see AFM notices) |

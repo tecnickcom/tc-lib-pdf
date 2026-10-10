@@ -30,6 +30,21 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getOutUTOLine($pntx, $pnty, $pwidth, $psize);
     }
 
+    /**
+     * @param array<int, int> $ordarr
+     *
+     * @return array<int, int>
+     */
+    public function exposeAddOrdArrIdeographicBreaks(array $ordarr): array
+    {
+        return $this->addOrdArrIdeographicBreaks($ordarr);
+    }
+
+    public function exposeFirstIdeographicOrd(): int
+    {
+        return self::FIRST_IDEOGRAPHIC_ORD;
+    }
+
     /** @throws \Throwable */
     public function exposeCleanupText(string $txt): string
     {

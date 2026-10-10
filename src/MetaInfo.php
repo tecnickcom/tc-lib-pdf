@@ -263,13 +263,16 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
      * Sets the document modification date.
      *
      * Drives the Info dictionary /ModDate entry and the xmp:ModifyDate and
-     * xmp:MetadataDate XMP properties.
+     * xmp:MetadataDate XMP properties. It is also the /LastModified time of the
+     * pages added afterwards without an explicit 'time', including the pages added
+     * automatically by a page break.
      *
      * @param int|\DateTimeInterface $time Seconds since the Unix epoch, or a date object.
      */
     public function setDocModificationDate(int|\DateTimeInterface $time): static
     {
         $this->docmodtime = $time instanceof \DateTimeInterface ? $time->getTimestamp() : $time;
+        $this->page->setDefaultPageTime($this->docmodtime);
         return $this;
     }
 

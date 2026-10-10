@@ -26,6 +26,7 @@ use Com\Tecnick\Pdf\Import\ImportUnsupportedFeatureException;
 use Com\Tecnick\Pdf\Import\ObjectMap;
 use Com\Tecnick\Pdf\Import\PageTemplate;
 use Com\Tecnick\Pdf\Import\SourceDocument;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class ImporterTest extends TestCase
@@ -330,6 +331,38 @@ class ImporterTest extends TestCase
         $this->assertStringContainsString('/#2FG1 gs /CS#200 cs', $out);
         $this->assertMatchesRegularExpression('#/ColorSpace << /CS\#200 \d+ 0 R >>#', $out);
         $this->assertMatchesRegularExpression('#/ExtGState << /\#2FG1 \d+ 0 R >>#', $out);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function emptyResourcesPageProvider(): array
+    {
+        return [
+            'empty resource dictionary' => [' /Resources << >>'],
+            'no resource dictionary' => [''],
+        ];
+    }
+
+    /** @throws \Throwable */
+    #[DataProvider('emptyResourcesPageProvider')]
+    public function testImportPageWritesAResourceDictionaryForAPageWithoutResources(string $resources): void
+    {
+        $data = $this->assemblePdf([
+            1 => '<< /Type /Catalog /Pages 2 0 R >>',
+            2 => '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+            3 => '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 100]' . $resources . ' /Contents 4 0 R >>',
+            4 => $this->plainStreamObject(''),
+        ]);
+
+        $importer = $this->makeImporter();
+        $srcId = $importer->setImportSourceData($data);
+        $importer->importPage($srcId, 1);
+        $out = $importer->getOutImportedObjects();
+
+        $this->assertStringContainsString('/Subtype /Form', $out);
+        $this->assertStringContainsString('/Resources << >>', $out);
+        $this->assertDoesNotMatchRegularExpression('#/Resources\s+/#', $out);
     }
 
     /** @throws \Throwable */

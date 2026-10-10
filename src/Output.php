@@ -1022,6 +1022,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     }
 
     /**
+     * Returns the document language (BCP 47 tag): the one set by setLanguage(),
+     * 'en-US' in tagged mode when none is set, or ''.
+     */
+    protected function getDocumentLanguage(): string
+    {
+        return $this->lang['a_meta_language'] ?? ($this->isTaggedMode() ? 'en-US' : '');
+    }
+
+    /**
      * Returns the PDF Catalog entry.
      *
      * @return string PDF Catalog object.
@@ -1151,7 +1160,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /MarkInfo << /Marked true >>';
         }
 
-        $language = $this->lang['a_meta_language'] ?? ($this->isTaggedMode() ? 'en-US' : '');
+        $language = $this->getDocumentLanguage();
 
         if ($language !== '') {
             $out .= ' /Lang ' . $this->getOutTextString($language, $oid, true);
@@ -2258,6 +2267,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         foreach ($entryOrder as $entryIdx => $entry) {
+            $entryLang = $entry['lang'] ?? null;
             $entry += ['annots' => [], 'alt' => '', 'attr' => [], 'bbox' => [], 'refpid' => -1];
             $entryPageOid = $pidToOid[$entry['pid']] ?? 0;
             $kidsOut = '';
@@ -2375,6 +2385,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $refOut = ' /Ref [' . $refElemOid . ' 0 R]';
             }
 
+            $langOut = '';
+            if ($entryLang !== null) {
+                $langOut = ' /Lang ' . $this->getOutTextString($entryLang, $elemOids[$entryIdx] ?? 0, true);
+            }
+
             $parentOid = $entryParentOid[$entryIdx] ?? $documentStructElemOid;
             $structElemsOut .=
                 ($elemOids[$entryIdx] ?? 0)
@@ -2388,6 +2403,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 . ' /Pg '
                 . $entryPageOid
                 . ' 0 R'
+                . $langOut
                 . $altOut
                 . $idOut
                 . $attrOut

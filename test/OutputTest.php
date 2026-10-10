@@ -19,6 +19,7 @@ namespace Test;
 use Com\Tecnick\Pdf\Sign\Ocsp\Client as OcspClient;
 use Com\Tecnick\Pdf\Sign\Signer;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use Test\Fixture\Authority;
 use Test\Fixture\Der;
 
@@ -2241,6 +2242,7 @@ class OutputTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    #[RequiresPhpExtension('gd')]
     public function testGetOutPDFBodyTagsHtmlImageAsFigureWithAltInPdfuaMode(): void
     {
         $obj = new TestableOutput('mm', true, false, false, 'pdfua1');
@@ -2363,6 +2365,7 @@ class OutputTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    #[RequiresPhpExtension('gd')]
     public function testGetOutPDFBodyTagsHtmlFigureWithFigcaptionInPdfuaMode(): void
     {
         $obj = new TestableOutput('mm', true, false, false, 'pdfua1');

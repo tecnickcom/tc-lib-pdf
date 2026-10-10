@@ -16,6 +16,8 @@
 
 namespace Test;
 
+use PHPUnit\Framework\Attributes\RequiresPhpExtension;
+
 /**
  * @phpstan-import-type TSVGAttributes from \Com\Tecnick\Pdf\SVG
  */
@@ -1388,6 +1390,7 @@ class SVGTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    #[RequiresPhpExtension('gd')]
     public function testSvgVisibleStartTagHandlersProduceOutput(): void
     {
         $obj = $this->getInternalTestObject();
@@ -8792,6 +8795,7 @@ class SVGTest extends TestUtil
      *
      * @throws \Throwable
      */
+    #[RequiresPhpExtension('gd')]
     public function testSVGGroupOpacityDeclaresTheImageResources(): void
     {
         $obj = new \Com\Tecnick\Pdf\Tcpdf();

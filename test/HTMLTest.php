@@ -15,6 +15,7 @@
 namespace Test;
 
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 
 /**
  * @phpstan-import-type THTMLAttrib from \Com\Tecnick\Pdf\HTML
@@ -152,6 +153,7 @@ class HTMLTest extends TestUtil
             'style' => [],
             'tag' => true,
             'text-indent' => 0.0,
+            'text-indent-each-line' => false,
             'text-transform' => '',
             'thead' => '',
             'trids' => [],
@@ -1123,6 +1125,127 @@ class HTMLTest extends TestUtil
         $this->assertSame('keepme', $dom[3]['page']);
         $this->assertSame('auto', $dom[3]['quotes']);
         $this->assertSame(9, $dom[3]['widows']);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLDOMParsesTextIndentKeywords(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = $obj->exposeGetHTMLDOM(
+            '<div id="parent" style="text-indent:10pt;">'
+            . '<p id="each" style="text-indent:30pt each-line;">a</p>'
+            . '<p id="first" style="text-indent:each-line 30pt;">b</p>'
+            . '<p id="plain" style="text-indent:30pt;">c</p>'
+            . '<p id="hanging" style="text-indent:30pt hanging;">d</p>'
+            . '<p id="unknown" style="text-indent:30pt foo;">e</p>'
+            . '<div id="inherit" style="text-indent:30pt each-line;"><p id="child">f</p></div>'
+            . '</div>',
+        );
+
+        $ten = $this->getHtmlNodeById($dom, 'parent')['text-indent'];
+        $thirty = $this->getHtmlNodeById($dom, 'plain')['text-indent'];
+        $this->assertEqualsWithDelta(3.0 * $ten, $thirty, 0.0001);
+
+        foreach (['each' => [$thirty, true], 'first' => [$thirty, true], 'plain' => [$thirty, false]] as $id => $exp) {
+            $node = $this->getHtmlNodeById($dom, $id);
+            $this->assertEqualsWithDelta($exp[0], $node['text-indent'], 0.0001, $id);
+            $this->assertSame($exp[1], $node['text-indent-each-line'], $id);
+        }
+
+        // the declarations with hanging or an unknown token are ignored
+        foreach (['hanging', 'unknown'] as $id) {
+            $node = $this->getHtmlNodeById($dom, $id);
+            $this->assertEqualsWithDelta($ten, $node['text-indent'], 0.0001, $id);
+            $this->assertFalse($node['text-indent-each-line'], $id);
+        }
+
+        $child = $this->getHtmlNodeById($dom, 'child');
+        $this->assertEqualsWithDelta($thirty, $child['text-indent'], 0.0001);
+        $this->assertTrue($child['text-indent-each-line']);
+    }
+
+    /**
+     * With each-line the line after a forced break is indented, a wrapped line is not.
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellTextIndentEachLineIndentsAfterForcedBreaks(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf(unit: 'mm', isunicode: true, subsetfont: false, compress: false);
+        $this->initFontAndPage($obj);
+        $obj->addHTMLCell(
+            '<p style="text-indent:30pt each-line;">First<br>Second<br>Third</p>'
+            . '<p style="text-indent:30pt;">Fourth<br>Fifth</p>'
+            . '<p style="text-indent:30pt each-line;">'
+            . \str_repeat('Lorem ipsum dolor sit amet. ', 12)
+            . '</p>',
+            10,
+            10,
+            60,
+        );
+        $out = $obj->getOutPDFString();
+
+        $origin = (10 * 72) / 25.4;
+        foreach (['First', 'Second', 'Third', 'Fourth'] as $text) {
+            $this->assertEqualsWithDelta($origin + 30.0, $this->getTextObjectPdfX($out, $text), 0.01, $text);
+        }
+
+        $this->assertEqualsWithDelta($origin, $this->getTextObjectPdfX($out, 'Fifth'), 0.01);
+
+        // only the first line of the wrapped paragraph is indented
+        $mtch = [];
+        \preg_match_all('#([0-9.]+) [0-9.]+ Td \((?:Lorem|ipsum|dolor|sit|amet)#', $out, $mtch);
+        $lines = \array_map(\floatval(...), $mtch[1] ?? []);
+        $this->assertGreaterThan(2, \count($lines));
+        $this->assertEqualsWithDelta($origin + 30.0, $lines[0] ?? 0.0, 0.01);
+        foreach (\array_slice($lines, 1) as $posx) {
+            $this->assertEqualsWithDelta($origin, $posx, 0.01);
+        }
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLDOMKeepsEmptyAttributeValues(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = $obj->exposeGetHTMLDOM('<input id="a" value="" title=\'\' alt=x lang="" readonly />');
+
+        $node = $this->getHtmlNodeById($dom, 'a');
+        $this->assertSame('', $this->getHtmlNodeAttrString($node, 'value'));
+        $this->assertSame('', $this->getHtmlNodeAttrString($node, 'title'));
+        $this->assertSame('', $this->getHtmlNodeAttrString($node, 'lang'));
+        $this->assertSame('x', $this->getHtmlNodeAttrString($node, 'alt'));
+        $this->assertSame('true', $this->getHtmlNodeAttrString($node, 'readonly'));
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellEmptyInputValueStaysEmpty(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf(unit: 'mm', isunicode: true, subsetfont: false, compress: false);
+        $this->initFontAndPage($obj);
+
+        $obj->addHTMLCell(
+            '<form><input type="text" name="first" value="" size="20" />'
+            . ' <input type="text" name="last" value="Doe" size="20" /></form>',
+            15,
+            20,
+            180,
+        );
+        $out = $obj->getOutPDFString();
+
+        // "true" and "Doe" as UTF-16BE text strings
+        $this->assertFalse(\str_contains($out, "/V (\xFE\xFF\x00t\x00r\x00u\x00e)"));
+        $this->assertTrue(\str_contains($out, "/V (\xFE\xFF)"));
+        $this->assertTrue(\str_contains($out, "/V (\xFE\xFF\x00D\x00o\x00e)"));
     }
 
     /**
@@ -14881,7 +15004,7 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
-    public function testGetHTMLDOMCSSDataSkipsInheritedAndInvalidSelectors(): void
+    public function testGetHTMLDOMCSSDataAppliesSelectorsMatchedByTheParentAndSkipsInvalidOnes(): void
     {
         $obj = $this->getInternalTestObject();
         $dom = [
@@ -14900,7 +15023,29 @@ class HTMLTest extends TestUtil
         $obj->getHTMLDOMCSSData($dom, $css, 1);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertEmpty($dom[1]['cssdata']);
+        $this->assertCount(1, $dom[1]['cssdata']);
+        $this->assertSame([' p.x'], $dom[1]['csssel']);
+    }
+
+    /**
+     * A rule applies to every element it matches, also when it matches an ancestor.
+     *
+     * @throws \Throwable
+     */
+    public function testGetHTMLDOMAppliesARuleToNestedElementsMatchingIt(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = $obj->exposeGetHTMLDOM(
+            '<style>td > * { font-size: 8pt; } .large { font-size: 14pt; } .big { font-size: 120%; }</style>'
+            . '<table><tr><td class="large"><div id="child" class="large">x</div></td></tr></table>'
+            . '<div class="big" style="font-size:10pt;"><div id="b1" class="big"><div id="b2" class="big">y</div></div></div>',
+        );
+
+        $this->assertSame(14.0, $this->getHtmlNodeById($dom, 'child')['fontsize']);
+        $this->assertEqualsWithDelta(12.0, $this->getHtmlNodeById($dom, 'b1')['fontsize'], 0.001);
+        $this->assertEqualsWithDelta(14.4, $this->getHtmlNodeById($dom, 'b2')['fontsize'], 0.001);
     }
 
     /**
@@ -18179,6 +18324,7 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    #[RequiresPhpExtension('gd')]
     public function testGetHTMLCellImgTopAlignmentDiffersFromBottom(): void
     {
         $obj = $this->getTestObject();
@@ -18212,6 +18358,7 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    #[RequiresPhpExtension('gd')]
     public function testGetHTMLCellImgWidthOnlyPreservesIntrinsicAspectRatio(): void
     {
         $obj = $this->getTestObject();
@@ -18241,6 +18388,7 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    #[RequiresPhpExtension('gd')]
     public function testGetHTMLCellImgHeightOnlyPreservesIntrinsicAspectRatio(): void
     {
         $obj = $this->getTestObject();
@@ -18273,6 +18421,7 @@ class HTMLTest extends TestUtil
      *
      * @throws \Throwable
      */
+    #[RequiresPhpExtension('gd')]
     public function testGetHTMLCellImgPercentWidthResolvesAgainstContainerWidth(): void
     {
         $obj = $this->getTestObject();
@@ -18307,6 +18456,7 @@ class HTMLTest extends TestUtil
      *
      * @throws \Throwable
      */
+    #[RequiresPhpExtension('gd')]
     public function testGetHTMLCellImgPercentWidthFillsFixedWidthTableCell(): void
     {
         $obj = $this->getTestObject();
@@ -18384,6 +18534,7 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    #[RequiresPhpExtension('gd')]
     public function testGetHTMLCellImgBottomAlignmentUsesTextBaseline(): void
     {
         $obj = $this->getTestObject();
@@ -18412,6 +18563,7 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    #[RequiresPhpExtension('gd')]
     public function testGetHTMLCellTallBottomAlignedImageShiftsWholeLineDown(): void
     {
         $obj = $this->getBBoxProbeTestObject();
@@ -18448,6 +18600,7 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    #[RequiresPhpExtension('gd')]
     public function testGetHTMLCellCentersInlineImageRunInsideDiv(): void
     {
         $obj = $this->getTestObject();
@@ -18493,6 +18646,7 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    #[RequiresPhpExtension('gd')]
     public function testGetHTMLCellCentersSingleInlineImageInsideTableCell(): void
     {
         $obj = $this->getTestObject();
@@ -19362,6 +19516,7 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    #[RequiresPhpExtension('gd')]
     public function testGetHTMLCellRendersBase64DataUriImage(): void
     {
         $obj = $this->getTestObject();
@@ -21666,6 +21821,7 @@ class HTMLTest extends TestUtil
      *
      * @throws \Throwable
      */
+    #[RequiresPhpExtension('gd')]
     public function testRtlInlineRunPlacesInlineImageRightToLeft(): void
     {
         $obj = $this->getTestObject();
@@ -21772,6 +21928,7 @@ class HTMLTest extends TestUtil
      *
      * @throws \Throwable
      */
+    #[RequiresPhpExtension('gd')]
     public function testRtlInlineRunLeadingImageHugsRightEdge(): void
     {
         $obj = $this->getTestObject();
@@ -21949,6 +22106,306 @@ class HTMLTest extends TestUtil
         $pdf->setTitle('PDF/UA test document');
         $pdf->setLanguage('en-US');
         return $pdf;
+    }
+
+    /**
+     * HTML rendering requests fonts without a subset mode, which keeps the mode of a
+     * font the document already asked to subset.
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellKeepsTheSubsetModeOfAnInsertedFont(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf(unit: 'mm', isunicode: true, subsetfont: false, compress: false);
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        $fontfile = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusans.json');
+        $metric = $obj->font->insert($pon, 'dejavusans', '', 10, null, null, $fontfile, true);
+        $obj->addPage();
+
+        $obj->addHTMLCell('<p>Toode <b>Reusable</b> pallet</p>', 15, 20, 180);
+        $obj->getOutPDFString();
+
+        $this->assertTrue($obj->font->getFont($metric['key'])['subset']);
+    }
+
+    /**
+     * Returns the PDF abscissa of the text object that shows the given literal string.
+     */
+    private function getTextObjectPdfX(string $out, string $text): float
+    {
+        $mtch = [];
+        $found = \preg_match('#([0-9.]+) ([0-9.]+) Td \(' . \preg_quote($text, '#') . ' *\) Tj#', $out, $mtch);
+        $this->assertSame(1, $found, 'text object not found: ' . $text);
+
+        return \floatval($mtch[1] ?? 0);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLTableGridPlacesCellsAroundRowSpans(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = $obj->exposeGetHTMLDOM(
+            '<table><tr><td id="a" rowspan="2">A</td><td id="b">B</td></tr>'
+            . '<tr><td id="c">C</td><td id="d">D</td></tr>'
+            . '<tr><td id="e" colspan="3">E</td></tr></table>',
+        );
+        $tablekey = $this->findHtmlTagKey($dom, 'table');
+        $grid = $obj->exposeGetHTMLTableGrid($dom, $tablekey);
+
+        $this->assertSame(3, $grid['cols']);
+        $expected = ['a' => [0, 1], 'b' => [1, 1], 'c' => [1, 1], 'd' => [2, 1], 'e' => [0, 3]];
+        foreach ($expected as $id => $place) {
+            foreach ($dom as $key => $node) {
+                if (!$node['opening'] || $this->getHtmlNodeAttrString($node, 'id') !== $id) {
+                    continue;
+                }
+
+                $this->assertSame($place, $grid['cells'][$key] ?? null, 'cell ' . $id);
+            }
+        }
+    }
+
+    /**
+     * A row with more cells than the first row adds columns inside the table width.
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellTableRowWithMoreCellsThanTheFirstRowStaysInsideTheTable(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf(unit: 'mm', isunicode: true, subsetfont: false, compress: false);
+        $this->initFontAndPage($obj);
+        $obj->addHTMLCell(
+            '<table border="1" cellpadding="2">'
+            . '<tr><td>A1</td><td>B1</td></tr>'
+            . '<tr><td>A2</td><td>B2</td><td>C2</td></tr>'
+            . '</table>',
+            15,
+            20,
+            180,
+        );
+        $out = $obj->getOutPDFString();
+
+        $mm = 72 / 25.4;
+        $this->assertEqualsWithDelta(15.5 * $mm, $this->getTextObjectPdfX($out, 'A2'), 0.1);
+        $this->assertEqualsWithDelta(75.5 * $mm, $this->getTextObjectPdfX($out, 'B2'), 0.1);
+        $this->assertEqualsWithDelta(135.5 * $mm, $this->getTextObjectPdfX($out, 'C2'), 0.1);
+        $this->assertEqualsWithDelta(75.5 * $mm, $this->getTextObjectPdfX($out, 'B1'), 0.1);
+    }
+
+    /**
+     * The row estimate measures a spanning cell with the width of all its columns, so a
+     * row that fits near the page bottom is not moved to the next page.
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellColspanRowThatFitsStaysOnThePage(): void
+    {
+        $text = \str_repeat('Lorem ipsum dolor sit amet, consectetur adipiscing elit. ', 3);
+        foreach ([
+            '<tr><td width="50%">A</td><td width="50%">B</td></tr><tr><td colspan="2">' . $text . '</td></tr>',
+            '<tr><td>A</td></tr><tr><td>' . $text . '</td></tr>',
+        ] as $rows) {
+            $obj = new \Com\Tecnick\Pdf\Tcpdf(unit: 'mm', isunicode: true, subsetfont: false, compress: false);
+            $this->initFontAndPage($obj);
+            $obj->addHTMLCell('<table border="1" cellpadding="2">' . $rows . '</table>', 15, 282, 180);
+
+            $this->assertCount(1, $obj->page->getPages());
+        }
+    }
+
+    /**
+     * A table kept together is measured by its rows, not by stacking every cell.
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellKeepTogetherTableIsMeasuredByItsRows(): void
+    {
+        $table =
+            '<tr><td colspan="3"><b>HEADING</b></td></tr>'
+            . \str_repeat('<tr><td>Description<br>sub description text</td><td>middle</td><td>right</td></tr>', 5)
+            . '<tr><td colspan="2">summary</td><td>sum</td></tr></table>';
+
+        foreach (['style="page-break-inside: avoid;"', 'nobr="true"', ''] as $attr) {
+            foreach ([5 => 1, 6 => 2] as $count => $pages) {
+                $obj = new \Com\Tecnick\Pdf\Tcpdf(unit: 'mm', isunicode: true, subsetfont: false, compress: false);
+                $this->initFontAndPage($obj);
+                $obj->addHTMLCell(\str_repeat('<table ' . $attr . '>' . $table, $count), 10, 10, 190);
+
+                $this->assertCount($pages, $obj->page->getPages(), $attr . ' x' . $count);
+            }
+        }
+    }
+
+    /**
+     * Returns the PDF ordinate of the text object that shows the given literal string.
+     */
+    private function getTextObjectPdfY(string $out, string $text): float
+    {
+        $mtch = [];
+        $found = \preg_match('#([0-9.]+) ([0-9.]+) Td \(' . \preg_quote($text, '#') . ' *\) Tj#', $out, $mtch);
+        $this->assertSame(1, $found, 'text object not found: ' . $text);
+
+        return \floatval($mtch[2] ?? 0);
+    }
+
+    /**
+     * The height declared on a table cell sets the minimum height of its row.
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellTableCellHeightSetsTheRowHeight(): void
+    {
+        $tops = [];
+        foreach ([
+            'none' => '<td>',
+            'attr' => '<td height="100">',
+            'px' => '<td style="height:100px;">',
+            'mm' => '<td style="height:30mm;">',
+            'short' => '<td style="height:1mm;">',
+        ] as $name => $td) {
+            $obj = new \Com\Tecnick\Pdf\Tcpdf(unit: 'mm', isunicode: true, subsetfont: false, compress: false);
+            $this->initFontAndPage($obj);
+            $obj->addHTMLCell(
+                '<table border="1" cellpadding="2"><tr>' . $td . 'cell</td></tr></table><p>after</p>',
+                15,
+                20,
+                180,
+            );
+            // distance in points from the top of the page
+            $tops[$name] = 841.89 - $this->getTextObjectPdfY($obj->getOutPDFString(), 'after');
+        }
+
+        // 100px = 75pt and 30mm = 85.04pt replace the content height of the row
+        $none = $tops['none'];
+        $this->assertGreaterThan($none + 40.0, $tops['attr']);
+        $this->assertEqualsWithDelta($tops['attr'], $tops['px'], 0.001);
+        $this->assertEqualsWithDelta($tops['px'] + (85.0394 - 75.0), $tops['mm'], 0.01);
+        // a height lower than the content keeps the content height
+        $this->assertEqualsWithDelta($none, $tops['short'], 0.001);
+    }
+
+    /**
+     * Returns the structure elements of the output as [role, parent object, language],
+     * keyed by object number. The language is null when the element has no /Lang.
+     *
+     * @return array<int, array{0: string, 1: int, 2: ?string}>
+     */
+    private function getStructElemLangs(string $out): array
+    {
+        $mtch = [];
+        \preg_match_all(
+            '#(\d+) 0 obj\n<< /Type /StructElem /S /(\w+) /P (\d+) 0 R /Pg \d+ 0 R(?: /Lang \(\xFE\xFF((?:\x00.)*)\))?#s',
+            $out,
+            $mtch,
+            PREG_SET_ORDER,
+        );
+
+        $elems = [];
+        foreach ($mtch as $row) {
+            $lang = isset($row[4]) ? \str_replace("\x00", '', $row[4]) : null;
+            $elems[(int) ($row[1] ?? 0)] = [$row[2] ?? '', (int) ($row[3] ?? 0), $lang];
+        }
+
+        return $elems;
+    }
+
+    /**
+     * The HTML lang attribute sets /Lang on the structure elements whose language
+     * differs from the language in effect.
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellLanguageChangesAreSetOnStructureElements(): void
+    {
+        $obj = $this->getPdfUaUncompressedObject();
+        $this->initFontAndPage($obj);
+        $obj->addHTMLCell(
+            '<p>English <span lang="es">Trabajo revisado</span> English</p>'
+            . '<p lang="de">Deutsch</p>'
+            . '<p>x <span lang="und">y</span> <span lang="">z</span> <span lang="EN-us">w</span></p>'
+            . '<div lang="fr">Bonjour <p>Salut</p></div>',
+            10,
+            10,
+            180,
+            0,
+        );
+        $elems = $this->getStructElemLangs($obj->getOutPDFString());
+
+        $langs = [];
+        foreach ($elems as [$role, $parent, $lang]) {
+            if ($lang === null) {
+                continue;
+            }
+
+            $langs[] = $role . ':' . $lang . ':' . ($elems[$parent][0] ?? '');
+        }
+
+        \sort($langs);
+        // an empty lang attribute declares an unknown language: 'und'
+        $this->assertSame(['Div:fr:Document', 'P:de:Document', 'Span:es:P', 'Span:und:P', 'Span:und:P'], $langs);
+
+        // the paragraph inside the French division takes the language of its parent
+        $nested = \array_filter(
+            $elems,
+            static fn(array $elem): bool => $elem[0] === 'P' && ($elems[$elem[1]][0] ?? '') === 'Div',
+        );
+        $this->assertCount(1, $nested);
+        foreach ($nested as [, , $lang]) {
+            $this->assertNull($lang);
+        }
+    }
+
+    /**
+     * Without a language change no Span is added and no /Lang is set.
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellWithoutLanguageChangeAddsNoStructureLanguage(): void
+    {
+        $obj = $this->getPdfUaUncompressedObject();
+        $this->initFontAndPage($obj);
+        $obj->addHTMLCell(
+            '<p lang="en-US">Alpha <span>beta</span> <span lang="en-us">gamma</span></p>',
+            10,
+            10,
+            180,
+            0,
+        );
+        $out = $obj->getOutPDFString();
+
+        $this->assertStringNotContainsString('/S /Span', $out);
+        foreach ($this->getStructElemLangs($out) as [, , $lang]) {
+            $this->assertNull($lang);
+        }
+    }
+
+    /**
+     * An image with an empty alt attribute is decorative: it is an Artifact, not a Figure.
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellImageWithEmptyAltIsTaggedAsArtifact(): void
+    {
+        $logo = (string) \realpath(__DIR__ . '/../examples/images/tcpdf_logo.jpg');
+
+        $obj = $this->getPdfUaUncompressedObject();
+        $this->initFontAndPage($obj);
+        $obj->addHTMLCell('<p>Text</p><img src="' . $logo . '" alt="" width="89" height="30" />', 10, 10, 180, 0);
+        $out = $obj->getOutPDFString();
+        $this->assertStringNotContainsString('/S /Figure', $out);
+        $this->assertMatchesRegularExpression('#/Artifact BMC\nq [^\n]* Do Q\nEMC#', $out);
+
+        $obj = $this->getPdfUaUncompressedObject();
+        $this->initFontAndPage($obj);
+        $obj->addHTMLCell('<img src="' . $logo . '" alt="TCPDF logo" width="89" height="30" />', 10, 10, 180, 0);
+        $out = $obj->getOutPDFString();
+        $this->assertStringContainsString('/S /Figure', $out);
     }
 
     /**
@@ -22652,6 +23109,7 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    #[RequiresPhpExtension('gd')]
     public function testAddHTMLCellImageMovesToNextPageWhenItDoesNotFit(): void
     {
         $img = \imagecreate(4, 2);
@@ -22902,6 +23360,7 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    #[RequiresPhpExtension('gd')]
     public function testAddHTMLCellLineWithTallInlineImageMovesAsAWhole(): void
     {
         $img = \imagecreate(4, 2);
@@ -23099,9 +23558,11 @@ class HTMLTest extends TestUtil
 
         $texts = [];
         foreach ($dom as $node) {
-            if (!$node['tag'] && $node['value'] !== '') {
-                $texts[] = $node['value'];
+            if ($node['tag'] || $node['value'] === '') {
+                continue;
             }
+
+            $texts[] = $node['value'];
         }
 
         $this->assertSame(['Open ', 'the', ' ', 'menu ', ' and ', '  choose', ' ', 'x ', 'the', 'option '], $texts);

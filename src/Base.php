@@ -166,6 +166,7 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *    annots?: int[],
  *    attr?: array<string, string>,
  *    bbox?: TFourFloat,
+ *    lang?: string,
  *    refpid?: int,
  *    required?: bool,
  * }
@@ -716,7 +717,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.78.2';
+    protected string $version = '8.78.3';
 
     /**
      * Encrypt object.

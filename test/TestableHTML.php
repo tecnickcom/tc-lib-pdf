@@ -153,6 +153,16 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
+     *
+     * @return array{cols: int, cells: array<int, array{0: int, 1: int}>}
+     */
+    public function exposeGetHTMLTableGrid(array $dom, int $tablekey): array
+    {
+        return $this->getHTMLTableGrid($dom, $tablekey);
+    }
+
+    /**
      * @phpstan-param array<string, mixed> $markerStyles
      * @throws \Throwable
      */
@@ -1021,6 +1031,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
             'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
             'maxheight' => 0.0,
             'maxwidth' => 0.0,
+            'minheight' => 0.0,
             'originx' => 0.0,
             'originy' => 0.0,
             'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],

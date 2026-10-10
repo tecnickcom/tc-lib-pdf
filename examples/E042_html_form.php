@@ -106,6 +106,20 @@ $html_07 = <<<EOD
 
 $pdf->addHTMLCell(html: $html_07, posx: 30, posy: 20);
 
+// Empty attribute values: value="" and value='' leave the field empty, while a valueless
+// boolean attribute such as readonly is set.
+$html_08 = <<<EOD
+    <h2>Empty attribute values</h2>
+    <form>
+    <label for="first">value="" (expected: empty):</label> <input type="text" name="first" value="" size="20" /><br />
+    <label for="middle">value='' (expected: empty):</label> <input type="text" name="middle" value='' size="20" /><br />
+    <label for="last">value="Doe" (expected: Doe):</label> <input type="text" name="last" value="Doe" size="20" /><br />
+    <label for="fixed">readonly (expected: Fixed, read-only):</label> <input type="text" name="fixed" value="Fixed" size="20" readonly /><br />
+    </form>
+    EOD;
+
+$pdf->addHTMLCell(html: $html_08, posx: 30, posy: 205);
+
 // =============================================================
 
 // ----------

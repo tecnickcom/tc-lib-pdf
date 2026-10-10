@@ -19,6 +19,7 @@ namespace Test;
 use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
 use Com\Tecnick\Pdf\Tcpdf;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 
 /**
  * Structural invariants of the whole document for each conformance mode.
@@ -1084,6 +1085,7 @@ class ConformanceMatrixTest extends TestUtil
      * @throws \Throwable
      */
     #[DataProvider('imageSoftMaskModeProvider')]
+    #[RequiresPhpExtension('gd')]
     public function testModesForbiddingTransparencyDropTheImageSoftMask(string $mode, bool $forbidden): void
     {
         $pdf = $this->buildBareDocument($mode);
@@ -1151,6 +1153,36 @@ class ConformanceMatrixTest extends TestUtil
     public function testPinnedFileIdMakesTheOutputReproducible(): void
     {
         $this->assertSame($this->buildPinnedDocument(), $this->buildPinnedDocument());
+    }
+
+    /**
+     * Pages added by a page break take the pinned modification date, as do pages added
+     * without a time, while an explicit page time wins.
+     *
+     * @throws \Throwable
+     */
+    public function testPinnedModificationDateIsThePageTimeOfAutomaticPages(): void
+    {
+        $pdf = new Tcpdf('mm', true, false, false);
+        $pdf->setDocCreationDate(1600000000);
+        $pdf->setDocModificationDate(1700000000);
+        $font = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
+        $pdf->addPage(['time' => 1650000000]);
+        $pdf->page->addContent($font['out']);
+        $pdf->addHTMLCell(
+            \str_repeat('<p>' . \str_repeat('Lorem ipsum dolor sit amet. ', 30) . '</p>', 20),
+            15,
+            20,
+            180,
+        );
+        $pdf->addPage();
+
+        $times = \array_column($pdf->page->getPages(), 'time');
+        $this->assertGreaterThan(2, \count($times));
+        $this->assertSame(1650000000, $times[0] ?? null);
+        foreach (\array_slice($times, 1) as $time) {
+            $this->assertSame(1700000000, $time);
+        }
     }
 
     /**

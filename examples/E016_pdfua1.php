@@ -123,6 +123,11 @@ $html =
     . ' screen readers can describe non-text content. The <code>figcaption</code> tag'
     . ' maps to <strong>Caption</strong>.</figcaption>'
     . '</figure>'
+    . '<p>A decorative image has an empty <code>alt</code> attribute: it is emitted as an'
+    . ' <strong>Artifact</strong>, not as a Figure, so assistive technology skips it:</p>'
+    . '<img src="'
+    . $imgPath
+    . '" alt="" width="45" height="15" />'
     . '<h2>5 — Table Structure (Table &gt; TR &gt; TH/TD)</h2>'
     . '<table border="1" cellspacing="0" cellpadding="3">'
     . '<caption>Table 1 &mdash; HTML tags and their PDF/UA-1 structure roles</caption>'
@@ -135,6 +140,7 @@ $html =
     . '<tr><td>li</td><td>LI + Lbl + LBody</td><td>List</td></tr>'
     . '<tr><td>figure</td><td>Figure</td><td>Illustration</td></tr>'
     . '<tr><td>img (with alt)</td><td>Figure + /Alt</td><td>Illustration</td></tr>'
+    . '<tr><td>img (alt="")</td><td>Artifact</td><td>Decoration</td></tr>'
     . '<tr><td>figcaption, caption</td><td>Caption</td><td>Illustration</td></tr>'
     . '<tr><td>table</td><td>Table</td><td>Table</td></tr>'
     . '<tr><td>tr</td><td>TR</td><td>Table</td></tr>'
@@ -173,6 +179,20 @@ for ($row = 1; $row <= 60; ++$row) {
 }
 
 $html .= '</table>';
+
+$html .=
+    ''
+    . '<h2>9 &ndash; Language Changes (/Lang)</h2>'
+    . '<p>The <code>lang</code> attribute sets <strong>/Lang</strong> on the structure element whose'
+    . ' language differs from the language in effect. An inline element gets a <strong>Span</strong>,'
+    . ' a block without a role of its own a <strong>Div</strong>:</p>'
+    . '<p>English text with a Spanish phrase: <span lang="es">Trabajo revisado</span>, then English again.</p>'
+    . '<p lang="de">Ein deutscher Absatz: the P element has /Lang (de).</p>'
+    . '<div lang="fr"><p>Un paragraphe dans une division fran&ccedil;aise.</p><p>Les deux paragraphes'
+    . ' prennent la langue de la Div.</p></div>'
+    . '<p>A run in an undetermined language: <span lang="und">xyzzy</span>; a run with an empty'
+    . ' attribute, which declares an unknown language and is also written as /Lang (und):'
+    . ' <span lang="">plugh</span>.</p>';
 
 $pdf->addHTMLCell(html: $html, posx: 15, posy: 20, width: 180);
 

@@ -349,6 +349,68 @@ $drawHtmlCase(
 );
 
 // ----------
+// CSS text-indent each-line: the first line after each forced line break is also
+// indented, while the lines wrapped automatically are not. The dashed marks are the
+// indented start (30pt from the block start).
+// ----------
+
+$posy = $drawTitle('CSS text-indent each-line: indented again after each forced line break');
+
+/**
+ * Draws one HTML case with the dashed indent marks on the wide and on the narrow block.
+ */
+$drawIndentCase = function (string $label, float $posy, string $html) use (
+    $pdf,
+    $drawHtmlCase,
+    $markStyle,
+    $posx,
+    $height,
+): float {
+    $next = $drawHtmlCase($label, $posy, $html);
+    $indent = $pdf->toUnit(30.0);
+    foreach ([$posx, $posx + 100.0] as $blockx) {
+        $pdf->page->addContent($pdf->graph->getLine(
+            $blockx + $indent,
+            $posy,
+            $blockx + $indent,
+            $posy + $height,
+            $markStyle,
+        ));
+    }
+
+    return $next;
+};
+
+$lines = 'First line<br>Second line<br>Third line';
+$posy = $drawIndentCase(
+    'each-line (all three lines on the mark)',
+    $posy,
+    '<p style="text-indent:30pt each-line">' . $lines . '</p>',
+);
+$posy = $drawIndentCase(
+    'each-line 30pt (keyword first, same result)',
+    $posy,
+    '<p style="text-indent:each-line 30pt">' . $lines . '</p>',
+);
+$posy = $drawIndentCase('30pt (first line only)', $posy, '<p style="text-indent:30pt">' . $lines . '</p>');
+$posy = $drawIndentCase(
+    'each-line with wrapped lines (only the first line and the line after the break)',
+    $posy,
+    '<p style="text-indent:30pt each-line">' . $ltrbody . '<br>Lambda mu nu xi.</p>',
+);
+$posy = $drawIndentCase(
+    'each-line in pre (every line on the mark)',
+    $posy,
+    "<pre style=\"text-indent:30pt each-line\">First line\nSecond line\nThird line</pre>",
+);
+$posy = $drawIndentCase('30pt foo (invalid, no indent)', $posy, '<p style="text-indent:30pt foo">' . $lines . '</p>');
+$drawIndentCase(
+    '30pt hanging (not supported, no indent)',
+    $posy,
+    '<p style="text-indent:30pt hanging">' . $lines . '</p>',
+);
+
+// ----------
 // Continuation flow: successive calls that carry on the same line.
 // ----------
 

@@ -23,6 +23,8 @@ declare(strict_types=1);
 
 // NOTE: run make fonts in the project root to generate the dependencies and example fonts.
 
+// NOTE: this example needs the gd extension, which converts the images with an alpha channel.
+
 // autoloader when using Composer
 require __DIR__ . '/../vendor/autoload.php';
 

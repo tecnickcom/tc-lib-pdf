@@ -203,7 +203,8 @@ class ResourceCloner
      * @param int                  $ownerNum  Number of the object the dictionary is written into,
      *                                        used as encryption key for the strings it contains.
      *
-     * @return string Serialized PDF resource dictionary, e.g. "<< /Font << /F1 7 0 R >> >>".
+     * @return string Serialized PDF resource dictionary, e.g. "<< /Font << /F1 7 0 R >> >>",
+     *                or "<< >>" for an empty one.
      *
      * @throws ImportCorruptedSourceException
      * @throws ImportException
@@ -212,7 +213,7 @@ class ResourceCloner
     public function cloneResources(array $resources, SourceDocument $src, ObjectMap $map, int $ownerNum = 0): string
     {
         if ($resources === []) {
-            return '';
+            return '<< >>';
         }
 
         $out = '<<';

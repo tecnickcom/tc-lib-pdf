@@ -325,13 +325,13 @@ class ResourceClonerTest extends TestCase
     // -------------------------------------------------------------------------
 
     /** @throws \Throwable */
-    public function testCloneResourcesEmptyDictReturnsEmptyString(): void
+    public function testCloneResourcesEmptyDictReturnsEmptyDictionary(): void
     {
         $src = $this->loadFixture();
         $map = new ObjectMap();
         $cloner = new ResourceCloner(0);
 
-        $this->assertSame('', $cloner->cloneResources([], $src, $map));
+        $this->assertSame('<< >>', $cloner->cloneResources([], $src, $map));
     }
 
     /** @throws \Throwable */
