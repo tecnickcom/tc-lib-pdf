@@ -194,8 +194,15 @@ class IdeographicBreakTest extends TestUtil
 
         $pdf = $this->getDocument('cid0jp', 'cid0/cid0jp.json');
         $pdf->enableIdeographicBreaks(false);
+        $pdf->enableWordBreakFallback(false);
         $pdf->addTextCell(self::JAPANESE, -1, 15, 20, 90);
         $this->assertCount(1, $this->getLines($pdf->getOutPDFString()));
+
+        // Without the ideographic breaks, the run is still broken between two characters.
+        $pdf = $this->getDocument('cid0jp', 'cid0/cid0jp.json');
+        $pdf->enableIdeographicBreaks(false);
+        $pdf->addTextCell(self::JAPANESE, -1, 15, 20, 90);
+        $this->assertGreaterThan(1, \count($this->getLines($pdf->getOutPDFString())));
     }
 
     /**

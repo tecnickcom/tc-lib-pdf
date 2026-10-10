@@ -47,7 +47,15 @@ $pdf->setPDFFilename('073_css_supported_categories.pdf');
 $pdf->font->insert($pdf->pon, 'courier', '', 11);
 
 $bfont = $pdf->font->insert($pdf->pon, 'helvetica', '', 11);
-$pdf->addPage();
+// The HTML continues from the top margin on the pages added by page breaks.
+$pdf->addPage([
+    'margin' => [
+        'PT' => 15,
+        'PB' => 15,
+        'CT' => 15,
+        'CB' => 15,
+    ],
+]);
 $pdf->page->addContent($bfont['out']);
 
 $html = <<<HTML

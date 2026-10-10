@@ -5169,6 +5169,24 @@ class HTMLTest extends TestUtil
     }
 
     /**
+     * Renders the HTML with addHTMLCell() and returns the content streams of every page.
+     *
+     * @throws \Throwable
+     */
+    private function addHTMLCellContent(
+        \Com\Tecnick\Pdf\Tcpdf $obj,
+        string $html,
+        float $posx,
+        float $posy,
+        float $width,
+        float $height = 0,
+    ): string {
+        $obj->addHTMLCell($html, $posx, $posy, $width, $height);
+
+        return $this->collectPageContent($obj->page);
+    }
+
+    /**
      * Concatenate the content streams of every page into a single string.
      *
      * @throws \Throwable
@@ -5596,7 +5614,7 @@ class HTMLTest extends TestUtil
             'borderpos' => \Com\Tecnick\Pdf\Base::BORDERPOS_DEFAULT,
         ];
 
-        $obj->addHTMLCell('<p>de&shy;nounce</p>', 0, 0, 8, 0, $cell, []);
+        $obj->addHTMLCell('<p>de&shy;nounce</p>', 0, 0, 14, 0, $cell, []);
 
         $content = \implode("\n", $page->getPage()['content']);
 
@@ -5706,7 +5724,7 @@ class HTMLTest extends TestUtil
         $tph = 0.0;
 
         $obj->exposeParseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
-        $obj->exposeExecuteHTMLTcpdfPageBreak('true', $tpx, $tpw);
+        $obj->exposeBreakHTMLPageWithOpenBlocks('true', $tpx, $tpy, $tpw);
 
         $tpy += 6.0;
         $elm['value'] = 'Continuation after forced page break';
@@ -9386,7 +9404,7 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
-    public function testGetHTMLCellBreaksBeforeNobrBlockOnOverflow(): void
+    public function testAddHTMLCellBreaksBeforeNobrBlockOnOverflow(): void
     {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
@@ -9397,7 +9415,7 @@ class HTMLTest extends TestUtil
         $region = $page->getRegion();
         $starty = \max(0.0, $region['RH'] - 5.0);
 
-        $out = $obj->getHTMLCell('<div nobr="true"><p>A</p><p>B</p></div>', 0, $starty, 30, 0);
+        $out = $this->addHTMLCellContent($obj, '<div nobr="true"><p>A</p><p>B</p></div>', 0, $starty, 30, 0);
 
         $after = $page->getPageId();
 
@@ -10679,12 +10697,13 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
-    public function testGetHTMLCellReplaysTableHeadOnExplicitBodyRowPageBreak(): void
+    public function testAddHTMLCellReplaysTableHeadOnExplicitBodyRowPageBreak(): void
     {
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $out = $obj->getHTMLCell(
+        $out = $this->addHTMLCellContent(
+            $obj,
             '<table><thead><tr><th>H</th></tr></thead>'
             . '<tr style="page-break-before:always"><td>T</td></tr></table>',
             0,
@@ -10760,7 +10779,7 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
-    public function testGetHTMLCellReplaysTableHeadOnAutomaticRowOverflow(): void
+    public function testAddHTMLCellReplaysTableHeadOnAutomaticRowOverflow(): void
     {
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
@@ -10770,7 +10789,8 @@ class HTMLTest extends TestUtil
         $region = $page->getRegion();
         $starty = \max(0.0, $region['RH'] - 10.0);
 
-        $out = $obj->getHTMLCell(
+        $out = $this->addHTMLCellContent(
+            $obj,
             '<table><thead><tr><th>H</th></tr></thead><tr><td>Tall</td></tr><tr><td>Next</td></tr></table>',
             0,
             $starty,
@@ -10830,7 +10850,7 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
-    public function testGetHTMLCellTableHeadReplayDoesNotOverlapBodyRowWithCellpadding(): void
+    public function testAddHTMLCellTableHeadReplayDoesNotOverlapBodyRowWithCellpadding(): void
     {
         // estimateHTMLTableHeadHeight must account for the
         // <table cellpadding="N"> attribute when measuring the replayed
@@ -10848,7 +10868,8 @@ class HTMLTest extends TestUtil
         $region = $page->getRegion();
         $starty = \max(0.0, $region['RH'] - 5.0);
 
-        $out = $obj->getHTMLCell(
+        $out = $this->addHTMLCellContent(
+            $obj,
             '<table cellpadding="6"><thead><tr><th>HDR</th></tr></thead><tr><td>BODY</td></tr></table>',
             0,
             $starty,
@@ -10929,7 +10950,7 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
-    public function testGetHTMLCellReplaysTableHeadWithSameColumnWidthsOnPxUnitDocument(): void
+    public function testAddHTMLCellReplaysTableHeadWithSameColumnWidthsOnPxUnitDocument(): void
     {
         // injectHTMLTableHeadColWidths must not serialize the computed column
         // widths with the document unit name: CSS pixel lengths are parsed with
@@ -10939,7 +10960,8 @@ class HTMLTest extends TestUtil
         $obj = new \Com\Tecnick\Pdf\Tcpdf('px');
         $this->initFontAndPage($obj);
 
-        $out = $obj->getHTMLCell(
+        $out = $this->addHTMLCellContent(
+            $obj,
             '<table cellpadding="3" cellspacing="0">'
             . '<thead><tr style="background-color:#cccccc"><th>H</th><th>HH</th></tr></thead>'
             . '<tr style="page-break-before:always"><td>A</td><td>B</td></tr></table>',
@@ -10970,7 +10992,7 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
-    public function testGetHTMLCellReplaysTableHeadWhenEmbeddedStyleBlockIsPresent(): void
+    public function testAddHTMLCellReplaysTableHeadWhenEmbeddedStyleBlockIsPresent(): void
     {
         // An embedded (or external) <style> block makes the CSS map
         // non-empty, which triggers recomputeHTMLDOMCSSAgainstFinalTree(). That
@@ -10980,7 +11002,8 @@ class HTMLTest extends TestUtil
         $obj = new \Com\Tecnick\Pdf\Tcpdf('px');
         $this->initFontAndPage($obj);
 
-        $out = $obj->getHTMLCell(
+        $out = $this->addHTMLCellContent(
+            $obj,
             '<style> .unused { color:red; } </style>'
             . '<table cellpadding="3" cellspacing="0">'
             . '<thead><tr style="background-color:#cccccc"><th>H</th><th>HH</th></tr></thead>'
@@ -14666,7 +14689,21 @@ class HTMLTest extends TestUtil
         $this->assertStringContainsString('<select opt="v1#!TaB!#Alpha#!NwL!#Beta" />', $out);
         $this->assertStringContainsString('<textarea value="x\'\'y', $out);
         $this->assertStringContainsString('z" />', $out);
-        $this->assertStringContainsString('<img src="a.png"><span><marker style="font-size:0"/></span>', $out);
+        $this->assertStringContainsString('<img src="a.png">', $out);
+        $this->assertStringNotContainsString('<marker', $out);
+    }
+
+    /** @throws \Throwable */
+    public function testHTMLDOMHasNoInjectedMarkerNodes(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $dom = $obj->exposeGetHTMLDOM(
+            '<table border="1"><tr><td>A</td><th>B</th></tr></table><p><img src="a.png" /> x</p>',
+        );
+
+        foreach ($dom as $node) {
+            $this->assertFalse($node['tag'] && $node['value'] === 'marker');
+        }
     }
 
     /**
@@ -16253,7 +16290,7 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
-    public function testGetHTMLCellCoversSelfClosingPageBreakAfterMode(): void
+    public function testAddHTMLCellCoversSelfClosingPageBreakAfterMode(): void
     {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
@@ -16262,7 +16299,7 @@ class HTMLTest extends TestUtil
 
         $html = '<img alt="x" style="page-break-after:always" /><p>AfterBreak</p>';
 
-        $out = $obj->getHTMLCell($html, 0, 0, 20, 6);
+        $out = $this->addHTMLCellContent($obj, $html, 0, 0, 20, 6);
 
         $after = $obj->exposePageBreak();
 
@@ -20015,13 +20052,21 @@ class HTMLTest extends TestUtil
 
         $before = $obj->exposePageBreak();
         $tpx = 41.0;
+        $tpy = 200.0;
         $tpw = 9.0;
-        $obj->exposeExecuteHTMLTcpdfPageBreak('true', $tpx, $tpw);
+        $this->assertTrue($obj->exposeBreakHTMLPageWithOpenBlocks('true', $tpx, $tpy, $tpw));
         $after = $obj->exposePageBreak();
 
         $this->assertGreaterThan($before, $after);
         $this->assertSame(12.0, $tpx);
         $this->assertSame(80.0, $tpw);
+        $this->assertLessThan(200.0, $tpy);
+
+        $this->assertSame('true', $obj->exposeGetHTMLTcpdfPageBreakMode('<tcpdf method="pagebreak" />'));
+        $this->assertSame('left', $obj->exposeGetHTMLTcpdfPageBreakMode('<tcpdf method="AddPage" pagebreak="Left" />'));
+        $this->assertSame('true', $obj->exposeGetHTMLTcpdfPageBreakMode('<tcpdf data="' . $data . '" />'));
+        $this->assertNull($obj->exposeGetHTMLTcpdfPageBreakMode('<tcpdf method="noop" />'));
+        $this->assertNull($obj->exposeGetHTMLTcpdfPageBreakMode('<p>x</p>'));
     }
 
     /**

@@ -2486,11 +2486,7 @@ class OutputTest extends TestUtil
             $rows .= '<tr><td>row ' . $idx . '</td><td>value ' . $idx . '</td></tr>';
         }
 
-        $htmlOut = $obj->getHTMLCell('<table border="1">' . $rows . '</table>', 15, 20, 100, 0);
-
-        /** @var \Com\Tecnick\Pdf\Page\Page $page */
-        $page = $this->getObjectProperty($obj, 'page');
-        $page->addContent($htmlOut, $page->getPageId());
+        $obj->addHTMLCell('<table border="1">' . $rows . '</table>', 15, 20, 100, 0);
 
         $out = $obj->exposeGetOutPDFBody();
 

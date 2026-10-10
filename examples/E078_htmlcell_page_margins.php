@@ -157,6 +157,45 @@ $pdf->page->addContent($pdf->getHTMLCell(
 
 // ----------
 
+// A block taller than the page: getHTMLCell() returns the PDF code of one page, so the
+// block stays on the current page and continues below the bottom margin; addHTMLCell()
+// continues it on the next page.
+$pdf->addPage([
+    'format' => 'A4',
+    'orientation' => 'P',
+    'autobreak' => true,
+    'margin' => [
+        'PT' => 15,
+        'PB' => 15,
+        'CT' => 15,
+        'CB' => 15,
+    ],
+]);
+$pdf->page->addContent($bfont['out']);
+
+$lines = [];
+for ($idx = 1; $idx <= 64; ++$idx) {
+    $lines[] = 'Line ' . $idx;
+}
+
+$tallBlock = '<p>' . \implode('<br />', $lines) . '</p>';
+
+$pdf->page->addContent($pdf->getHTMLCell(
+    html: '<p><b>getHTMLCell()</b>: one page, the lines past the bottom margin continue down the page.</p>'
+    . $tallBlock,
+    posx: 15,
+    posy: 15,
+    width: 85,
+));
+$pdf->addHTMLCell(
+    html: '<p><b>addHTMLCell()</b>: the lines past the bottom margin continue on the next page.</p>' . $tallBlock,
+    posx: 110,
+    posy: 15,
+    width: 85,
+);
+
+// ----------
+
 // get PDF document as raw string
 $rawpdf = $pdf->getOutPDFString();
 

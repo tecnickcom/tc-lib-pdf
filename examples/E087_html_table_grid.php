@@ -231,6 +231,98 @@ $pdf->addHTMLCell(
 $pdf->page->addContent($pdf->graph->getLine(62, $posy + 30.0, 188, $posy + 30.0, $guideStyle));
 
 // ----------
+// Part 5: narrow columns keep their text.
+// ----------
+
+$posy = $drawTitle(
+    'Narrow columns: words wider than a column',
+    'every text stays inside its column frame, except in the white-space: nowrap case, which never wraps.',
+);
+
+$longword = 'Supercalifragilisticexpialidociousandevenlonger';
+$narrowCases = [
+    'a word wider than the column is broken between two characters' =>
+        '<td width="40">' . $longword . ' text</td><td>next column</td>',
+    'hyphenated words break after a hyphen' => '<td width="90">Long-distance well-known state-of-the-art</td><td>next</td>',
+    'overflow-wrap: break-word, a 4-character word in a 25px column' =>
+        '<td width="25" style="overflow-wrap: break-word">OW25 ' . $longword . '</td><td>next</td>',
+    'word-break: break-all' => '<td width="60" style="word-break: break-all">' . $longword . ' text</td><td>next</td>',
+    'white-space: nowrap (overflows, as specified by CSS)' =>
+        '<td width="40" style="white-space: nowrap">nowrap ' . $longword . '</td><td>next</td>',
+];
+
+foreach ($narrowCases as $label => $cells) {
+    $note($label, 10, $posy, 50);
+    $selectFont();
+    $pdf->addHTMLCell('<table border="1" cellpadding="2"><tr>' . $cells . '</tr></table>', 65, $posy, 120);
+    $posy = \max($posy + 12.0, $pdf->getLastHTMLCellEnd()['y'] + 6.0);
+}
+
+$note('automatic column widths: the bold header "Amount" is not broken', 10, $posy, 50);
+$rows = '';
+for ($idx = 1; $idx <= 3; ++$idx) {
+    $rows .=
+        '<tr><td>'
+        . $idx
+        . '</td><td>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</td><td style="text-align:right">'
+        . \number_format($idx * 12.34, 2)
+        . '</td></tr>';
+}
+
+$selectFont('dejavusans');
+$pdf->addHTMLCell(
+    '<table border="1" cellpadding="3" cellspacing="0"><thead><tr style="background-color:#cccccc"><th>#</th>'
+    . '<th>Description</th><th>Amount</th></tr></thead>'
+    . $rows
+    . '</table>',
+    65,
+    $posy,
+    120,
+);
+
+// ----------
+// Part 6: cell borders are drawn over the cell backgrounds.
+// ----------
+
+$posy = $drawTitle(
+    'Cell borders over cell backgrounds',
+    'zoomed in (800%), every border keeps its full width over the backgrounds of the next rows.',
+);
+
+$borderCases = [
+    'a 3px red bottom border above a grey row' =>
+        '<table cellpadding="2"><tr><td style="border-bottom: 3px solid #ff0000;">row 1 with a red bottom border</td></tr>'
+            . '<tr><td style="background-color: #cccccc;">row 2 with a grey background</td></tr></table>',
+    'the same with border-collapse: collapse' =>
+        '<table cellpadding="2" style="border-collapse: collapse"><tr><td style="border-bottom: 3px solid #ff0000;">'
+            . 'row 1 with a red bottom border</td></tr><tr><td style="background-color: #cccccc;">'
+            . 'row 2 with a grey background</td></tr></table>',
+    'alternating backgrounds with 2px borders' =>
+        '<table cellpadding="2">'
+            . \str_repeat(
+                '<tr><td style="background-color:#ddeeff;border:2px solid #0044aa">blue row</td></tr>'
+                . '<tr><td style="background-color:#ffeedd;border:2px solid #aa4400">orange row</td></tr>',
+                2,
+            )
+            . '</table>',
+    'a cell spanning rows with a background' =>
+        '<table cellpadding="2" border="2"><tr><td rowspan="2" style="background-color:#ffcc00">spanning</td>'
+            . '<td style="background-color:#cccccc">row 1</td></tr>'
+            . '<tr><td style="background-color:#cccccc">row 2</td></tr></table>',
+    'a bordered table inside a cell with a background' =>
+        '<table cellpadding="4"><tr><td style="background-color:#ddffdd">'
+            . '<table border="2" cellpadding="2"><tr><td style="background-color:#ffffff">inner 1</td></tr>'
+            . '<tr><td style="background-color:#eeeeee">inner 2</td></tr></table></td></tr></table>',
+];
+
+foreach ($borderCases as $label => $html) {
+    $note($label, 10, $posy, 50);
+    $selectFont();
+    $pdf->addHTMLCell($html, 65, $posy, 120);
+    $posy = \max($posy + 12.0, $pdf->getLastHTMLCellEnd()['y'] + 6.0);
+}
+
+// ----------
 
 $rawpdf = $pdf->getOutPDFString();
 $pdf->renderPDF(rawpdf: $rawpdf);

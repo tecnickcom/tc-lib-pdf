@@ -99,6 +99,7 @@ $cellPadding5mm = [
         'B' => $padding5mm,
         'L' => $padding5mm,
     ],
+    'borderpos' => \Com\Tecnick\Pdf\Tcpdf::BORDERPOS_DEFAULT,
 ];
 
 $multiline =

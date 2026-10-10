@@ -194,6 +194,21 @@ $html .=
     . ' attribute, which declares an unknown language and is also written as /Lang (und):'
     . ' <span lang="">plugh</span>.</p>';
 
+// A table row taller than a page continues on the next page: the TD structure element
+// holds the content of both pages.
+$tallcell = [];
+for ($row = 1; $row <= 110; ++$row) {
+    $tallcell[] = 'Line ' . $row . ' of a cell taller than a page';
+}
+
+$html .=
+    '<h2>10 &ndash; Row Taller Than a Page</h2>'
+    . '<table border="1" cellspacing="0" cellpadding="2">'
+    . '<thead><tr><th>Lines</th></tr></thead>'
+    . '<tr><td>'
+    . \implode('<br />', $tallcell)
+    . '</td></tr></table>';
+
 $pdf->addHTMLCell(html: $html, posx: 15, posy: 20, width: 180);
 
 $rawpdf = $pdf->getOutPDFString();

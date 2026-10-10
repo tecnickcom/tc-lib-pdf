@@ -1213,12 +1213,12 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $tplx = $this->cellHPos($posx, $width, $halign, $this->defcell);
         $tply = $this->cellVPos($posy, $height, $valign, $this->defcell);
 
-        $this->bbox[] = [
+        $this->bbox = $this->getNextBBoxList($this->bbox, [
             'x' => $tplx,
             'y' => $tply,
             'w' => $width,
             'h' => $height,
-        ];
+        ]);
 
         $ctm = [
             0 => $xobjWidth > 0.0 ? $width / $xobjWidth : 1.0,

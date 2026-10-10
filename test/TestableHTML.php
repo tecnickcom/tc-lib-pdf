@@ -146,6 +146,8 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param array<int, THTMLAttrib> $dom
      *
      * @return array<int, float>
+     *
+     * @throws \Throwable
      */
     public function exposeComputeHTMLTableColWidths(array $dom, int $tablekey, int $cols, float $availableWidth): array
     {
@@ -455,10 +457,31 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /** @throws \Throwable */
-    public function exposeExecuteHTMLTcpdfPageBreak(string $mode, float &$tpx, float &$tpw): void
+    public function exposeBreakHTMLPageWithOpenBlocks(string $mode, float &$tpx, float &$tpy, float &$tpw): bool
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->executeHTMLTcpdfPageBreak($this->testhrc, $mode, $tpx, $tpw);
+        return $this->breakHTMLPageWithOpenBlocks(
+            $this->testhrc,
+            $tpx,
+            $tpy,
+            $tpw,
+            static function (string $fragment): void {
+                unset($fragment);
+            },
+            $mode,
+        );
+    }
+
+    /** @throws \Throwable */
+    public function exposeGetHTMLTcpdfPageBreakMode(string $html): ?string
+    {
+        foreach ($this->getHTMLDOM($html) as $elm) {
+            if ($elm['tag'] && $elm['opening'] && $elm['value'] === 'tcpdf') {
+                return $this->getHTMLTcpdfPageBreakMode($elm);
+            }
+        }
+
+        return null;
     }
 
     /**

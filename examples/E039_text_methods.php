@@ -430,7 +430,7 @@ $txt5 = 'At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditi
 
 $pdf->enableZeroWidthBreakPoints(true);
 $pdf->addTextCell(
-    txt: 'TEST-TEXT-ENABLE-AUTO-BREAK-POINTS',
+    txt: 'TEST/TEXT/ENABLE/AUTO/BREAK/POINTS',
     pid: -1,
     posx: 20,
     posy: 233,
@@ -460,7 +460,7 @@ $pdf->addTextCell(
 
 $pdf->enableZeroWidthBreakPoints(false);
 $pdf->addTextCell(
-    txt: 'TEST-TEXT-DISABLE-AUTO-BREAK-POINTS',
+    txt: 'TEST/TEXT/DISABLE/AUTO/BREAK/POINTS',
     pid: -1,
     posx: 20,
     posy: 252,

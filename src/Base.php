@@ -1356,7 +1356,8 @@ abstract class Base
     protected array $svgmasks = [];
 
     /**
-     * Stack of Unit bounding boxes [x, y, w, h] in user units.
+     * Last Unit bounding box [x, y, w, h] in user units, under a key that increases
+     * with each new box.
      *
      * @var TStackUnitBBox
      */
@@ -1368,7 +1369,8 @@ abstract class Base
     ]];
 
     /**
-     * Stack of Text bounding boxes [x, y, w, h] in user units.
+     * Last Text bounding box [x, y, w, h] in user units, under a key that increases
+     * with each new box.
      *
      * @var TStackTextBBox
      */
@@ -1380,7 +1382,8 @@ abstract class Base
     ]];
 
     /**
-     * Stack of Cell bounding boxes [x, y, w, h] in user units.
+     * Last Cell bounding box [x, y, w, h] in user units, under a key that increases
+     * with each new box.
      *
      * @var TStackCellBBox
      */
@@ -2203,6 +2206,22 @@ abstract class Base
             imageCache: $this->imageCacheAdapter(),
             notransparency: $notransparency,
         );
+    }
+
+    /**
+     * Returns a bounding box list holding only the given box, under the key that
+     * follows the last key of the current list.
+     *
+     * @param array<int, TBBox> $list Current bounding box list.
+     * @param TBBox             $box  New bounding box.
+     *
+     * @return array<int, TBBox>
+     */
+    protected function getNextBBoxList(array $list, array $box): array
+    {
+        $last = \array_key_last($list);
+
+        return [($last ?? -1) + 1 => $box];
     }
 
     /**

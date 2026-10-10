@@ -202,11 +202,16 @@ $posy = $drawCase(
 
 $selectFont('unifont_jp');
 $pdf->enableIdeographicBreaks(false);
-$note('enableIdeographicBreaks(false) (expected: one line that runs out of the frame)', $posy);
+$pdf->enableWordBreakFallback(false);
+$note(
+    'enableIdeographicBreaks(false) and enableWordBreakFallback(false) (expected: one line that runs out of the frame)',
+    $posy,
+);
 $selectFont('unifont_jp');
 $pdf->addHTMLCell(html: '<p>' . $japanese . '</p>', posx: $posx, posy: $posy, width: $width);
 $pdf->page->addContent($pdf->graph->getRect($posx, $posy, $width, 8.0, 'D', ['all' => $frameStyle]));
 $pdf->enableIdeographicBreaks(true);
+$pdf->enableWordBreakFallback(true);
 
 // ----------
 // Line break controls in Latin text: the same result with a core and a Unicode font.

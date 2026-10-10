@@ -2705,7 +2705,7 @@ class TextTest extends TestUtil
     }
 
     /** @throws \Throwable */
-    public function testLastBBoxHelpersFallbackToZeroForSparseArrayIndexes(): void
+    public function testLastBBoxHelpersReadTheLastKey(): void
     {
         $obj = $this->getTestObject();
 
@@ -2715,10 +2715,11 @@ class TextTest extends TestUtil
         $this->setObjectProperty($obj, 'textbbox', [7 => $box]);
         $this->setObjectProperty($obj, 'cellbbox', [9 => $box]);
 
+        $this->assertSame($box, $obj->getLastBBox());
+        $this->assertSame($box, $obj->getLastTextBBox());
+        $this->assertSame($box, $obj->getLastCellBBox());
+
         $zero = ['x' => 0.0, 'y' => 0.0, 'w' => 0.0, 'h' => 0.0];
-        $this->assertSame($zero, $obj->getLastBBox());
-        $this->assertSame($zero, $obj->getLastTextBBox());
-        $this->assertSame($zero, $obj->getLastCellBBox());
 
         $this->setObjectProperty($obj, 'bbox', []);
         $this->setObjectProperty($obj, 'textbbox', []);
@@ -3429,11 +3430,12 @@ class TextTest extends TestUtil
     }
 
     /** @throws \Throwable */
-    public function testSplitLinesKeepsLeadingWordWiderThanAFullLine(): void
+    public function testSplitLinesKeepsLeadingWordWiderThanAFullLineWithoutWordBreakFallback(): void
     {
         $obj = $this->getInternalTestObject();
         $this->initFont($obj);
         $obj->addPage();
+        $obj->enableWordBreakFallback(false);
 
         $method = new \ReflectionMethod(\Com\Tecnick\Pdf\Text::class, 'splitLines');
         /** @var array<int, int> $ordarr */
@@ -3854,7 +3856,8 @@ class TextTest extends TestUtil
 
         /** @var array<int, array{x: float, y: float, w: float, h: float}> $cellBoxes */
         $cellBoxes = $this->getObjectProperty($obj, 'cellbbox');
-        $this->assertGreaterThan(1, \count($cellBoxes));
+        $this->assertCount(1, $cellBoxes);
+        $this->assertGreaterThan(1, \array_key_last($cellBoxes));
     }
 
     /** @throws \Throwable */

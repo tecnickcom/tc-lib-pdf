@@ -84,7 +84,7 @@ foreach ($formats as $formatName => $dimensions) {
     // Print multiline text at top-left corner.
     $x = 2;
     $y = 2;
-    $w = 50;
+    $w = 60;
 
     // Define multiline HTML text to display.
     $html = '<h2>' . $formatName . '</h2>';

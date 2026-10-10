@@ -79,7 +79,8 @@ $width = 150.0;
 $height = 22.0;
 $step = 27.0;
 
-$word = 'AAAAAAAAAA-BBBBBBBBBB-CCCCCCCCCC';
+// The underscores do not allow a line break, so the test word cannot be broken.
+$word = 'AAAAAAAAAA_BBBBBBBBBB_CCCCCCCCCC';
 $text = 'Alpha beta gamma delta epsilon zeta eta theta iota kappa lambda.';
 
 /**
@@ -271,8 +272,17 @@ $breakable = \str_replace(
 $posy = $drawCase('spaces only', $posy, [
     'txt' => $text . ' ' . $text,
 ]);
-$posy = $drawCase('no break point', $posy, [
+$posy = $drawCase('no break point: broken between two characters at the cell edge', $posy, [
     'txt' => $longword,
+]);
+$pdf->enableWordBreakFallback(false);
+$posy = $drawCase('no break point, enableWordBreakFallback(false): the word overflows', $posy, [
+    'txt' => $longword,
+]);
+$pdf->enableWordBreakFallback(true);
+$posy = $drawCase('combining marks stay with their letter', $posy, [
+    'txt' => \str_repeat("e\u{0301}", 90),
+    'family' => 'dejavusans',
 ]);
 
 // Break after every character to place a hyphenated break next to the cell edge.
@@ -317,6 +327,29 @@ $drawCase('RTL with offset', $posy, [
     'offset' => 60.0,
     'halign' => \Com\Tecnick\Pdf\TextHAlign::Right,
     'forcedir' => \Com\Tecnick\Unicode\TextDirection::Rtl,
+]);
+
+$posy = $drawTitle('Break opportunities after hyphens');
+
+$compounds = \str_repeat('long-distance well-known state-of-the-art ', 5);
+$posy = $drawCase('hyphenated compounds: lines may end after a hyphen', $posy, [
+    'txt' => $compounds,
+]);
+$posy = $drawCase('no break in -5, 1-2, ABC-123 or -foo: lines end at spaces only', $posy, [
+    'txt' => \str_repeat('values -5 and 1-2, code ABC-123 and option -foo; ', 4),
+]);
+$posy = $drawCase('non-breaking hyphen (U+2011): kept together', $posy, [
+    'txt' => \str_repeat("long\u{2011}distance well\u{2011}known state\u{2011}of\u{2011}the\u{2011}art ", 5),
+    'family' => 'dejavusans',
+]);
+$pdf->enableHyphenBreaks(false);
+$posy = $drawCase('enableHyphenBreaks(false): lines end at spaces only', $posy, [
+    'txt' => $compounds,
+]);
+$pdf->enableHyphenBreaks(true);
+$posy = $drawCase('narrow cell: a compound wider than the cell breaks after its hyphens', $posy, [
+    'txt' => 'Long-distance well-known state-of-the-art',
+    'width' => 25.0,
 ]);
 
 // ----------

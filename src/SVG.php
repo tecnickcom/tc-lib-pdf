@@ -1427,12 +1427,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return '';
         }
 
-        $this->bbox[] = [
+        $this->bbox = $this->getNextBBoxList($this->bbox, [
             'x' => $coord['xmin'],
             'y' => $coord['ymin'],
             'w' => $coord['xmax'] - $coord['xmin'],
             'h' => $coord['ymax'] - $coord['ymin'],
-        ];
+        ]);
 
         $out .= $pop;
 
