@@ -4024,17 +4024,18 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $prev = -1;
         $prevclass = '';
         foreach ($ordarr as $ord) {
-            $out[] = $ord;
             if ($prev >= 0 && UnicodeType::getType($ord) === 'NSM') {
                 // a combining mark belongs to the character before it
+                $out[] = $ord;
                 continue;
             }
 
             $class = LineBreak::getClass($ord);
             if ($prev >= 0 && $this->isIdeographicBreak($prev, $prevclass, $ord, $class)) {
-                \array_splice($out, -1, 0, [UnicodeConstant::ZERO_WIDTH_SPACE]);
+                $out[] = UnicodeConstant::ZERO_WIDTH_SPACE;
             }
 
+            $out[] = $ord;
             $prev = $ord;
             $prevclass = $class;
         }

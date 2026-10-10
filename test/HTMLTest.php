@@ -22328,7 +22328,7 @@ class HTMLTest extends TestUtil
         $obj->addHTMLCell(
             '<p>English <span lang="es">Trabajo revisado</span> English</p>'
             . '<p lang="de">Deutsch</p>'
-            . '<p>x <span lang="und">y</span> <span lang="">z</span> <span lang="EN-us">w</span></p>'
+            . '<p>x <span lang="und">y</span> <span lang="">z</span> <span lang>v</span> <span lang="EN-us">w</span></p>'
             . '<div lang="fr">Bonjour <p>Salut</p></div>',
             10,
             10,
@@ -22347,8 +22347,11 @@ class HTMLTest extends TestUtil
         }
 
         \sort($langs);
-        // an empty lang attribute declares an unknown language: 'und'
-        $this->assertSame(['Div:fr:Document', 'P:de:Document', 'Span:es:P', 'Span:und:P', 'Span:und:P'], $langs);
+        // an empty or valueless lang attribute declares an unknown language: 'und'
+        $this->assertSame(
+            ['Div:fr:Document', 'P:de:Document', 'Span:es:P', 'Span:und:P', 'Span:und:P', 'Span:und:P'],
+            $langs,
+        );
 
         // the paragraph inside the French division takes the language of its parent
         $nested = \array_filter(

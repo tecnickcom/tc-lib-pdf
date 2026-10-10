@@ -920,7 +920,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $html = \preg_replace('/<head([^\>]*?)>(.*?)<\/head>/is', '', $html) ?? '';
         $html = \preg_replace('/<style([^\>]*?)>([^\<]*?)<\/style>/is', '', $html) ?? '';
         // a word break opportunity is a zero width space
-        $html = \preg_replace('/<wbr\s*\/?>/i', "\u{200B}", $html) ?? '';
+        $html = \preg_replace('/<wbr\b[^>]*>/i', "\u{200B}", $html) ?? '';
         // remove all unsupported
         $html = \strip_tags($html, self::HTML_VALID_TAGS);
         // preserve pre tag
@@ -16154,7 +16154,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Returns the language declared by the element (lang or xml:lang attribute), or null.
-     * An empty attribute, which declares an unknown language, returns 'und'.
+     * An empty or valueless attribute, which declares an unknown language, returns 'und'.
      *
      * @param THTMLAttrib $elm DOM element.
      */
@@ -16167,7 +16167,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $lang = \trim($lang);
 
-        return $lang === '' ? 'und' : $lang;
+        // a valueless attribute is parsed as 'true'
+        return $lang === '' || $lang === 'true' ? 'und' : $lang;
     }
 
     /**

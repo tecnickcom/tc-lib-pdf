@@ -221,4 +221,17 @@ class IdeographicBreakTest extends TestUtil
             }
         }
     }
+
+    /**
+     * A <wbr> element with attributes or in upper case is a line break opportunity.
+     *
+     * @throws \Throwable
+     */
+    public function testWbrWithAttributesBreaksTheLine(): void
+    {
+        $pdf = $this->getDocument('dejavusans', 'dejavu/dejavusans.json');
+        $pdf->addHTMLCell('<p>aaaaaaaaaa<wbr class="x">bbbbbbbbbb<WBR />cccccccccc</p>', 15, 20, 30);
+        $lines = $this->getLines($pdf->getOutPDFString());
+        $this->assertSame([10, 10, 10], \array_map(\mb_strlen(...), $lines));
+    }
 }
