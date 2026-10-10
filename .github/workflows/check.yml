@@ -220,7 +220,11 @@ jobs:
       - name: Resolve the runtime dependencies
         env:
           GH_TOKEN: ${{ github.token }}
-        run: composer update --no-dev --no-interaction --dry-run
+        run: |
+          cp composer.json composer.json.orig
+          php -r '$c = json_decode(file_get_contents("composer.json"), true); unset($c["require-dev"]); file_put_contents("composer.json", json_encode($c));'
+          composer update --no-interaction --dry-run
+          mv composer.json.orig composer.json
       # The development dependencies list gd for the image tests, which skip without it.
       - name: Install dependencies
         env:
