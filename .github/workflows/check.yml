@@ -50,8 +50,8 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.composer/cache/
-          key: composer-${{ matrix.os }}-${{ matrix.php-version }}-${{ hashFiles('composer.json') }}
-          restore-keys: composer-${{ matrix.os }}-${{ matrix.php-version }}-
+          key: composer-${{ runner.os }}-${{ matrix.php-version }}-${{ hashFiles('composer.json') }}
+          restore-keys: composer-${{ runner.os }}-${{ matrix.php-version }}-
       - name: Install dependencies
         env:
           GH_TOKEN: ${{ github.token }}
@@ -135,7 +135,6 @@ jobs:
       # a throwaway prefix and load the library through the shipped autoloader,
       # which only resolves in the installed layout.
       - name: Packaging smoke test
-        if: matrix.os == 'ubuntu-latest'
         run: |
           DESTDIR="$(mktemp -d)"
           make install DESTDIR="$DESTDIR"
@@ -215,7 +214,8 @@ jobs:
           extensions: ctype, curl, filter, hash, intl, json, mbstring, openssl, pcre, tidy, xml, zlib, :gd, :imagick
           ini-values: display_errors=on, error_reporting=-1, zend.assertions=1
       - name: Check that gd is not loaded
-        run: php -r 'exit(extension_loaded("gd") ? 1 : 0);'
+        run: |
+          php -r 'exit(extension_loaded("gd") ? 1 : 0);'
       # The runtime dependencies must resolve on a platform without gd.
       - name: Resolve the runtime dependencies
         env:
