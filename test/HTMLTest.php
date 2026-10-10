@@ -260,6 +260,22 @@ class HTMLTest extends TestUtil
     }
 
     /**
+     * Returns a DOM node stored in full form.
+     *
+     * @param array<int, array<array-key, mixed>> $dom
+     *
+     * @return THTMLAttrib
+     */
+    private function htmlNode(array $dom, int $key): array
+    {
+        $node = $dom[$key] ?? [];
+        $this->assertNotSame([], $node);
+        $this->assertArrayNotHasKey('slim', $node);
+        /** @var THTMLAttrib $node */
+        return $node;
+    }
+
+    /**
      * @param THTMLAttrib $node
      */
     private function getHtmlNodeMargin(array $node, string $side): float
@@ -921,9 +937,9 @@ class HTMLTest extends TestUtil
         $obj->getHTMLDOMCSSData($dom, $css, 1);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertNotEmpty($dom[1]['cssdata']);
+        $this->assertNotEmpty($this->htmlNode($dom, 1)['cssdata']);
         $combined = '';
-        foreach ($dom[1]['cssdata'] as $row) {
+        foreach ($this->htmlNode($dom, 1)['cssdata'] as $row) {
             $combined .= $row['c'];
         }
         $this->assertStringContainsString('color:red', $combined);
@@ -947,10 +963,10 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('rtl', $dom[1]['dir']);
-        $this->assertTrue($dom[1]['hide']);
-        $this->assertSame('uppercase', $dom[1]['text-transform']);
-        $this->assertSame('C', $dom[1]['align']);
+        $this->assertSame('rtl', $this->htmlNode($dom, 1)['dir']);
+        $this->assertTrue($this->htmlNode($dom, 1)['hide']);
+        $this->assertSame('uppercase', $this->htmlNode($dom, 1)['text-transform']);
+        $this->assertSame('C', $this->htmlNode($dom, 1)['align']);
     }
 
     /**
@@ -991,21 +1007,21 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('ltr', $dom[1]['dir']);
-        $this->assertFalse($dom[1]['hide']);
-        $this->assertSame('L', $dom[1]['align']);
-        $this->assertSame('rgb(0,0,0)', $dom[1]['fgcolor']);
-        $this->assertSame($dom[0]['line-height'], $dom[1]['line-height']);
-        $this->assertSame('separate', $dom[1]['border-collapse']);
-        $this->assertSame('outside', $dom[1]['list-style-position']);
-        $this->assertSame('disc', $dom[1]['listtype']);
-        $this->assertSame('', $dom[1]['fontstyle']);
-        $this->assertSame('none', $dom[1]['font-size-adjust']);
-        $this->assertSame('normal', $dom[1]['font-variant']);
-        $this->assertSame(2, $dom[1]['orphans']);
-        $this->assertSame('auto', $dom[1]['page']);
-        $this->assertSame('auto', $dom[1]['quotes']);
-        $this->assertSame(2, $dom[1]['widows']);
+        $this->assertSame('ltr', $this->htmlNode($dom, 1)['dir']);
+        $this->assertFalse($this->htmlNode($dom, 1)['hide']);
+        $this->assertSame('L', $this->htmlNode($dom, 1)['align']);
+        $this->assertSame('rgb(0,0,0)', $this->htmlNode($dom, 1)['fgcolor']);
+        $this->assertSame($this->htmlNode($dom, 0)['line-height'], $this->htmlNode($dom, 1)['line-height']);
+        $this->assertSame('separate', $this->htmlNode($dom, 1)['border-collapse']);
+        $this->assertSame('outside', $this->htmlNode($dom, 1)['list-style-position']);
+        $this->assertSame('disc', $this->htmlNode($dom, 1)['listtype']);
+        $this->assertSame('', $this->htmlNode($dom, 1)['fontstyle']);
+        $this->assertSame('none', $this->htmlNode($dom, 1)['font-size-adjust']);
+        $this->assertSame('normal', $this->htmlNode($dom, 1)['font-variant']);
+        $this->assertSame(2, $this->htmlNode($dom, 1)['orphans']);
+        $this->assertSame('auto', $this->htmlNode($dom, 1)['page']);
+        $this->assertSame('auto', $this->htmlNode($dom, 1)['quotes']);
+        $this->assertSame(2, $this->htmlNode($dom, 1)['widows']);
     }
 
     /**
@@ -1041,20 +1057,20 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('ltr', $dom[1]['dir']);
-        $this->assertFalse($dom[1]['hide']);
-        $this->assertSame('L', $dom[1]['align']);
-        $this->assertSame('rgb(0,0,255)', $dom[1]['fgcolor']);
-        $this->assertSame($dom[0]['line-height'], $dom[1]['line-height']);
-        $this->assertSame('separate', $dom[1]['border-collapse']);
-        $this->assertSame('outside', $dom[1]['list-style-position']);
-        $this->assertSame('disc', $dom[1]['listtype']);
-        $this->assertSame('none', $dom[1]['font-size-adjust']);
-        $this->assertSame('normal', $dom[1]['font-variant']);
-        $this->assertSame(2, $dom[1]['orphans']);
-        $this->assertSame('auto', $dom[1]['page']);
-        $this->assertSame('auto', $dom[1]['quotes']);
-        $this->assertSame(2, $dom[1]['widows']);
+        $this->assertSame('ltr', $this->htmlNode($dom, 1)['dir']);
+        $this->assertFalse($this->htmlNode($dom, 1)['hide']);
+        $this->assertSame('L', $this->htmlNode($dom, 1)['align']);
+        $this->assertSame('rgb(0,0,255)', $this->htmlNode($dom, 1)['fgcolor']);
+        $this->assertSame($this->htmlNode($dom, 0)['line-height'], $this->htmlNode($dom, 1)['line-height']);
+        $this->assertSame('separate', $this->htmlNode($dom, 1)['border-collapse']);
+        $this->assertSame('outside', $this->htmlNode($dom, 1)['list-style-position']);
+        $this->assertSame('disc', $this->htmlNode($dom, 1)['listtype']);
+        $this->assertSame('none', $this->htmlNode($dom, 1)['font-size-adjust']);
+        $this->assertSame('normal', $this->htmlNode($dom, 1)['font-variant']);
+        $this->assertSame(2, $this->htmlNode($dom, 1)['orphans']);
+        $this->assertSame('auto', $this->htmlNode($dom, 1)['page']);
+        $this->assertSame('auto', $this->htmlNode($dom, 1)['quotes']);
+        $this->assertSame(2, $this->htmlNode($dom, 1)['widows']);
     }
 
     /**
@@ -1103,28 +1119,28 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 3, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame(0.62, $dom[1]['font-size-adjust']);
-        $this->assertSame('normal', $dom[1]['font-variant']);
-        $this->assertSame(3, $dom[1]['orphans']);
-        $this->assertSame('appendix', $dom[1]['page']);
-        $this->assertSame('"[" "]"', $dom[1]['quotes']);
-        $this->assertSame(6, $dom[1]['widows']);
+        $this->assertSame(0.62, $this->htmlNode($dom, 1)['font-size-adjust']);
+        $this->assertSame('normal', $this->htmlNode($dom, 1)['font-variant']);
+        $this->assertSame(3, $this->htmlNode($dom, 1)['orphans']);
+        $this->assertSame('appendix', $this->htmlNode($dom, 1)['page']);
+        $this->assertSame('"[" "]"', $this->htmlNode($dom, 1)['quotes']);
+        $this->assertSame(6, $this->htmlNode($dom, 1)['widows']);
 
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame($dom[0]['font-size-adjust'], $dom[2]['font-size-adjust']);
-        $this->assertSame($dom[0]['font-variant'], $dom[2]['font-variant']);
-        $this->assertSame($dom[0]['orphans'], $dom[2]['orphans']);
-        $this->assertSame($dom[0]['page'], $dom[2]['page']);
-        $this->assertSame($dom[0]['quotes'], $dom[2]['quotes']);
-        $this->assertSame($dom[0]['widows'], $dom[2]['widows']);
+        $this->assertSame($this->htmlNode($dom, 0)['font-size-adjust'], $this->htmlNode($dom, 2)['font-size-adjust']);
+        $this->assertSame($this->htmlNode($dom, 0)['font-variant'], $this->htmlNode($dom, 2)['font-variant']);
+        $this->assertSame($this->htmlNode($dom, 0)['orphans'], $this->htmlNode($dom, 2)['orphans']);
+        $this->assertSame($this->htmlNode($dom, 0)['page'], $this->htmlNode($dom, 2)['page']);
+        $this->assertSame($this->htmlNode($dom, 0)['quotes'], $this->htmlNode($dom, 2)['quotes']);
+        $this->assertSame($this->htmlNode($dom, 0)['widows'], $this->htmlNode($dom, 2)['widows']);
 
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertSame(0.8, $dom[3]['font-size-adjust']);
-        $this->assertSame('normal', $dom[3]['font-variant']);
-        $this->assertSame(9, $dom[3]['orphans']);
-        $this->assertSame('keepme', $dom[3]['page']);
-        $this->assertSame('auto', $dom[3]['quotes']);
-        $this->assertSame(9, $dom[3]['widows']);
+        $this->assertSame(0.8, $this->htmlNode($dom, 3)['font-size-adjust']);
+        $this->assertSame('normal', $this->htmlNode($dom, 3)['font-variant']);
+        $this->assertSame(9, $this->htmlNode($dom, 3)['orphans']);
+        $this->assertSame('keepme', $this->htmlNode($dom, 3)['page']);
+        $this->assertSame('auto', $this->htmlNode($dom, 3)['quotes']);
+        $this->assertSame(9, $this->htmlNode($dom, 3)['widows']);
     }
 
     /**
@@ -1456,11 +1472,11 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 3, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('ltr', $dom[1]['dir']);
+        $this->assertSame('ltr', $this->htmlNode($dom, 1)['dir']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('rtl', $dom[2]['dir']);
+        $this->assertSame('rtl', $this->htmlNode($dom, 2)['dir']);
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertSame('ltr', $dom[3]['dir']);
+        $this->assertSame('ltr', $this->htmlNode($dom, 3)['dir']);
     }
 
     /**
@@ -1575,11 +1591,11 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 3, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('relative', $dom[1]['position']);
+        $this->assertSame('relative', $this->htmlNode($dom, 1)['position']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('fixed', $dom[2]['position']);
+        $this->assertSame('fixed', $this->htmlNode($dom, 2)['position']);
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertSame('static', $dom[3]['position']);
+        $this->assertSame('static', $this->htmlNode($dom, 3)['position']);
     }
 
     /**
@@ -1603,7 +1619,7 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('absolute', $dom[1]['position']);
+        $this->assertSame('absolute', $this->htmlNode($dom, 1)['position']);
     }
 
     /**
@@ -1633,14 +1649,14 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 3, 1);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertGreaterThan(0.0, $this->getHtmlNodeMargin($dom[1], 'L'));
-        $this->assertGreaterThan(0.0, $this->getHtmlNodeMargin($dom[1], 'T'));
+        $this->assertGreaterThan(0.0, $this->getHtmlNodeMargin($this->htmlNode($dom, 1), 'L'));
+        $this->assertGreaterThan(0.0, $this->getHtmlNodeMargin($this->htmlNode($dom, 1), 'T'));
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame(0.0, $this->getHtmlNodeMargin($dom[2], 'L'));
-        $this->assertSame(0.0, $this->getHtmlNodeMargin($dom[2], 'T'));
+        $this->assertSame(0.0, $this->getHtmlNodeMargin($this->htmlNode($dom, 2), 'L'));
+        $this->assertSame(0.0, $this->getHtmlNodeMargin($this->htmlNode($dom, 2), 'T'));
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertGreaterThan(0.0, $this->getHtmlNodeMargin($dom[3], 'L'));
-        $this->assertGreaterThan(0.0, $this->getHtmlNodeMargin($dom[3], 'T'));
+        $this->assertGreaterThan(0.0, $this->getHtmlNodeMargin($this->htmlNode($dom, 3), 'L'));
+        $this->assertGreaterThan(0.0, $this->getHtmlNodeMargin($this->htmlNode($dom, 3), 'T'));
     }
 
     /**
@@ -1674,14 +1690,14 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 4, 3);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertGreaterThan(0.0, $this->getHtmlNodeMargin($dom[1], 'L'));
-        $this->assertSame(0.0, $this->getHtmlNodeMargin($dom[1], 'T'));
+        $this->assertGreaterThan(0.0, $this->getHtmlNodeMargin($this->htmlNode($dom, 1), 'L'));
+        $this->assertSame(0.0, $this->getHtmlNodeMargin($this->htmlNode($dom, 1), 'T'));
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame(0.0, $this->getHtmlNodeMargin($dom[2], 'L'));
-        $this->assertSame(0.0, $this->getHtmlNodeMargin($dom[2], 'T'));
+        $this->assertSame(0.0, $this->getHtmlNodeMargin($this->htmlNode($dom, 2), 'L'));
+        $this->assertSame(0.0, $this->getHtmlNodeMargin($this->htmlNode($dom, 2), 'T'));
         assert(isset($dom[4]), "\$dom[4] must be set");
-        $this->assertSame(0.0, $this->getHtmlNodeMargin($dom[4], 'L'));
-        $this->assertSame(0.0, $this->getHtmlNodeMargin($dom[4], 'T'));
+        $this->assertSame(0.0, $this->getHtmlNodeMargin($this->htmlNode($dom, 4), 'L'));
+        $this->assertSame(0.0, $this->getHtmlNodeMargin($this->htmlNode($dom, 4), 'T'));
     }
 
     /**
@@ -1702,8 +1718,8 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame(0.0, $this->getHtmlNodeMargin($dom[1], 'L'));
-        $this->assertSame(0.0, $this->getHtmlNodeMargin($dom[1], 'T'));
+        $this->assertSame(0.0, $this->getHtmlNodeMargin($this->htmlNode($dom, 1), 'L'));
+        $this->assertSame(0.0, $this->getHtmlNodeMargin($this->htmlNode($dom, 1), 'T'));
     }
 
     /**
@@ -1733,11 +1749,11 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 3, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('left', $dom[1]['float']);
+        $this->assertSame('left', $this->htmlNode($dom, 1)['float']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('right', $dom[2]['float']);
+        $this->assertSame('right', $this->htmlNode($dom, 2)['float']);
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertSame('none', $dom[3]['float']);
+        $this->assertSame('none', $this->htmlNode($dom, 3)['float']);
     }
 
     /**
@@ -1760,7 +1776,7 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('left', $dom[1]['float']);
+        $this->assertSame('left', $this->htmlNode($dom, 1)['float']);
     }
 
     /**
@@ -1790,11 +1806,11 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 3, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('left', $dom[1]['clear']);
+        $this->assertSame('left', $this->htmlNode($dom, 1)['clear']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('both', $dom[2]['clear']);
+        $this->assertSame('both', $this->htmlNode($dom, 2)['clear']);
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertSame('none', $dom[3]['clear']);
+        $this->assertSame('none', $this->htmlNode($dom, 3)['clear']);
     }
 
     /**
@@ -1817,7 +1833,7 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('right', $dom[1]['clear']);
+        $this->assertSame('right', $this->htmlNode($dom, 1)['clear']);
     }
 
     /**
@@ -2228,14 +2244,14 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 3, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertTrue($dom[1]['hide']);
-        $this->assertSame('block', $dom[1]['display']);
-        $this->assertTrue($dom[1]['block']);
-        $this->assertTrue($dom[2]['hide']);
-        $this->assertSame('none', $dom[2]['display']);
-        $this->assertFalse($dom[3]['hide']);
-        $this->assertSame('list-item', $dom[3]['display']);
-        $this->assertTrue($dom[3]['block']);
+        $this->assertTrue($this->htmlNode($dom, 1)['hide']);
+        $this->assertSame('block', $this->htmlNode($dom, 1)['display']);
+        $this->assertTrue($this->htmlNode($dom, 1)['block']);
+        $this->assertTrue($this->htmlNode($dom, 2)['hide']);
+        $this->assertSame('none', $this->htmlNode($dom, 2)['display']);
+        $this->assertFalse($this->htmlNode($dom, 3)['hide']);
+        $this->assertSame('list-item', $this->htmlNode($dom, 3)['display']);
+        $this->assertTrue($this->htmlNode($dom, 3)['block']);
     }
 
     /**
@@ -2274,13 +2290,13 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 4, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('C', $dom[1]['align']);
+        $this->assertSame('C', $this->htmlNode($dom, 1)['align']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('J', $dom[2]['align']);
+        $this->assertSame('J', $this->htmlNode($dom, 2)['align']);
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertSame('R', $dom[3]['align']);
+        $this->assertSame('R', $this->htmlNode($dom, 3)['align']);
         assert(isset($dom[4]), "\$dom[4] must be set");
-        $this->assertSame('L', $dom[4]['align']);
+        $this->assertSame('L', $this->htmlNode($dom, 4)['align']);
     }
 
     /**
@@ -2313,11 +2329,11 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 3, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('bottom', $dom[1]['valign']);
+        $this->assertSame('bottom', $this->htmlNode($dom, 1)['valign']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('middle', $dom[2]['valign']);
+        $this->assertSame('middle', $this->htmlNode($dom, 2)['valign']);
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertSame('top', $dom[3]['valign']);
+        $this->assertSame('top', $this->htmlNode($dom, 3)['valign']);
     }
 
     /**
@@ -2350,11 +2366,11 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 3, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('auto', $dom[1]['table-layout']);
+        $this->assertSame('auto', $this->htmlNode($dom, 1)['table-layout']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('fixed', $dom[2]['table-layout']);
+        $this->assertSame('fixed', $this->htmlNode($dom, 2)['table-layout']);
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertSame('auto', $dom[3]['table-layout']);
+        $this->assertSame('auto', $this->htmlNode($dom, 3)['table-layout']);
     }
 
     /**
@@ -2387,11 +2403,11 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 3, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('show', $dom[1]['empty-cells']);
+        $this->assertSame('show', $this->htmlNode($dom, 1)['empty-cells']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('hide', $dom[2]['empty-cells']);
+        $this->assertSame('hide', $this->htmlNode($dom, 2)['empty-cells']);
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertSame('show', $dom[3]['empty-cells']);
+        $this->assertSame('show', $this->htmlNode($dom, 3)['empty-cells']);
     }
 
     /**
@@ -2424,11 +2440,11 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 3, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('top', $dom[1]['caption-side']);
+        $this->assertSame('top', $this->htmlNode($dom, 1)['caption-side']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('bottom', $dom[2]['caption-side']);
+        $this->assertSame('bottom', $this->htmlNode($dom, 2)['caption-side']);
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertSame('top', $dom[3]['caption-side']);
+        $this->assertSame('top', $this->htmlNode($dom, 3)['caption-side']);
     }
 
     /**
@@ -2457,8 +2473,8 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('J', $dom[1]['align']);
-        $this->assertSame('middle', $dom[1]['valign']);
+        $this->assertSame('J', $this->htmlNode($dom, 1)['align']);
+        $this->assertSame('middle', $this->htmlNode($dom, 1)['valign']);
     }
 
     /**
@@ -2483,7 +2499,7 @@ class HTMLTest extends TestUtil
 
         $obj->parseHTMLAttributes($dom, 1, false);
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertStringContainsString('U', $dom[1]['fontstyle']);
+        $this->assertStringContainsString('U', $this->htmlNode($dom, 1)['fontstyle']);
     }
 
     /**
@@ -2563,25 +2579,25 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLAttributes($dom, 8, false);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame(12.0, $dom[1]['fontsize']);
+        $this->assertSame(12.0, $this->htmlNode($dom, 1)['fontsize']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame(1, $dom[2]['rows']);
-        $this->assertSame([3], $dom[2]['trids']);
+        $this->assertSame(1, $this->htmlNode($dom, 2)['rows']);
+        $this->assertSame([3], $this->htmlNode($dom, 2)['trids']);
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertSame(3, $dom[3]['cols']);
+        $this->assertSame(3, $this->htmlNode($dom, 3)['cols']);
         assert(isset($dom[4]), "\$dom[4] must be set");
-        $this->assertSame('2', $this->getHtmlNodeAttrString($dom[4], 'colspan'));
+        $this->assertSame('2', $this->getHtmlNodeAttrString($this->htmlNode($dom, 4), 'colspan'));
         assert(isset($dom[5]), "\$dom[5] must be set");
-        $this->assertSame(14.0, $dom[5]['fontsize']);
-        $this->assertStringContainsString('B', $dom[5]['fontstyle']);
+        $this->assertSame(14.0, $this->htmlNode($dom, 5)['fontsize']);
+        $this->assertStringContainsString('B', $this->htmlNode($dom, 5)['fontstyle']);
         assert(isset($dom[6]), "\$dom[6] must be set");
-        $this->assertSame('L', $dom[6]['align']);
+        $this->assertSame('L', $this->htmlNode($dom, 6)['align']);
         assert(isset($dom[7]), "\$dom[7] must be set");
-        $this->assertGreaterThan(0.0, $dom[7]['fontsize']);
-        $this->assertLessThan(10.0, $dom[7]['fontsize']);
+        $this->assertGreaterThan(0.0, $this->htmlNode($dom, 7)['fontsize']);
+        $this->assertLessThan(10.0, $this->htmlNode($dom, 7)['fontsize']);
         assert(isset($dom[8]), "\$dom[8] must be set");
-        $this->assertSame('C', $dom[8]['align']);
-        $this->assertStringContainsString('B', $dom[8]['fontstyle']);
+        $this->assertSame('C', $this->htmlNode($dom, 8)['align']);
+        $this->assertStringContainsString('B', $this->htmlNode($dom, 8)['fontstyle']);
     }
 
     /**
@@ -2623,14 +2639,14 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 2, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame(1.25, $dom[1]['line-height']);
-        $this->assertSame('right', $this->getHtmlNodeAttrString($dom[1], 'pagebreakafter'));
-        $this->assertSame('disc', $dom[1]['listtype']);
-        $this->assertSame(2.0, $dom[1]['text-indent']);
+        $this->assertSame(1.25, $this->htmlNode($dom, 1)['line-height']);
+        $this->assertSame('right', $this->getHtmlNodeAttrString($this->htmlNode($dom, 1), 'pagebreakafter'));
+        $this->assertSame('disc', $this->htmlNode($dom, 1)['listtype']);
+        $this->assertSame(2.0, $this->htmlNode($dom, 1)['text-indent']);
 
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame(1.25, $dom[2]['line-height']);
-        $this->assertSame('true', $this->getHtmlNodeAttrString($dom[2], 'pagebreakafter'));
+        $this->assertSame(1.25, $this->htmlNode($dom, 2)['line-height']);
+        $this->assertSame('true', $this->getHtmlNodeAttrString($this->htmlNode($dom, 2), 'pagebreakafter'));
     }
 
     /**
@@ -2676,13 +2692,13 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 2, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('true', $this->getHtmlNodeAttrString($dom[1], 'pagebreak'));
-        $this->assertSame('right', $this->getHtmlNodeAttrString($dom[1], 'pagebreakafter'));
-        $this->assertSame('true', $this->getHtmlNodeAttrString($dom[1], 'nobr'));
+        $this->assertSame('true', $this->getHtmlNodeAttrString($this->htmlNode($dom, 1), 'pagebreak'));
+        $this->assertSame('right', $this->getHtmlNodeAttrString($this->htmlNode($dom, 1), 'pagebreakafter'));
+        $this->assertSame('true', $this->getHtmlNodeAttrString($this->htmlNode($dom, 1), 'nobr'));
 
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('left', $this->getHtmlNodeAttrString($dom[2], 'pagebreak'));
-        $this->assertSame('true', $this->getHtmlNodeAttrString($dom[2], 'pagebreakafter'));
+        $this->assertSame('left', $this->getHtmlNodeAttrString($this->htmlNode($dom, 2), 'pagebreak'));
+        $this->assertSame('true', $this->getHtmlNodeAttrString($this->htmlNode($dom, 2), 'pagebreakafter'));
     }
 
     /**
@@ -2724,14 +2740,14 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 2, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('true', $this->getHtmlNodeAttrString($dom[1], 'nobr'));
-        $this->assertSame('left', $this->getHtmlNodeAttrString($dom[1], 'pagebreak'));
-        $this->assertSame('right', $this->getHtmlNodeAttrString($dom[1], 'pagebreakafter'));
+        $this->assertSame('true', $this->getHtmlNodeAttrString($this->htmlNode($dom, 1), 'nobr'));
+        $this->assertSame('left', $this->getHtmlNodeAttrString($this->htmlNode($dom, 1), 'pagebreak'));
+        $this->assertSame('right', $this->getHtmlNodeAttrString($this->htmlNode($dom, 1), 'pagebreakafter'));
 
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('true', $this->getHtmlNodeAttrString($dom[2], 'nobr'));
-        $this->assertSame('true', $this->getHtmlNodeAttrString($dom[2], 'pagebreak'));
-        $this->assertSame('left', $this->getHtmlNodeAttrString($dom[2], 'pagebreakafter'));
+        $this->assertSame('true', $this->getHtmlNodeAttrString($this->htmlNode($dom, 2), 'nobr'));
+        $this->assertSame('true', $this->getHtmlNodeAttrString($this->htmlNode($dom, 2), 'pagebreak'));
+        $this->assertSame('left', $this->getHtmlNodeAttrString($this->htmlNode($dom, 2), 'pagebreakafter'));
     }
 
     /**
@@ -2849,11 +2865,11 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 3, 1);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('collapse', $dom[1]['border-collapse']);
+        $this->assertSame('collapse', $this->htmlNode($dom, 1)['border-collapse']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('separate', $dom[2]['border-collapse']);
+        $this->assertSame('separate', $this->htmlNode($dom, 2)['border-collapse']);
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertSame('collapse', $dom[3]['border-collapse']);
+        $this->assertSame('collapse', $this->htmlNode($dom, 3)['border-collapse']);
     }
 
     /**
@@ -2883,13 +2899,19 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 3, 1);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertNotEmpty($this->getHtmlNodeBorders($dom[1]));
+        $this->assertNotEmpty($this->getHtmlNodeBorders($this->htmlNode($dom, 1)));
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame($this->getHtmlNodeBorders($dom[1]), $this->getHtmlNodeBorders($dom[2]));
-        $this->assertArrayHasKey('L', $this->getHtmlNodeBorders($dom[1]));
+        $this->assertSame(
+            $this->getHtmlNodeBorders($this->htmlNode($dom, 1)),
+            $this->getHtmlNodeBorders($this->htmlNode($dom, 2)),
+        );
+        $this->assertArrayHasKey('L', $this->getHtmlNodeBorders($this->htmlNode($dom, 1)));
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertArrayHasKey('L', $this->getHtmlNodeBorders($dom[3]));
-        $this->assertSame($this->getHtmlNodeBorderSide($dom[1], 'L'), $this->getHtmlNodeBorderSide($dom[3], 'L'));
+        $this->assertArrayHasKey('L', $this->getHtmlNodeBorders($this->htmlNode($dom, 3)));
+        $this->assertSame(
+            $this->getHtmlNodeBorderSide($this->htmlNode($dom, 1), 'L'),
+            $this->getHtmlNodeBorderSide($this->htmlNode($dom, 3), 'L'),
+        );
     }
 
     /**
@@ -2929,15 +2951,15 @@ class HTMLTest extends TestUtil
         foreach (['L', 'R', 'T', 'B'] as $side) {
             assert(isset($dom[1]), "\$dom[1] must be set");
             assert(isset($dom[2]), "\$dom[2] must be set");
-            $baseSide = $this->getHtmlNodeBorderSide($dom[1], $side);
-            $childSide = $this->getHtmlNodeBorderSide($dom[2], $side);
+            $baseSide = $this->getHtmlNodeBorderSide($this->htmlNode($dom, 1), $side);
+            $childSide = $this->getHtmlNodeBorderSide($this->htmlNode($dom, 2), $side);
             $this->assertSame($baseSide['lineColor'] ?? null, $childSide['lineColor'] ?? null);
             $this->assertSame($baseSide['lineWidth'] ?? null, $childSide['lineWidth'] ?? null);
         }
 
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $baseLeft = $this->getHtmlNodeBorderSide($dom[1], 'L');
-        $childLeft = $this->getHtmlNodeBorderSide($dom[3], 'L');
+        $baseLeft = $this->getHtmlNodeBorderSide($this->htmlNode($dom, 1), 'L');
+        $childLeft = $this->getHtmlNodeBorderSide($this->htmlNode($dom, 3), 'L');
         $this->assertSame($baseLeft['lineColor'] ?? null, $childLeft['lineColor'] ?? null);
         $this->assertSame($baseLeft['lineWidth'] ?? null, $childLeft['lineWidth'] ?? null);
     }
@@ -2977,16 +2999,19 @@ class HTMLTest extends TestUtil
         assert(isset($dom[1]), "\$dom[1] must be set");
         assert(isset($dom[2]), "\$dom[2] must be set");
         foreach (['L', 'R', 'T', 'B'] as $side) {
-            $baseSide = $this->getHtmlNodeBorderSide($dom[1], $side);
-            $childSide = $this->getHtmlNodeBorderSide($dom[2], $side);
+            $baseSide = $this->getHtmlNodeBorderSide($this->htmlNode($dom, 1), $side);
+            $childSide = $this->getHtmlNodeBorderSide($this->htmlNode($dom, 2), $side);
             $this->assertSame($baseSide['cssBorderStyle'] ?? null, $childSide['cssBorderStyle'] ?? null);
         }
 
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $baseLeft = $this->getHtmlNodeBorderSide($dom[1], 'L');
-        $childLeft = $this->getHtmlNodeBorderSide($dom[3], 'L');
+        $baseLeft = $this->getHtmlNodeBorderSide($this->htmlNode($dom, 1), 'L');
+        $childLeft = $this->getHtmlNodeBorderSide($this->htmlNode($dom, 3), 'L');
         $this->assertSame($baseLeft['cssBorderStyle'] ?? null, $childLeft['cssBorderStyle'] ?? null);
-        $this->assertSame('solid', $this->getHtmlNodeBorderSide($dom[3], 'T')['cssBorderStyle'] ?? null);
+        $this->assertSame(
+            'solid',
+            $this->getHtmlNodeBorderSide($this->htmlNode($dom, 3), 'T')['cssBorderStyle'] ?? null,
+        );
     }
 
     /**
@@ -3086,16 +3111,16 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 2, 1);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertArrayHasKey('LTRB', $this->getHtmlNodeBorders($dom[1]));
+        $this->assertArrayHasKey('LTRB', $this->getHtmlNodeBorders($this->htmlNode($dom, 1)));
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertArrayHasKey('L', $this->getHtmlNodeBorders($dom[2]));
-        $this->assertArrayHasKey('R', $this->getHtmlNodeBorders($dom[2]));
-        $this->assertArrayHasKey('T', $this->getHtmlNodeBorders($dom[2]));
-        $this->assertArrayHasKey('B', $this->getHtmlNodeBorders($dom[2]));
+        $this->assertArrayHasKey('L', $this->getHtmlNodeBorders($this->htmlNode($dom, 2)));
+        $this->assertArrayHasKey('R', $this->getHtmlNodeBorders($this->htmlNode($dom, 2)));
+        $this->assertArrayHasKey('T', $this->getHtmlNodeBorders($this->htmlNode($dom, 2)));
+        $this->assertArrayHasKey('B', $this->getHtmlNodeBorders($this->htmlNode($dom, 2)));
 
-        $parentLTRB = $this->getHtmlNodeBorderSide($dom[1], 'LTRB');
+        $parentLTRB = $this->getHtmlNodeBorderSide($this->htmlNode($dom, 1), 'LTRB');
         foreach (['L', 'R', 'T', 'B'] as $side) {
-            $childSide = $this->getHtmlNodeBorderSide($dom[2], $side);
+            $childSide = $this->getHtmlNodeBorderSide($this->htmlNode($dom, 2), $side);
             $this->assertSame($parentLTRB['lineColor'] ?? null, $childSide['lineColor'] ?? null);
             $this->assertSame($parentLTRB['lineWidth'] ?? null, $childSide['lineWidth'] ?? null);
             $this->assertSame($parentLTRB['cssBorderStyle'] ?? null, $childSide['cssBorderStyle'] ?? null);
@@ -3159,11 +3184,12 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 4, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertNotSame('', $dom[1]['bgcolor']);
-        $this->assertIsString($dom[1]['bgcolor']);
-        $this->assertStringContainsString('rgb(', $dom[1]['bgcolor']);
-        $this->assertSame($dom[4]['bgcolor'], $dom[2]['bgcolor']);
-        $this->assertSame('', $dom[3]['bgcolor']);
+        $bgcolor = $this->htmlNode($dom, 1)['bgcolor'];
+        $this->assertNotSame('', $bgcolor);
+        $this->assertIsString($bgcolor);
+        $this->assertStringContainsString('rgb(', $bgcolor);
+        $this->assertSame($this->htmlNode($dom, 4)['bgcolor'], $this->htmlNode($dom, 2)['bgcolor']);
+        $this->assertSame('', $this->htmlNode($dom, 3)['bgcolor']);
     }
 
     /**
@@ -3193,9 +3219,9 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('times', $dom[1]['fontname']);
-        $this->assertSame('red', $dom[1]['fgcolor']);
-        $this->assertSame('green', $dom[1]['bgcolor']);
+        $this->assertSame('times', $this->htmlNode($dom, 1)['fontname']);
+        $this->assertSame('red', $this->htmlNode($dom, 1)['fgcolor']);
+        $this->assertSame('green', $this->htmlNode($dom, 1)['bgcolor']);
     }
 
     /**
@@ -3228,9 +3254,9 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 2, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('green', $dom[1]['bgcolor']);
+        $this->assertSame('green', $this->htmlNode($dom, 1)['bgcolor']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('', $dom[2]['bgcolor']);
+        $this->assertSame('', $this->htmlNode($dom, 2)['bgcolor']);
     }
 
     /**
@@ -3267,18 +3293,18 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLAttributes($dom, 1, false);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertTrue($dom[1]['hide']);
-        $this->assertSame('rtl', $dom[1]['dir']);
-        $this->assertStringContainsString('rgb(', $dom[1]['fgcolor']);
-        $this->assertNotSame('', $dom[1]['bgcolor']);
-        $this->assertStringContainsString('rgb(', $dom[1]['strokecolor']);
-        $this->assertGreaterThan(0.0, $dom[1]['width']);
-        $this->assertGreaterThan(0.0, $dom[1]['height']);
-        $this->assertSame('C', $dom[1]['align']);
-        $this->assertGreaterThan(0.0, $dom[1]['stroke']);
-        $this->assertTrue($dom[1]['fill']);
-        $this->assertTrue($dom[1]['clip']);
-        $this->assertArrayHasKey('LTRB', $dom[1]['border']);
+        $this->assertTrue($this->htmlNode($dom, 1)['hide']);
+        $this->assertSame('rtl', $this->htmlNode($dom, 1)['dir']);
+        $this->assertStringContainsString('rgb(', $this->htmlNode($dom, 1)['fgcolor']);
+        $this->assertNotSame('', $this->htmlNode($dom, 1)['bgcolor']);
+        $this->assertStringContainsString('rgb(', $this->htmlNode($dom, 1)['strokecolor']);
+        $this->assertGreaterThan(0.0, $this->htmlNode($dom, 1)['width']);
+        $this->assertGreaterThan(0.0, $this->htmlNode($dom, 1)['height']);
+        $this->assertSame('C', $this->htmlNode($dom, 1)['align']);
+        $this->assertGreaterThan(0.0, $this->htmlNode($dom, 1)['stroke']);
+        $this->assertTrue($this->htmlNode($dom, 1)['fill']);
+        $this->assertTrue($this->htmlNode($dom, 1)['clip']);
+        $this->assertArrayHasKey('LTRB', $this->htmlNode($dom, 1)['border']);
     }
 
     /**
@@ -3321,16 +3347,20 @@ class HTMLTest extends TestUtil
 
         assert(isset($dom[1]), "\$dom[1] must be set");
         // All three must result in a non-default (not 10pt) font size
-        $this->assertNotSame(10.0, $dom[1]['fontsize'], 'font-size:12px should change fontsize');
-        $this->assertGreaterThan(0.0, $dom[1]['fontsize']);
+        $this->assertNotSame(10.0, $this->htmlNode($dom, 1)['fontsize'], 'font-size:12px should change fontsize');
+        $this->assertGreaterThan(0.0, $this->htmlNode($dom, 1)['fontsize']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertNotSame(10.0, $dom[2]['fontsize'], 'font-size:150% should change fontsize');
-        $this->assertGreaterThan(0.0, $dom[2]['fontsize']);
+        $this->assertNotSame(10.0, $this->htmlNode($dom, 2)['fontsize'], 'font-size:150% should change fontsize');
+        $this->assertGreaterThan(0.0, $this->htmlNode($dom, 2)['fontsize']);
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertNotSame(10.0, $dom[3]['fontsize'], 'font-size:1.5em should change fontsize');
-        $this->assertGreaterThan(0.0, $dom[3]['fontsize']);
+        $this->assertNotSame(10.0, $this->htmlNode($dom, 3)['fontsize'], 'font-size:1.5em should change fontsize');
+        $this->assertGreaterThan(0.0, $this->htmlNode($dom, 3)['fontsize']);
         assert(isset($dom[4]), "\$dom[4] must be set");
-        $this->assertSame(10.0, $dom[4]['fontsize'], 'font-size:inherit should preserve parent fontsize');
+        $this->assertSame(
+            10.0,
+            $this->htmlNode($dom, 4)['fontsize'],
+            'font-size:inherit should preserve parent fontsize',
+        );
     }
 
     /**
@@ -3355,8 +3385,8 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame(12.5, $dom[1]['width']);
-        $this->assertSame(34.75, $dom[1]['height']);
+        $this->assertSame(12.5, $this->htmlNode($dom, 1)['width']);
+        $this->assertSame(34.75, $this->htmlNode($dom, 1)['height']);
     }
 
     /**
@@ -3393,8 +3423,8 @@ class HTMLTest extends TestUtil
 
         assert(isset($dom[2]), "\$dom[2] must be set");
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertEqualsWithDelta($dom[2]['width'], $dom[1]['width'], 0.0001);
-        $this->assertEqualsWithDelta($dom[2]['height'], $dom[1]['height'], 0.0001);
+        $this->assertEqualsWithDelta($this->htmlNode($dom, 2)['width'], $this->htmlNode($dom, 1)['width'], 0.0001);
+        $this->assertEqualsWithDelta($this->htmlNode($dom, 2)['height'], $this->htmlNode($dom, 1)['height'], 0.0001);
     }
 
     /**
@@ -3424,8 +3454,8 @@ class HTMLTest extends TestUtil
 
         assert(isset($dom[2]), "\$dom[2] must be set");
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertEqualsWithDelta($dom[2]['width'], $dom[1]['width'], 0.0001);
-        $this->assertEqualsWithDelta($dom[2]['height'], $dom[1]['height'], 0.0001);
+        $this->assertEqualsWithDelta($this->htmlNode($dom, 2)['width'], $this->htmlNode($dom, 1)['width'], 0.0001);
+        $this->assertEqualsWithDelta($this->htmlNode($dom, 2)['height'], $this->htmlNode($dom, 1)['height'], 0.0001);
     }
 
     /**
@@ -3447,8 +3477,8 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame(0.0, $dom[1]['width']);
-        $this->assertSame(0.0, $dom[1]['height']);
+        $this->assertSame(0.0, $this->htmlNode($dom, 1)['width']);
+        $this->assertSame(0.0, $this->htmlNode($dom, 1)['height']);
     }
 
     /**
@@ -3480,8 +3510,8 @@ class HTMLTest extends TestUtil
 
         assert(isset($dom[2]), "\$dom[2] must be set");
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertEqualsWithDelta($dom[2]['width'], $dom[1]['width'], 0.0001);
-        $this->assertEqualsWithDelta($dom[2]['height'], $dom[1]['height'], 0.0001);
+        $this->assertEqualsWithDelta($this->htmlNode($dom, 2)['width'], $this->htmlNode($dom, 1)['width'], 0.0001);
+        $this->assertEqualsWithDelta($this->htmlNode($dom, 2)['height'], $this->htmlNode($dom, 1)['height'], 0.0001);
     }
 
     /**
@@ -3514,9 +3544,9 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 3, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertTrue($dom[1]['clip']);
-        $this->assertFalse($dom[2]['clip']);
-        $this->assertTrue($dom[3]['clip']);
+        $this->assertTrue($this->htmlNode($dom, 1)['clip']);
+        $this->assertFalse($this->htmlNode($dom, 2)['clip']);
+        $this->assertTrue($this->htmlNode($dom, 3)['clip']);
     }
 
     /**
@@ -3544,9 +3574,9 @@ class HTMLTest extends TestUtil
 
         assert(isset($dom[1]), "\$dom[1] must be set");
         // Any axis hidden forces clipping true.
-        $this->assertTrue($dom[1]['clip']);
+        $this->assertTrue($this->htmlNode($dom, 1)['clip']);
         // Visible axis does not clear clipping when another declaration already requested hidden.
-        $this->assertTrue($dom[2]['clip']);
+        $this->assertTrue($this->htmlNode($dom, 2)['clip']);
     }
 
     /**
@@ -3623,16 +3653,32 @@ class HTMLTest extends TestUtil
 
         assert(isset($dom[2]), "\$dom[2] must be set");
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertEqualsWithDelta($dom[2]['fontsize'], $dom[1]['fontsize'], 0.0001);
-        $this->assertEqualsWithDelta($dom[2]['font-stretch'], $dom[1]['font-stretch'], 0.0001);
-        $this->assertEqualsWithDelta($dom[2]['letter-spacing'], $dom[1]['letter-spacing'], 0.0001);
-        $this->assertEqualsWithDelta($dom[2]['word-spacing'], $dom[1]['word-spacing'], 0.0001);
-        $this->assertSame($dom[2]['fgcolor'], $dom[1]['fgcolor']);
-        $this->assertSame($dom[2]['bgcolor'], $dom[1]['bgcolor']);
-        $this->assertSame($dom[2]['border-collapse'], $dom[1]['border-collapse']);
-        $this->assertSame($dom[2]['fontstyle'], $dom[1]['fontstyle']);
-        $spacing1 = $this->getHtmlNodeBorderSpacing($dom[1]);
-        $spacing2 = $this->getHtmlNodeBorderSpacing($dom[2]);
+        $this->assertEqualsWithDelta(
+            $this->htmlNode($dom, 2)['fontsize'],
+            $this->htmlNode($dom, 1)['fontsize'],
+            0.0001,
+        );
+        $this->assertEqualsWithDelta(
+            $this->htmlNode($dom, 2)['font-stretch'],
+            $this->htmlNode($dom, 1)['font-stretch'],
+            0.0001,
+        );
+        $this->assertEqualsWithDelta(
+            $this->htmlNode($dom, 2)['letter-spacing'],
+            $this->htmlNode($dom, 1)['letter-spacing'],
+            0.0001,
+        );
+        $this->assertEqualsWithDelta(
+            $this->htmlNode($dom, 2)['word-spacing'],
+            $this->htmlNode($dom, 1)['word-spacing'],
+            0.0001,
+        );
+        $this->assertSame($this->htmlNode($dom, 2)['fgcolor'], $this->htmlNode($dom, 1)['fgcolor']);
+        $this->assertSame($this->htmlNode($dom, 2)['bgcolor'], $this->htmlNode($dom, 1)['bgcolor']);
+        $this->assertSame($this->htmlNode($dom, 2)['border-collapse'], $this->htmlNode($dom, 1)['border-collapse']);
+        $this->assertSame($this->htmlNode($dom, 2)['fontstyle'], $this->htmlNode($dom, 1)['fontstyle']);
+        $spacing1 = $this->getHtmlNodeBorderSpacing($this->htmlNode($dom, 1));
+        $spacing2 = $this->getHtmlNodeBorderSpacing($this->htmlNode($dom, 2));
         $this->assertEqualsWithDelta($spacing2['H'], $spacing1['H'], 0.0001);
         $this->assertEqualsWithDelta($spacing2['V'], $spacing1['V'], 0.0001);
     }
@@ -3662,7 +3708,7 @@ class HTMLTest extends TestUtil
         // Must equal the parent value exactly, not be recalculated
         $this->assertSame(
             $parentLineHeight,
-            $dom[1]['line-height'],
+            $this->htmlNode($dom, 1)['line-height'],
             'line-height:inherit must not fall through to default recalculation',
         );
     }
@@ -3692,8 +3738,8 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame(1.7, $dom[1]['line-height']);
-        $this->assertSame(2.5, $dom[1]['text-indent']);
+        $this->assertSame(1.7, $this->htmlNode($dom, 1)['line-height']);
+        $this->assertSame(2.5, $this->htmlNode($dom, 1)['text-indent']);
     }
 
     /**
@@ -3730,7 +3776,11 @@ class HTMLTest extends TestUtil
 
         assert(isset($dom[2]), "\$dom[2] must be set");
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertEqualsWithDelta($dom[2]['text-indent'], $dom[1]['text-indent'], 0.0001);
+        $this->assertEqualsWithDelta(
+            $this->htmlNode($dom, 2)['text-indent'],
+            $this->htmlNode($dom, 1)['text-indent'],
+            0.0001,
+        );
     }
 
     /**
@@ -3754,7 +3804,12 @@ class HTMLTest extends TestUtil
         ];
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertEqualsWithDelta(1.5, $dom[1]['line-height'], 0.001, 'line-height:150% must store ratio 1.5');
+        $this->assertEqualsWithDelta(
+            1.5,
+            $this->htmlNode($dom, 1)['line-height'],
+            0.001,
+            'line-height:150% must store ratio 1.5',
+        );
 
         // Case 2: unitless number → ratio stored directly
         $dom[1] = $this->makeHtmlNode([
@@ -3767,7 +3822,12 @@ class HTMLTest extends TestUtil
         ]);
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertEqualsWithDelta(2.0, $dom[1]['line-height'], 0.001, 'line-height:2 must store ratio 2.0');
+        $this->assertEqualsWithDelta(
+            2.0,
+            $this->htmlNode($dom, 1)['line-height'],
+            0.001,
+            'line-height:2 must store ratio 2.0',
+        );
 
         // Case 3: absolute unit (24pt on a 12pt font) → ratio 2.0
         $dom[1] = $this->makeHtmlNode([
@@ -3782,7 +3842,7 @@ class HTMLTest extends TestUtil
         assert(isset($dom[1]), "\$dom[1] must be set");
         $this->assertEqualsWithDelta(
             2.0,
-            $dom[1]['line-height'],
+            $this->htmlNode($dom, 1)['line-height'],
             0.01,
             'line-height:24pt on 12pt font must store ratio 2.0',
         );
@@ -3798,7 +3858,12 @@ class HTMLTest extends TestUtil
         ]);
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertEqualsWithDelta(1.0, $dom[1]['line-height'], 0.001, 'line-height:100% must store ratio 1.0');
+        $this->assertEqualsWithDelta(
+            1.0,
+            $this->htmlNode($dom, 1)['line-height'],
+            0.001,
+            'line-height:100% must store ratio 1.0',
+        );
 
         // Case 5: 200% → ratio 2.0
         $dom[1] = $this->makeHtmlNode([
@@ -3811,7 +3876,12 @@ class HTMLTest extends TestUtil
         ]);
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertEqualsWithDelta(2.0, $dom[1]['line-height'], 0.001, 'line-height:200% must store ratio 2.0');
+        $this->assertEqualsWithDelta(
+            2.0,
+            $this->htmlNode($dom, 1)['line-height'],
+            0.001,
+            'line-height:200% must store ratio 2.0',
+        );
     }
 
     /**
@@ -3842,9 +3912,9 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 2, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('pre-line', $dom[1]['white-space']);
+        $this->assertSame('pre-line', $this->htmlNode($dom, 1)['white-space']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('pre-wrap', $dom[2]['white-space']);
+        $this->assertSame('pre-wrap', $this->htmlNode($dom, 2)['white-space']);
     }
 
     /**
@@ -3873,8 +3943,8 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('uppercase', $dom[1]['text-transform']);
-        $this->assertSame('pre-wrap', $dom[1]['white-space']);
+        $this->assertSame('uppercase', $this->htmlNode($dom, 1)['text-transform']);
+        $this->assertSame('pre-wrap', $this->htmlNode($dom, 1)['white-space']);
     }
 
     /**
@@ -3916,11 +3986,11 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 3, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertGreaterThan(0.0, $dom[1]['word-spacing']);
+        $this->assertGreaterThan(0.0, $this->htmlNode($dom, 1)['word-spacing']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame(1.25, $dom[2]['word-spacing']);
+        $this->assertSame(1.25, $this->htmlNode($dom, 2)['word-spacing']);
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertSame(0.0, $dom[3]['word-spacing']);
+        $this->assertSame(0.0, $this->htmlNode($dom, 3)['word-spacing']);
     }
 
     /**
@@ -3955,14 +4025,14 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 2, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame(112.0, $dom[1]['font-stretch']);
-        $this->assertSame(0.75, $dom[1]['letter-spacing']);
-        $this->assertSame(1.5, $dom[1]['word-spacing']);
+        $this->assertSame(112.0, $this->htmlNode($dom, 1)['font-stretch']);
+        $this->assertSame(0.75, $this->htmlNode($dom, 1)['letter-spacing']);
+        $this->assertSame(1.5, $this->htmlNode($dom, 1)['word-spacing']);
 
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame(100.0, $dom[2]['font-stretch']);
-        $this->assertSame(0.0, $dom[2]['letter-spacing']);
-        $this->assertSame(0.0, $dom[2]['word-spacing']);
+        $this->assertSame(100.0, $this->htmlNode($dom, 2)['font-stretch']);
+        $this->assertSame(0.0, $this->htmlNode($dom, 2)['letter-spacing']);
+        $this->assertSame(0.0, $this->htmlNode($dom, 2)['word-spacing']);
     }
 
     /**
@@ -3995,9 +4065,9 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 2, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('outside', $dom[1]['list-style-position']);
+        $this->assertSame('outside', $this->htmlNode($dom, 1)['list-style-position']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('inside', $dom[2]['list-style-position']);
+        $this->assertSame('inside', $this->htmlNode($dom, 2)['list-style-position']);
     }
 
     /**
@@ -4027,16 +4097,16 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 2, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('square', $dom[1]['listtype']);
-        $this->assertSame('inside', $dom[1]['list-style-position']);
+        $this->assertSame('square', $this->htmlNode($dom, 1)['listtype']);
+        $this->assertSame('inside', $this->htmlNode($dom, 1)['list-style-position']);
         $this->assertArrayHasKey('list-style-image', $dom[1]);
         $listImage = $dom[1]['list-style-image'] ?? null;
         $this->assertIsString($listImage);
         $this->assertSame($parentImage, $listImage);
 
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('square', $dom[2]['listtype']);
-        $this->assertSame('outside', $dom[2]['list-style-position']);
+        $this->assertSame('square', $this->htmlNode($dom, 2)['listtype']);
+        $this->assertSame('outside', $this->htmlNode($dom, 2)['list-style-position']);
     }
 
     /**
@@ -4062,13 +4132,13 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('disc', $dom[1]['listtype']);
-        $this->assertSame('inside', $dom[1]['list-style-position']);
+        $this->assertSame('disc', $this->htmlNode($dom, 1)['listtype']);
+        $this->assertSame('inside', $this->htmlNode($dom, 1)['list-style-position']);
         $this->assertArrayHasKey('list-style-image', $dom[1]);
         $listImage = $dom[1]['list-style-image'] ?? null;
         $this->assertIsString($listImage);
         $this->assertSame($parentImage, $listImage);
-        $this->assertSame($parentImage, $this->getHtmlNodeStyleString($dom[1], 'list-style-image'));
+        $this->assertSame($parentImage, $this->getHtmlNodeStyleString($this->htmlNode($dom, 1), 'list-style-image'));
     }
 
     /**
@@ -4100,12 +4170,12 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 2, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('square', $dom[1]['listtype']);
-        $this->assertSame('inside', $dom[1]['list-style-position']);
+        $this->assertSame('square', $this->htmlNode($dom, 1)['listtype']);
+        $this->assertSame('inside', $this->htmlNode($dom, 1)['list-style-position']);
 
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('square', $dom[2]['listtype']);
-        $this->assertSame('inside', $dom[2]['list-style-position']);
+        $this->assertSame('square', $this->htmlNode($dom, 2)['listtype']);
+        $this->assertSame('inside', $this->htmlNode($dom, 2)['list-style-position']);
     }
 
     /**
@@ -4144,13 +4214,13 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 4, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('capitalize', $dom[1]['text-transform']);
+        $this->assertSame('capitalize', $this->htmlNode($dom, 1)['text-transform']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('uppercase', $dom[2]['text-transform']);
+        $this->assertSame('uppercase', $this->htmlNode($dom, 2)['text-transform']);
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertSame('', $dom[3]['text-transform']);
+        $this->assertSame('', $this->htmlNode($dom, 3)['text-transform']);
         assert(isset($dom[4]), "\$dom[4] must be set");
-        $this->assertSame('lowercase', $dom[4]['text-transform']);
+        $this->assertSame('lowercase', $this->htmlNode($dom, 4)['text-transform']);
     }
 
     /**
@@ -4184,7 +4254,7 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 2, 1);
 
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame($parentImage, $this->getHtmlNodeStyleString($dom[2], 'list-style-image'));
+        $this->assertSame($parentImage, $this->getHtmlNodeStyleString($this->htmlNode($dom, 2), 'list-style-image'));
 
         $marker = $obj->exposeGetHTMLListMarkerTypeWithDom($dom, 2, false);
         $this->assertStringStartsWith('img|svg|', $marker);
@@ -4214,8 +4284,12 @@ class HTMLTest extends TestUtil
 
         assert(isset($dom[1]), "\$dom[1] must be set");
         // Both bold and underline must be present
-        $this->assertStringContainsString('B', $dom[1]['fontstyle'], 'Bold must be preserved on <a> inside <b>');
-        $this->assertStringContainsString('U', $dom[1]['fontstyle'], 'Underline must be added on <a>');
+        $this->assertStringContainsString(
+            'B',
+            $this->htmlNode($dom, 1)['fontstyle'],
+            'Bold must be preserved on <a> inside <b>',
+        );
+        $this->assertStringContainsString('U', $this->htmlNode($dom, 1)['fontstyle'], 'Underline must be added on <a>');
     }
 
     /**
@@ -4248,9 +4322,13 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 2, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertStringContainsString('B', $dom[1]['fontstyle'], 'font-weight:700 must add bold');
+        $this->assertStringContainsString('B', $this->htmlNode($dom, 1)['fontstyle'], 'font-weight:700 must add bold');
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertStringNotContainsString('B', $dom[2]['fontstyle'], 'font-weight:400 must remove bold');
+        $this->assertStringNotContainsString(
+            'B',
+            $this->htmlNode($dom, 2)['fontstyle'],
+            'font-weight:400 must remove bold',
+        );
     }
 
     /**
@@ -4292,11 +4370,11 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 3, 2);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('B', $dom[1]['fontstyle']);
+        $this->assertSame('B', $this->htmlNode($dom, 1)['fontstyle']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('', $dom[2]['fontstyle']);
+        $this->assertSame('', $this->htmlNode($dom, 2)['fontstyle']);
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertSame('', $dom[3]['fontstyle']);
+        $this->assertSame('', $this->htmlNode($dom, 3)['fontstyle']);
     }
 
     /**
@@ -4338,11 +4416,11 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 3, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('I', $dom[1]['fontstyle']);
+        $this->assertSame('I', $this->htmlNode($dom, 1)['fontstyle']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('B', $dom[2]['fontstyle']);
+        $this->assertSame('B', $this->htmlNode($dom, 2)['fontstyle']);
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertSame('BI', $dom[3]['fontstyle']);
+        $this->assertSame('BI', $this->htmlNode($dom, 3)['fontstyle']);
     }
 
     /**
@@ -4375,11 +4453,11 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 3, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('BI', $dom[1]['fontstyle']);
+        $this->assertSame('BI', $this->htmlNode($dom, 1)['fontstyle']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame('BIUD', $dom[2]['fontstyle']);
+        $this->assertSame('BIUD', $this->htmlNode($dom, 2)['fontstyle']);
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertSame('BUO', $dom[3]['fontstyle']);
+        $this->assertSame('BUO', $this->htmlNode($dom, 3)['fontstyle']);
     }
 
     /**
@@ -4403,8 +4481,8 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $paddingTop = $this->getHtmlNodeBoxSide($dom[1], 'padding', 'T');
-        $paddingLeft = $this->getHtmlNodeBoxSide($dom[1], 'padding', 'L');
+        $paddingTop = $this->getHtmlNodeBoxSide($this->htmlNode($dom, 1), 'padding', 'T');
+        $paddingLeft = $this->getHtmlNodeBoxSide($this->htmlNode($dom, 1), 'padding', 'L');
         $this->assertGreaterThan(0.0, $paddingTop, 'padding-top must be applied');
         $this->assertGreaterThan(0.0, $paddingLeft, 'padding-left must be applied');
         $this->assertGreaterThan(
@@ -4412,10 +4490,14 @@ class HTMLTest extends TestUtil
             $paddingLeft,
             'padding-left (10px) must be greater than padding-top (5px)',
         );
-        $this->assertGreaterThan(0.0, $this->getHtmlNodeBoxSide($dom[1], 'margin', 'T'), 'margin-top must be applied');
         $this->assertGreaterThan(
             0.0,
-            $this->getHtmlNodeBoxSide($dom[1], 'margin', 'R'),
+            $this->getHtmlNodeBoxSide($this->htmlNode($dom, 1), 'margin', 'T'),
+            'margin-top must be applied',
+        );
+        $this->assertGreaterThan(
+            0.0,
+            $this->getHtmlNodeBoxSide($this->htmlNode($dom, 1), 'margin', 'R'),
             'margin-right must be applied',
         );
     }
@@ -4450,11 +4532,11 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 2, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame($parentPadding, $dom[1]['padding']);
-        $this->assertSame($parentMargin, $dom[1]['margin']);
+        $this->assertSame($parentPadding, $this->htmlNode($dom, 1)['padding']);
+        $this->assertSame($parentMargin, $this->htmlNode($dom, 1)['margin']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame($parentPadding['L'], $this->getHtmlNodeBoxSide($dom[2], 'padding', 'L'));
-        $this->assertSame($parentMargin['R'], $this->getHtmlNodeBoxSide($dom[2], 'margin', 'R'));
+        $this->assertSame($parentPadding['L'], $this->getHtmlNodeBoxSide($this->htmlNode($dom, 2), 'padding', 'L'));
+        $this->assertSame($parentMargin['R'], $this->getHtmlNodeBoxSide($this->htmlNode($dom, 2), 'margin', 'R'));
     }
 
     /**
@@ -4482,11 +4564,11 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('times', $dom[1]['fontname']);
-        $this->assertSame(11.5, $dom[1]['fontsize']);
-        $this->assertSame('BI', $dom[1]['fontstyle']);
-        $this->assertSame(1.4, $dom[1]['line-height']);
-        $this->assertSame(125.0, $dom[1]['font-stretch']);
+        $this->assertSame('times', $this->htmlNode($dom, 1)['fontname']);
+        $this->assertSame(11.5, $this->htmlNode($dom, 1)['fontsize']);
+        $this->assertSame('BI', $this->htmlNode($dom, 1)['fontstyle']);
+        $this->assertSame(1.4, $this->htmlNode($dom, 1)['line-height']);
+        $this->assertSame(125.0, $this->htmlNode($dom, 1)['font-stretch']);
     }
 
     /**
@@ -4515,11 +4597,11 @@ class HTMLTest extends TestUtil
 
         assert(isset($dom[0]), "\$dom[0] must be set");
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertGreaterThan($dom[0]['fontsize'], $dom[1]['fontsize']);
-        $this->assertSame('"Times New Roman", serif', $dom[1]['fontname']);
-        $this->assertStringContainsString('I', $dom[1]['fontstyle']);
-        $this->assertStringContainsString('B', $dom[1]['fontstyle']);
-        $this->assertEqualsWithDelta(1.5, $dom[1]['line-height'], 0.0001);
+        $this->assertGreaterThan($this->htmlNode($dom, 0)['fontsize'], $this->htmlNode($dom, 1)['fontsize']);
+        $this->assertSame('"Times New Roman", serif', $this->htmlNode($dom, 1)['fontname']);
+        $this->assertStringContainsString('I', $this->htmlNode($dom, 1)['fontstyle']);
+        $this->assertStringContainsString('B', $this->htmlNode($dom, 1)['fontstyle']);
+        $this->assertEqualsWithDelta(1.5, $this->htmlNode($dom, 1)['line-height'], 0.0001);
     }
 
     /**
@@ -7266,8 +7348,8 @@ class HTMLTest extends TestUtil
 
         $hrc = $obj->exposeGetHTMLRenderContext();
         assert(isset($hrc['dom'][0]), "\$hrc['dom'][0] must be set");
-        $this->assertStringContainsString('255,0,0', $hrc['dom'][0]['fgcolor']);
-        $this->assertStringContainsString('0,255,0', (string) $hrc['dom'][0]['bgcolor']);
+        $this->assertStringContainsString('255,0,0', $this->htmlNode($hrc['dom'], 0)['fgcolor']);
+        $this->assertStringContainsString('0,255,0', (string) $this->htmlNode($hrc['dom'], 0)['bgcolor']);
     }
 
     /**
@@ -8854,10 +8936,10 @@ class HTMLTest extends TestUtil
 
         assert(isset($dom[1]), "\$dom[1] must be set");
         $this->assertSame('url(data:image/svg+xml;base64,PHN2Zz4=)', $this->getHtmlNodeStyleString(
-            $dom[1],
+            $this->htmlNode($dom, 1),
             'list-style-image',
         ));
-        $this->assertSame('red', $this->getHtmlNodeStyleString($dom[1], 'color'));
+        $this->assertSame('red', $this->getHtmlNodeStyleString($this->htmlNode($dom, 1), 'color'));
     }
 
     /**
@@ -15060,8 +15142,8 @@ class HTMLTest extends TestUtil
         $obj->getHTMLDOMCSSData($dom, $css, 1);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertCount(1, $dom[1]['cssdata']);
-        $this->assertSame([' p.x'], $dom[1]['csssel']);
+        $this->assertCount(1, $this->htmlNode($dom, 1)['cssdata']);
+        $this->assertSame([' p.x'], $this->htmlNode($dom, 1)['csssel']);
     }
 
     /**
@@ -15178,27 +15260,27 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('rtl', $dom[1]['dir']);
-        $this->assertSame('none', $dom[1]['display']);
-        $this->assertFalse($dom[1]['block']);
-        $this->assertTrue($dom[1]['hide']);
-        $this->assertSame('disc', $dom[1]['listtype']);
-        $this->assertNotSame('', $dom[1]['text-transform']);
-        $this->assertGreaterThan(0.0, $dom[1]['fontsize']);
-        $this->assertGreaterThan(0.0, $dom[1]['line-height']);
-        $this->assertNotSame('', $dom[1]['fgcolor']);
-        $this->assertNotSame('', $dom[1]['bgcolor']);
-        $this->assertSame('R', $dom[1]['align']);
-        $this->assertSame('true', $this->getHtmlNodeAttrString($dom[1], 'nobr'));
-        $this->assertSame('left', $this->getHtmlNodeAttrString($dom[1], 'pagebreak'));
-        $this->assertSame('right', $this->getHtmlNodeAttrString($dom[1], 'pagebreakafter'));
+        $this->assertSame('rtl', $this->htmlNode($dom, 1)['dir']);
+        $this->assertSame('none', $this->htmlNode($dom, 1)['display']);
+        $this->assertFalse($this->htmlNode($dom, 1)['block']);
+        $this->assertTrue($this->htmlNode($dom, 1)['hide']);
+        $this->assertSame('disc', $this->htmlNode($dom, 1)['listtype']);
+        $this->assertNotSame('', $this->htmlNode($dom, 1)['text-transform']);
+        $this->assertGreaterThan(0.0, $this->htmlNode($dom, 1)['fontsize']);
+        $this->assertGreaterThan(0.0, $this->htmlNode($dom, 1)['line-height']);
+        $this->assertNotSame('', $this->htmlNode($dom, 1)['fgcolor']);
+        $this->assertNotSame('', $this->htmlNode($dom, 1)['bgcolor']);
+        $this->assertSame('R', $this->htmlNode($dom, 1)['align']);
+        $this->assertSame('true', $this->getHtmlNodeAttrString($this->htmlNode($dom, 1), 'nobr'));
+        $this->assertSame('left', $this->getHtmlNodeAttrString($this->htmlNode($dom, 1), 'pagebreak'));
+        $this->assertSame('right', $this->getHtmlNodeAttrString($this->htmlNode($dom, 1), 'pagebreakafter'));
         /** @var array{H: float, V: float} $borderSpacing */
         $borderSpacing = \array_replace(['H' => 0.0, 'V' => 0.0], $dom[1]['border-spacing'] ?? []);
         $this->assertGreaterThan(0.0, $borderSpacing['H']);
         $this->assertSame($borderSpacing['H'], $borderSpacing['V']);
-        $this->assertNotSame(['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0], $dom[1]['padding']);
-        $this->assertNotSame(['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0], $dom[1]['margin']);
-        $this->assertNotEmpty($dom[1]['border']);
+        $this->assertNotSame(['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0], $this->htmlNode($dom, 1)['padding']);
+        $this->assertNotSame(['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0], $this->htmlNode($dom, 1)['margin']);
+        $this->assertNotEmpty($this->htmlNode($dom, 1)['border']);
     }
 
     /**
@@ -15612,7 +15694,7 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('times, serif', $dom[1]['fontname']);
+        $this->assertSame('times, serif', $this->htmlNode($dom, 1)['fontname']);
     }
 
     /**
@@ -15638,7 +15720,7 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLAttributes($dom, 1, false);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame('times, serif', $dom[1]['fontname']);
+        $this->assertSame('times, serif', $this->htmlNode($dom, 1)['fontname']);
     }
 
     /**
@@ -16668,10 +16750,10 @@ class HTMLTest extends TestUtil
         $obj->getHTMLDOMCSSData($dom, $css, 1);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertArrayHasKey('pseudo-before-style', $dom[1]['attribute']);
-        $this->assertArrayHasKey('pseudo-after-style', $dom[1]['attribute']);
-        $beforeStyle = $this->getHtmlNodeAttrString($dom[1], 'pseudo-before-style');
-        $afterStyle = $this->getHtmlNodeAttrString($dom[1], 'pseudo-after-style');
+        $this->assertArrayHasKey('pseudo-before-style', $this->htmlNode($dom, 1)['attribute']);
+        $this->assertArrayHasKey('pseudo-after-style', $this->htmlNode($dom, 1)['attribute']);
+        $beforeStyle = $this->getHtmlNodeAttrString($this->htmlNode($dom, 1), 'pseudo-before-style');
+        $afterStyle = $this->getHtmlNodeAttrString($this->htmlNode($dom, 1), 'pseudo-after-style');
         $this->assertIsString($beforeStyle);
         $this->assertIsString($afterStyle);
         $this->assertStringContainsString('content:"[B]"', $beforeStyle);
@@ -16849,7 +16931,7 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame(1.0, $dom[1]['line-height']);
+        $this->assertSame(1.0, $this->htmlNode($dom, 1)['line-height']);
     }
 
     /**
@@ -16873,7 +16955,7 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertNotEmpty($dom[1]['border']);
+        $this->assertNotEmpty($this->htmlNode($dom, 1)['border']);
     }
 
     /**
@@ -17085,16 +17167,16 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 2, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame(1.0, $dom[1]['line-height']);
-        $this->assertSame('blue', $dom[1]['fgcolor']);
-        $this->assertStringContainsString('U', $dom[1]['fontstyle']);
-        $this->assertSame('', $this->getHtmlNodeAttrString($dom[1], 'pagebreak'));
-        $this->assertSame('left', $this->getHtmlNodeAttrString($dom[1], 'pagebreakafter'));
-        $this->assertNotEmpty($dom[1]['border']);
+        $this->assertSame(1.0, $this->htmlNode($dom, 1)['line-height']);
+        $this->assertSame('blue', $this->htmlNode($dom, 1)['fgcolor']);
+        $this->assertStringContainsString('U', $this->htmlNode($dom, 1)['fontstyle']);
+        $this->assertSame('', $this->getHtmlNodeAttrString($this->htmlNode($dom, 1), 'pagebreak'));
+        $this->assertSame('left', $this->getHtmlNodeAttrString($this->htmlNode($dom, 1), 'pagebreakafter'));
+        $this->assertNotEmpty($this->htmlNode($dom, 1)['border']);
 
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertGreaterThan(0.0, $dom[2]['line-height']);
-        $this->assertSame('', $this->getHtmlNodeAttrString($dom[2], 'pagebreakafter'));
+        $this->assertGreaterThan(0.0, $this->htmlNode($dom, 2)['line-height']);
+        $this->assertSame('', $this->getHtmlNodeAttrString($this->htmlNode($dom, 2), 'pagebreakafter'));
     }
 
     /**
@@ -17119,8 +17201,8 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLAttributes($dom, 1, false);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertGreaterThan(0.0, $dom[1]['fontsize']);
-        $this->assertLessThan(10.0, $dom[1]['fontsize']);
+        $this->assertGreaterThan(0.0, $this->htmlNode($dom, 1)['fontsize']);
+        $this->assertLessThan(10.0, $this->htmlNode($dom, 1)['fontsize']);
     }
 
     /**
@@ -17145,7 +17227,7 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLAttributes($dom, 1, false);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertGreaterThan(10.0, $dom[1]['fontsize']);
+        $this->assertGreaterThan(10.0, $this->htmlNode($dom, 1)['fontsize']);
     }
 
     /**
@@ -17170,8 +17252,8 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLAttributes($dom, 1, false);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertGreaterThan(10.0, $dom[1]['fontsize']);
-        $this->assertStringContainsString('B', $dom[1]['fontstyle']);
+        $this->assertGreaterThan(10.0, $this->htmlNode($dom, 1)['fontsize']);
+        $this->assertStringContainsString('B', $this->htmlNode($dom, 1)['fontstyle']);
     }
 
     /**
@@ -17327,8 +17409,8 @@ class HTMLTest extends TestUtil
         $obj->getHTMLDOMCSSData($dom, $css, 1);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertNotEmpty($dom[1]['cssdata']);
-        $this->assertGreaterThanOrEqual(2, \count($dom[1]['cssdata']));
+        $this->assertNotEmpty($this->htmlNode($dom, 1)['cssdata']);
+        $this->assertGreaterThanOrEqual(2, \count($this->htmlNode($dom, 1)['cssdata']));
     }
 
     /**
@@ -17387,9 +17469,9 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLAttributes($dom, 3, false);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertGreaterThan(0, $dom[1]['rows']);
+        $this->assertGreaterThan(0, $this->htmlNode($dom, 1)['rows']);
         assert(isset($dom[3]), "\$dom[3] must be set");
-        $this->assertSame('2', $this->getHtmlNodeAttrString($dom[3], 'rowspan'));
+        $this->assertSame('2', $this->getHtmlNodeAttrString($this->htmlNode($dom, 3), 'rowspan'));
     }
 
     /**
@@ -17450,8 +17532,8 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLAttributes($dom, 3, false);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame(1, $dom[1]['rows']);
-        $this->assertSame([3], $dom[1]['trids']);
+        $this->assertSame(1, $this->htmlNode($dom, 1)['rows']);
+        $this->assertSame([3], $this->htmlNode($dom, 1)['trids']);
     }
 
     /**
@@ -17574,7 +17656,7 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLAttributes($dom, 1, false);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame(13.0, $dom[1]['fontsize']);
+        $this->assertSame(13.0, $this->htmlNode($dom, 1)['fontsize']);
     }
 
     /**
@@ -17631,7 +17713,7 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertNotEmpty($dom[1]['border']);
+        $this->assertNotEmpty($this->htmlNode($dom, 1)['border']);
     }
 
     /**
@@ -17685,8 +17767,8 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertNotSame(['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0], $dom[1]['padding']);
-        $this->assertNotSame(['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0], $dom[1]['margin']);
+        $this->assertNotSame(['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0], $this->htmlNode($dom, 1)['padding']);
+        $this->assertNotSame(['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0], $this->htmlNode($dom, 1)['margin']);
     }
 
     /**
@@ -17718,9 +17800,9 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLAttributes($dom, 2, false);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertStringContainsString('B', $dom[1]['fontstyle']);
+        $this->assertStringContainsString('B', $this->htmlNode($dom, 1)['fontstyle']);
         assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertStringContainsString('I', $dom[2]['fontstyle']);
+        $this->assertStringContainsString('I', $this->htmlNode($dom, 2)['fontstyle']);
     }
 
     /**
@@ -17744,7 +17826,7 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLAttributes($dom, 1, false);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertStringContainsString('U', $dom[1]['fontstyle']);
+        $this->assertStringContainsString('U', $this->htmlNode($dom, 1)['fontstyle']);
     }
 
     /**
@@ -17768,7 +17850,7 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLAttributes($dom, 1, false);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertStringContainsString('D', $dom[1]['fontstyle']);
+        $this->assertStringContainsString('D', $this->htmlNode($dom, 1)['fontstyle']);
     }
 
     /**
@@ -17792,7 +17874,7 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLAttributes($dom, 1, false);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertNotSame('helvetica', $dom[1]['fontname']);
+        $this->assertNotSame('helvetica', $this->htmlNode($dom, 1)['fontname']);
     }
 
     /**
@@ -17816,7 +17898,7 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLAttributes($dom, 1, false);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertNotSame('helvetica', $dom[1]['fontname']);
+        $this->assertNotSame('helvetica', $this->htmlNode($dom, 1)['fontname']);
     }
 
     /**
@@ -17868,7 +17950,7 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLAttributes($dom, 1, false);
 
         assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertNotSame('', $dom[1]['align']);
+        $this->assertNotSame('', $this->htmlNode($dom, 1)['align']);
     }
 
     /**

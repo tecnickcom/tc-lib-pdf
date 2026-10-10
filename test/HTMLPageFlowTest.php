@@ -541,26 +541,259 @@ class HTMLPageFlowTest extends TestUtil
         }
     }
 
+    /**
+     * Returns a table of four columns with the given number of rows.
+     */
+    private function getTableRows(int $num): string
+    {
+        $html = '<table border="1" cellpadding="2">';
+        for ($idx = 1; $idx <= $num; ++$idx) {
+            $html .=
+                '<tr><td class="c1">Row ' . $idx . '</td><td>Lorem ipsum</td><td>dolor sit amet</td><td>1,00</td></tr>';
+        }
+
+        return $html . '</table>';
+    }
+
+    /**
+     * Returns a stylesheet of 41 rules.
+     */
+    private function getStylesheet(): string
+    {
+        $css = '<style>';
+        for ($idx = 0; $idx < 40; ++$idx) {
+            $css .= '.c' . $idx . ' { color: #123456; font-weight: bold; padding: 1px 2px; } ';
+        }
+
+        return $css . 'td { border: 1px solid #000; }</style>';
+    }
+
+    /**
+     * Returns a test object with helvetica 10 and one page.
+     *
+     * @throws \Throwable
+     */
+    private function getTestableDocument(): TestableHTML
+    {
+        $obj = new TestableHTML();
+        $font = $obj->font->insert($obj->pon, 'helvetica', '', 10);
+        $obj->addPage();
+        $obj->page->addContent($font['out']);
+
+        return $obj;
+    }
+
+    /**
+     * Returns the memory used by the stored DOM of the given HTML.
+     *
+     * @throws \Throwable
+     */
+    private function getStoredDomMemory(TestableHTML $obj, string $html, int &$count): int
+    {
+        \gc_collect_cycles();
+        $before = \memory_get_usage();
+        $dom = $obj->exposeGetHTMLStoredDOM($html);
+        $used = \memory_get_usage() - $before;
+        $count = \count($dom);
+
+        return $used;
+    }
+
     /** @throws \Throwable */
     public function testTableDomDoesNotKeepCopiesOfRepeatedValues(): void
     {
-        $obj = new TestableHTML();
-        $html = '<table border="1" cellpadding="2">';
-        for ($idx = 1; $idx <= 200; ++$idx) {
-            $html .= '<tr><td>Row ' . $idx . '</td><td>Lorem ipsum</td><td>dolor sit amet</td><td>1,00</td></tr>';
-        }
-
-        $html .= '</table>';
-
-        \gc_collect_cycles();
-        $before = \memory_get_usage();
-        $dom = $obj->exposeGetHTMLDOM($html);
-        $used = \memory_get_usage() - $before;
+        $count = 0;
+        $used = $this->getStoredDomMemory($this->getTestableDocument(), $this->getTableRows(200), $count);
 
         // 14 nodes per row (no injected node per cell) and the document nodes.
-        $this->assertCount(2807, $dom);
-        // About 38 KB per row of four cells; a copy of the border and attribute arrays
-        // of every cell, or an injected node per cell, exceeds the bound.
-        $this->assertLessThan(200 * 45 * 1024, $used);
+        $this->assertSame(2807, $count);
+        // About 19 KB per row of four cells; a full style copy on text or closing-tag
+        // nodes, a copy of the repeated arrays of every cell, or an injected node per
+        // cell exceeds the bound.
+        $this->assertLessThan(200 * 22 * 1024, $used);
+    }
+
+    /** @throws \Throwable */
+    public function testTableDomWithStylesheetDoesNotKeepCopiesOfRepeatedValues(): void
+    {
+        $count = 0;
+        $used = $this->getStoredDomMemory(
+            $this->getTestableDocument(),
+            $this->getStylesheet() . $this->getTableRows(200),
+            $count,
+        );
+
+        // The cells keep neither a copy of the stylesheet nor of their computed style arrays.
+        $this->assertLessThan(200 * 22 * 1024, $used);
+    }
+
+    /** @throws \Throwable */
+    public function testTableCellContentHoldsTheCellHtmlOnly(): void
+    {
+        $obj = $this->getTestableDocument();
+        $html = $this->getStylesheet() . '<table><tr><td class="c1">a <b>b</b></td><td></td><td>c</tr></table>';
+        $dom = $obj->exposeGetHTMLStoredDOM($html);
+
+        $contents = [];
+        foreach (\array_keys($dom) as $key) {
+            $node = $obj->exposeGetHTMLDOMNode($dom, $key);
+            if ($node === null || !$node['opening'] || $node['value'] !== 'td') {
+                continue;
+            }
+
+            $contents[] = $node['content'];
+        }
+
+        // A closed cell ends with its end tag; the unclosed cell has no content.
+        $this->assertSame(['a <b>b</b></td>', '</td>', ''], $contents);
+    }
+
+    /** @throws \Throwable */
+    public function testTextAndClosingTagNodesAreStoredSlim(): void
+    {
+        $obj = new TestableHTML();
+        $dom = $obj->exposeGetHTMLStoredDOM('<p style="color:red">a <b>b</b></p>');
+
+        $text = 0;
+        $closing = 0;
+        foreach ($dom as $node) {
+            if ($node['tag'] && $node['opening']) {
+                $this->assertArrayNotHasKey('slim', $node);
+                continue;
+            }
+
+            if (!isset($node['slim'])) {
+                continue;
+            }
+
+            if ($node['tag']) {
+                ++$closing;
+                $this->assertArrayHasKey('stylesrc', $node);
+                continue;
+            }
+
+            ++$text;
+            $this->assertSame(['slim', 'tag', 'opening', 'value', 'parent', 'elkey'], \array_keys($node));
+        }
+
+        $this->assertSame(2, $text);
+        $this->assertGreaterThanOrEqual(2, $closing);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function slimDomHtmlProvider(): array
+    {
+        $body =
+            '<div style="text-align:center;color:#336699;line-height:14pt">A <b>bold <i>both</i></b> and '
+            . '<span style="font-size:14pt;text-transform:uppercase">big</span> text<br/>'
+            . '<ul><li>one</li><li>two <ol><li>n1</li></ol></li></ul><p dir="rtl">שלום <b>עולם</b></p>'
+            . '<table border="1"><caption>cap <b>x</b></caption><thead><tr><th>H</th></tr></thead>'
+            . '<tr><td style="white-space:nowrap">a b</td></tr></table>'
+            . '<blockquote>q</blockquote><h1>T</h1><pre>x  y</pre><font color="red" size="2">f</font>'
+            . '<p style="white-space:pre-line">l1'
+            . "\n"
+            . 'l2</p></div>';
+
+        return [
+            'no stylesheet' => [$body],
+            'stylesheet' => [
+                '<style>p { color: red; } .x b { font-size: 9pt; } li:last-child { font-style: italic; } '
+                    . 'td { word-break: break-all; }</style>'
+                    . $body
+                    . '<p class="x">p <b>b</b> <span dir="rtl">r</span></p>',
+            ],
+        ];
+    }
+
+    /** @throws \Throwable */
+    #[\PHPUnit\Framework\Attributes\DataProvider('slimDomHtmlProvider')]
+    public function testSlimDomNodesHaveTheStyleOfFullNodes(string $html): void
+    {
+        $obj = $this->getTestableDocument();
+        $full = $obj->exposeGetHTMLStoredDOM($html, false);
+        $slim = $obj->exposeGetHTMLStoredDOM($html);
+
+        $this->assertSame(\array_keys($full), \array_keys($slim));
+        $numslim = 0;
+        foreach ($full as $key => $node) {
+            if (isset($slim[$key]['slim'])) {
+                ++$numslim;
+            }
+
+            $view = $obj->exposeGetHTMLDOMNode($slim, $key);
+            $this->assertNotNull($view);
+            \ksort($node);
+            \ksort($view);
+            $this->assertSame($node, $view, 'DOM node ' . $key);
+        }
+
+        $this->assertGreaterThan(40, $numslim);
+    }
+
+    /**
+     * Renders the text node of a preformatted block split at its line break.
+     *
+     * @return array{out: string, before: mixed, after: mixed}
+     *
+     * @throws \Throwable
+     */
+    private function renderSplitTextNode(bool $slim): array
+    {
+        $obj = $this->getTestableDocument();
+        $obj->exposeInitHTMLCellContext(0, 0, 150, 60);
+        $dom = $obj->exposeGetHTMLStoredDOM('<pre>one' . "\n" . 'two</pre>', $slim);
+
+        $key = -1;
+        foreach ($dom as $idx => $node) {
+            if ($node['tag']) {
+                continue;
+            }
+
+            $key = $idx;
+        }
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = 150.0;
+        $tph = 60.0;
+        $result = $obj->exposeParseHTMLTextInDom($dom, $key, $tpx, $tpy, $tpw, $tph);
+
+        return ['out' => $result['out'], 'before' => $dom[$key] ?? null, 'after' => $result['dom'][$key] ?? null];
+    }
+
+    /** @throws \Throwable */
+    public function testSplitTextNodeStaysSlim(): void
+    {
+        $full = $this->renderSplitTextNode(false);
+        $slim = $this->renderSplitTextNode(true);
+
+        $this->assertStringContainsString('(two) Tj', $slim['out']);
+        $this->assertSame($full['out'], $slim['out']);
+        $this->assertIsArray($slim['before']);
+        $this->assertArrayHasKey('slim', $slim['before']);
+        $this->assertSame($slim['before'], $slim['after']);
+    }
+
+    /** @throws \Throwable */
+    public function testRenderingKeepsTheInheritedPropertiesOfOpeningNodes(): void
+    {
+        $obj = new TestableHTMLDOMProbe();
+        $font = $obj->font->insert($obj->pon, 'helvetica', '', 10);
+        $obj->addPage();
+        $obj->page->addContent($font['out']);
+        $html =
+            '<p>a <span color="#ff0000" bgcolor="#00ff00">red</span></p><table border="1">'
+            . '<tr><th>h</th><td style="font-weight:bold">b</td></tr></table><ul><li>i</li></ul>'
+            . '<div style="display:inline-block;width:20mm">ib</div>';
+        $obj->addHTMLCell($html, 10, 10, 100);
+
+        $snapshots = $obj->exposeInheritedSnapshots();
+        $this->assertNotEmpty($snapshots);
+        foreach ($snapshots as $snapshot) {
+            $this->assertNotEmpty($snapshot['before']);
+            $this->assertSame($snapshot['before'], $snapshot['after']);
+        }
     }
 }

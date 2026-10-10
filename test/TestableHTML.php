@@ -18,6 +18,7 @@ namespace Test;
 
 /**
  * @phpstan-import-type THTMLAttrib from \Com\Tecnick\Pdf\HTML
+ * @phpstan-import-type THTMLDOMNode from \Com\Tecnick\Pdf\HTML
  * @phpstan-import-type THTMLRenderContext from \Com\Tecnick\Pdf\HTML
  * @phpstan-import-type THTMLTableState from \Com\Tecnick\Pdf\HTML
  * @phpstan-import-type BorderStyle from \Com\Tecnick\Pdf\CSS
@@ -139,7 +140,50 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
      */
     public function exposeGetHTMLDOM(string $html): array
     {
-        return $this->getHTMLDOM($html);
+        return $this->expandExposedHTMLDOM($this->getHTMLDOM($html));
+    }
+
+    /**
+     * @phpstan-return array<int, THTMLDOMNode>
+     * @throws \Throwable
+     */
+    public function exposeGetHTMLStoredDOM(string $html, bool $slim = true): array
+    {
+        $prev = $this->htmlSlimDOM;
+        $this->htmlSlimDOM = $slim;
+        try {
+            return $this->getHTMLDOM($html);
+        } finally {
+            $this->htmlSlimDOM = $prev;
+        }
+    }
+
+    /**
+     * @phpstan-param array<int, THTMLDOMNode> $dom
+     * @phpstan-return ?THTMLAttrib
+     */
+    public function exposeGetHTMLDOMNode(array $dom, int $key): ?array
+    {
+        return $this->getHTMLDOMNode($dom, $key);
+    }
+
+    /**
+     * Returns the DOM with every node in its full form.
+     *
+     * @phpstan-param array<int, THTMLDOMNode> $dom
+     * @phpstan-return array<int, THTMLAttrib>
+     */
+    private function expandExposedHTMLDOM(array $dom): array
+    {
+        $full = [];
+        foreach (\array_keys($dom) as $key) {
+            $node = $this->getHTMLDOMNode($dom, $key);
+            if ($node !== null) {
+                $full[$key] = $node;
+            }
+        }
+
+        return $full;
     }
 
     /**
@@ -210,13 +254,17 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeProcessHTMLDOMText(array &$dom, string $element, int $key, int $parent): void
     {
-        $this->processHTMLDOMText($dom, $element, $key, $parent);
+        $nodes = $dom;
+        $this->processHTMLDOMText($nodes, $element, $key, $parent);
+        $dom = $this->expandExposedHTMLDOM($nodes);
     }
 
     /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeInheritHTMLProperties(array &$dom, int $key, int $parent): void
     {
-        $this->inheritHTMLProperties($dom, $key, $parent);
+        $nodes = $dom;
+        $this->inheritHTMLProperties($nodes, $key, $parent);
+        $dom = $this->expandExposedHTMLDOM($nodes);
     }
 
     /**
@@ -230,7 +278,9 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         int $parent,
         string $cssarray,
     ): void {
-        $this->processHTMLDOMClosingTag($dom, $elm, $key, $parent, $cssarray);
+        $nodes = $dom;
+        $this->processHTMLDOMClosingTag($nodes, $elm, $key, $parent, $cssarray);
+        $dom = $this->expandExposedHTMLDOM($nodes);
     }
 
     /**
@@ -247,7 +297,9 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         int $key,
         bool $thead,
     ): void {
-        $this->processHTMLDOMOpeningTag($dom, $css, $level, $element, $key, $thead);
+        $nodes = $dom;
+        $this->processHTMLDOMOpeningTag($nodes, $css, $level, $element, $key, $thead);
+        $dom = $this->expandExposedHTMLDOM($nodes);
     }
 
     /**
@@ -278,6 +330,34 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         $this->testhrc['dom'] = $dom;
 
         return $this->parseHTMLText($this->testhrc, $key, $tpx, $tpy, $tpw, $tph);
+    }
+
+    /**
+     * Renders a text node of the given DOM and returns the output and the DOM of the
+     * render context.
+     *
+     * @phpstan-param array<int, THTMLDOMNode> $dom
+     * @phpstan-return array{out: string, dom: array<int, THTMLDOMNode>}
+     * @throws \Throwable
+     */
+    public function exposeParseHTMLTextInDom(
+        array $dom,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): array {
+        $this->testhrc['dom'] = $dom;
+        $out = $this->parseHTMLText($this->testhrc, $key, $tpx, $tpy, $tpw, $tph);
+
+        return ['out' => $out, 'dom' => $this->testhrc['dom']];
+    }
+
+    /** @return array<string> */
+    public function exposeGetHTMLInheritedProperties(): array
+    {
+        return self::HTML_INHERITED_PROPERTIES;
     }
 
     /** @throws \Throwable */
@@ -475,7 +555,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     /** @throws \Throwable */
     public function exposeGetHTMLTcpdfPageBreakMode(string $html): ?string
     {
-        foreach ($this->getHTMLDOM($html) as $elm) {
+        foreach ($this->expandExposedHTMLDOM($this->getHTMLDOM($html)) as $elm) {
             if ($elm['tag'] && $elm['opening'] && $elm['value'] === 'tcpdf') {
                 return $this->getHTMLTcpdfPageBreakMode($elm);
             }
@@ -509,7 +589,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /**
-     * @phpstan-param array<int, THTMLAttrib> $dom
+     * @phpstan-param array<int, THTMLDOMNode> $dom
      * @throws \Throwable
      */
     public function exposeGetHTMLListMarkerTypeWithDom(array $dom, int $key, bool $ordered): string
@@ -668,7 +748,9 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
      */
     public function exposeHasHTMLBooleanAttribute(array &$dom, int $key, string $name): bool
     {
-        return $this->hasHTMLBooleanAttribute($dom, $key, $name);
+        $nodes = $dom;
+
+        return $this->hasHTMLBooleanAttribute($nodes, $key, $name);
     }
 
     /**
@@ -676,7 +758,9 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
      */
     public function exposeGetHTMLEffectiveLang(array &$dom, int $key): string
     {
-        return $this->getHTMLEffectiveLang($dom, $key);
+        $nodes = $dom;
+
+        return $this->getHTMLEffectiveLang($nodes, $key);
     }
 
     /**
@@ -684,7 +768,9 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
      */
     public function exposeMatchesHTMLPseudoLang(array &$dom, int $key, string $arg): bool
     {
-        return $this->matchesHTMLPseudoLang($dom, $key, $arg);
+        $nodes = $dom;
+
+        return $this->matchesHTMLPseudoLang($nodes, $key, $arg);
     }
 
     /**
@@ -694,7 +780,9 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
      */
     public function exposeGetHTMLSiblingKeysByTagName(array &$dom, array $siblings, int $key): array
     {
-        return $this->getHTMLSiblingKeysByTagName($dom, $siblings, $key);
+        $nodes = $dom;
+
+        return $this->getHTMLSiblingKeysByTagName($nodes, $siblings, $key);
     }
 
     /**
@@ -703,7 +791,9 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
      */
     public function exposeMatchesHTMLPseudoLastOfType(array &$dom, array $siblings, int $key): bool
     {
-        return $this->matchesHTMLPseudoLastOfType($dom, $siblings, $key);
+        $nodes = $dom;
+
+        return $this->matchesHTMLPseudoLastOfType($nodes, $siblings, $key);
     }
 
     /**
@@ -719,7 +809,9 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
      */
     public function exposeMatchesHTMLPseudoEmpty(array &$dom, int $key): bool
     {
-        return $this->matchesHTMLPseudoEmpty($dom, $key);
+        $nodes = $dom;
+
+        return $this->matchesHTMLPseudoEmpty($nodes, $key);
     }
 
     /**
@@ -731,7 +823,9 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         #[\SensitiveParameter]
         string $token,
     ): bool {
-        return $this->matchesHTMLSelectorAttribute($dom, $key, $token);
+        $nodes = $dom;
+
+        return $this->matchesHTMLSelectorAttribute($nodes, $key, $token);
     }
 
     /**
@@ -740,7 +834,9 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
      */
     public function exposeGetHTMLOpeningSiblingKeys(array &$dom, int $key): array
     {
-        return $this->getHTMLOpeningSiblingKeys($dom, $key);
+        $nodes = $dom;
+
+        return $this->getHTMLOpeningSiblingKeys($nodes, $key);
     }
 
     /** @throws \Throwable */
@@ -816,7 +912,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /**
-     * @phpstan-param array<int, THTMLAttrib> $dom
+     * @phpstan-param array<int, THTMLDOMNode> $dom
      * @throws \Throwable
      */
     public function exposeGetHTMLLineAdvanceWithDom(array $dom, int $key): float
@@ -1002,7 +1098,9 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         string $property,
         array $properties,
     ): bool {
-        return $this->isLastHTMLStyleDeclarationProperty($dom, $key, $property, $properties);
+        $nodes = $dom;
+
+        return $this->isLastHTMLStyleDeclarationProperty($nodes, $key, $property, $properties);
     }
 
     /**
@@ -1073,19 +1171,25 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
      */
     public function exposeParseHTMLStyleBorderSpacingProperty(array &$dom, int $key, int $parentkey): void
     {
-        $this->parseHTMLStyleBorderSpacingProperty($dom, $key, $parentkey);
+        $nodes = $dom;
+        $this->parseHTMLStyleBorderSpacingProperty($nodes, $key, $parentkey);
+        $dom = $this->expandExposedHTMLDOM($nodes);
     }
 
     /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeParseHTMLStylePageBreakInsideProperty(array &$dom, int $key): void
     {
-        $this->parseHTMLStylePageBreakInsideProperty($dom, $key);
+        $nodes = $dom;
+        $this->parseHTMLStylePageBreakInsideProperty($nodes, $key);
+        $dom = $this->expandExposedHTMLDOM($nodes);
     }
 
     /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeParseHTMLStyleBreakInsideAliasProperty(array &$dom, int $key): void
     {
-        $this->parseHTMLStyleBreakInsideAliasProperty($dom, $key);
+        $nodes = $dom;
+        $this->parseHTMLStyleBreakInsideAliasProperty($nodes, $key);
+        $dom = $this->expandExposedHTMLDOM($nodes);
     }
 
     /**
@@ -1094,61 +1198,81 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
      */
     public function exposeParseHTMLStyleBackgroundProperty(array &$dom, int $key, int $parentkey): void
     {
-        $this->parseHTMLStyleBackgroundProperty($dom, $key, $parentkey);
+        $nodes = $dom;
+        $this->parseHTMLStyleBackgroundProperty($nodes, $key, $parentkey);
+        $dom = $this->expandExposedHTMLDOM($nodes);
     }
 
     /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeParseHTMLStyleTableLayoutProperty(array &$dom, int $key, int $parentkey): void
     {
-        $this->parseHTMLStyleTableLayoutProperty($dom, $key, $parentkey);
+        $nodes = $dom;
+        $this->parseHTMLStyleTableLayoutProperty($nodes, $key, $parentkey);
+        $dom = $this->expandExposedHTMLDOM($nodes);
     }
 
     /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeParseHTMLStyleCaptionSideProperty(array &$dom, int $key, int $parentkey): void
     {
-        $this->parseHTMLStyleCaptionSideProperty($dom, $key, $parentkey);
+        $nodes = $dom;
+        $this->parseHTMLStyleCaptionSideProperty($nodes, $key, $parentkey);
+        $dom = $this->expandExposedHTMLDOM($nodes);
     }
 
     /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeParseHTMLStyleEmptyCellsProperty(array &$dom, int $key, int $parentkey): void
     {
-        $this->parseHTMLStyleEmptyCellsProperty($dom, $key, $parentkey);
+        $nodes = $dom;
+        $this->parseHTMLStyleEmptyCellsProperty($nodes, $key, $parentkey);
+        $dom = $this->expandExposedHTMLDOM($nodes);
     }
 
     /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeParseHTMLStyleFontShorthandProperty(array &$dom, int $key): void
     {
-        $this->parseHTMLStyleFontShorthandProperty($dom, $key);
+        $nodes = $dom;
+        $this->parseHTMLStyleFontShorthandProperty($nodes, $key);
+        $dom = $this->expandExposedHTMLDOM($nodes);
     }
 
     /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeParseHTMLStyleFontFamilyProperty(array &$dom, int $key, int $parentkey): void
     {
-        $this->parseHTMLStyleFontFamilyProperty($dom, $key, $parentkey);
+        $nodes = $dom;
+        $this->parseHTMLStyleFontFamilyProperty($nodes, $key, $parentkey);
+        $dom = $this->expandExposedHTMLDOM($nodes);
     }
 
     /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeParseHTMLStyleListStyleShorthandProperty(array &$dom, int $key, int $parentkey): void
     {
-        $this->parseHTMLStyleListStyleShorthandProperty($dom, $key, $parentkey);
+        $nodes = $dom;
+        $this->parseHTMLStyleListStyleShorthandProperty($nodes, $key, $parentkey);
+        $dom = $this->expandExposedHTMLDOM($nodes);
     }
 
     /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeParseHTMLStyleListStyleTypeProperty(array &$dom, int $key, int $parentkey): void
     {
-        $this->parseHTMLStyleListStyleTypeProperty($dom, $key, $parentkey);
+        $nodes = $dom;
+        $this->parseHTMLStyleListStyleTypeProperty($nodes, $key, $parentkey);
+        $dom = $this->expandExposedHTMLDOM($nodes);
     }
 
     /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeParseHTMLStyleListStylePositionProperty(array &$dom, int $key, int $parentkey): void
     {
-        $this->parseHTMLStyleListStylePositionProperty($dom, $key, $parentkey);
+        $nodes = $dom;
+        $this->parseHTMLStyleListStylePositionProperty($nodes, $key, $parentkey);
+        $dom = $this->expandExposedHTMLDOM($nodes);
     }
 
     /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeParseHTMLStyleListStyleImageProperty(array &$dom, int $key, int $parentkey): void
     {
-        $this->parseHTMLStyleListStyleImageProperty($dom, $key, $parentkey);
+        $nodes = $dom;
+        $this->parseHTMLStyleListStyleImageProperty($nodes, $key, $parentkey);
+        $dom = $this->expandExposedHTMLDOM($nodes);
     }
 
     /**
@@ -1157,7 +1281,9 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
      */
     public function exposeParseHTMLStyleAttributesWithDom(array &$dom, int $key, int $parentkey): void
     {
-        $this->parseHTMLStyleAttributes($dom, $key, $parentkey);
+        $nodes = $dom;
+        $this->parseHTMLStyleAttributes($nodes, $key, $parentkey);
+        $dom = $this->expandExposedHTMLDOM($nodes);
     }
 
     /**
