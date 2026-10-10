@@ -163,6 +163,7 @@ Optional PHP extensions: `gd`, `zlib`.
 
 Feature-specific prerequisites:
 
+- The `gd` extension is needed only to import images that require a conversion (resizing, alpha channel extraction, and formats other than JPEG and PNG) and for raster (PNG) barcodes; without it those features throw an exception naming the extension.
 - Digital signatures, timestamps, and LTV require signing certificates and keys, plus any TSA or revocation endpoint the configuration references.
 - `make preflight` runs external validation tools when they are installed.
 

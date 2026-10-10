@@ -200,4 +200,4 @@ Reference issues where relevant: `fix: correct X (closes #42)`.
 
 ## Questions?
 
-For anything not covered here, open a [GitHub Discussion](https://github.com/tecnickcom/tc-lib-pdf/discussions) or contact the maintainer at [info@tecnick.com](mailto:info@tecnick.com).
+For anything not covered here, open a [GitHub Issue](https://github.com/tecnickcom/tc-lib-pdf/issues) or contact the maintainer at [info@tecnick.com](mailto:info@tecnick.com).
