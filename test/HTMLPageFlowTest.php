@@ -508,6 +508,24 @@ class HTMLPageFlowTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testRowsSpannedByATallCellStayWhenTheyFit(): void
+    {
+        $pdf = $this->getDocument();
+        $html =
+            '<table border="1" cellpadding="2"><tr><td rowspan="4">S1<br />S2<br />S3<br />S4<br />S5<br />S6'
+            . '<br />S7<br />S8</td><td>r1<br />a</td></tr><tr><td>r2<br />a</td></tr><tr><td>r3<br />a</td></tr>'
+            . '<tr><td>r4<br />a</td></tr></table>';
+
+        // The spanning cell is as tall as the four rows it covers: the rows fit below 245 mm.
+        $pdf->addHTMLCell($html, 15, 245, 180);
+
+        $pages = $this->getPageTexts($pdf);
+        $this->assertCount(1, $pages);
+        $this->assertContains('S8', $pages[0] ?? []);
+        $this->assertContains('r4', $pages[0] ?? []);
+    }
+
+    /** @throws \Throwable */
     public function testRowsSpannedByACellMoveTogether(): void
     {
         $pdf = $this->getDocument();

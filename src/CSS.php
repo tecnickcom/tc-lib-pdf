@@ -154,6 +154,12 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     protected const CSS_SPOT_PREFIX = 'spot(';
 
     /**
+     * Pattern of an embedded <style> element: attributes in group 1, content in group 2.
+     * The content runs to the first </style> and may contain '<'.
+     */
+    protected const CSS_STYLE_BLOCK_PATTERN = '/<style([^>]*?)>([^<]*+(?:<(?!\/style\b)[^<]*+)*+)<\/style>/is';
+
+    /**
      * Set the default CSS margin in user units.
      *
      * @param float $top    Top.
@@ -1199,11 +1205,12 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
 
         // extract style tags
         $matches = [];
-        $matchCount = \preg_match_all('/<style([^\>]*?)>([^\<]*?)<\/style>/is', $html, $matches);
+        $matchCount = \preg_match_all(self::CSS_STYLE_BLOCK_PATTERN, $html, $matches);
         if ($matchCount !== false && $matchCount > 0) {
             $cascadeCtx->setCurrentSourceType('embedded');
             $styleMediaDefs = $matches[1] ?? [];
-            $styleBodies = $matches[2] ?? [];
+            // SGML comment delimiters around the content are not part of the CSS
+            $styleBodies = \str_replace(['<!--', '-->'], '', $matches[2] ?? []);
             foreach ($styleMediaDefs as $key => $media) {
                 $type = [];
                 if (\preg_match('/media[\s]*=[\s]*"([^"]*)"/', $media, $type) === 1) {
