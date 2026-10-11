@@ -560,6 +560,165 @@ class HTMLPageFlowTest extends TestUtil
     }
 
     /**
+     * Returns a table of two columns with a bordered table of the given rows in its
+     * second cell.
+     */
+    private function getNestedTable(string $rows): string
+    {
+        return (
+            '<table cellpadding="2"><tr><td width="80">Left cell</td><td width="100">'
+            . '<table border="1" cellpadding="2">'
+            . $rows
+            . '</table></td></tr></table>'
+        );
+    }
+
+    /** @throws \Throwable */
+    public function testNestedTableBordersInASplitRowStayOnTheirPages(): void
+    {
+        $pdf = $this->getDocument();
+        $rows = '';
+        for ($idx = 1; $idx <= 80; ++$idx) {
+            $rows .= '<tr><td>r' . $idx . '</td><td>value</td></tr>';
+        }
+
+        $pdf->addHTMLCell($this->getNestedTable($rows), 15, 20, 180);
+
+        $pages = $this->getPageContents($pdf);
+        $this->assertCount(2, $pages);
+        $total = 0;
+        foreach ($pages as $content) {
+            $rowsOnPage = \substr_count($content, '(value) Tj');
+            $this->assertGreaterThan(0, $rowsOnPage);
+            // Two cell borders per row and the frame of the nested table.
+            $this->assertSame((2 * $rowsOnPage) + 1, \substr_count($content, " re\n"));
+            $total += $rowsOnPage;
+        }
+
+        $this->assertSame(80, $total);
+    }
+
+    /** @throws \Throwable */
+    public function testNestedTableSpanningCellInASplitRowContinuesOnEachPage(): void
+    {
+        $pdf = $this->getDocument();
+        $rows = '<tr><td rowspan="70">SPAN</td><td>r1</td></tr>';
+        for ($idx = 2; $idx <= 80; ++$idx) {
+            $rows .= '<tr>' . ($idx > 70 ? '<td>x</td>' : '') . '<td>r' . $idx . '</td></tr>';
+        }
+
+        $pdf->addHTMLCell($this->getNestedTable($rows), 15, 20, 180);
+
+        $pages = $this->getPageContents($pdf);
+        $this->assertCount(2, $pages);
+        $this->assertStringContainsString('(SPAN) Tj', $pages[0] ?? '');
+        $this->assertStringNotContainsString('(SPAN) Tj', $pages[1] ?? '');
+        $texts = $this->getPageTexts($pdf);
+        foreach ($pages as $idx => $content) {
+            $cells = \count(\array_filter(
+                $texts[$idx] ?? [],
+                static fn(string $text): bool => \preg_match('/^(r\d+|x)$/', $text) === 1,
+            ));
+            // The cell borders of the page and the frame.
+            $this->assertSame($cells + 1, \substr_count($content, " re\n"));
+            // Three sides of the part of the spanning cell, open at the break.
+            $this->assertSame(3, \substr_count($content, " l\n"));
+        }
+    }
+
+    /**
+     * Returns a bordered table with one row of words in the given element.
+     *
+     * @param non-negative-int $num Number of words.
+     */
+    private function getLargeTextRow(string $open, string $close, int $num = 600): string
+    {
+        return (
+            '<table border="1" cellpadding="2"><tr>'
+            . $open
+            . \implode(' ', \array_fill(0, $num, 'word'))
+            . $close
+            . '</tr></table>'
+        );
+    }
+
+    /**
+     * Returns the number of words written on each page.
+     *
+     * @return list<int>
+     */
+    private function getWordsPerPage(\Com\Tecnick\Pdf\Tcpdf $pdf): array
+    {
+        $out = [];
+        foreach ($this->getPageContents($pdf) as $content) {
+            $out[] = \substr_count($content, 'word');
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string, 2: non-negative-int, 3: float}>
+     */
+    public static function splitRowNearThePageBottomProvider(): array
+    {
+        $span = ['<td><span style="font-size:20pt">', '</span></td>', 600];
+
+        return [
+            'larger text at 280' => [...$span, 280.0],
+            'larger text at 288' => [...$span, 288.0],
+            'orphans 3 at 285' => ['<td style="orphans:3">', '</td>', 3000, 285.0],
+            'list item at 280' => ['<td><ul><li style="font-size:20pt">', '</li></ul></td>', 600, 280.0],
+        ];
+    }
+
+    /**
+     * @param non-negative-int $num Number of words.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('splitRowNearThePageBottomProvider')]
+    public function testSplitRowWithoutRoomForItsFirstLinesMovesToTheNextPage(
+        string $open,
+        string $close,
+        int $num,
+        float $posy,
+    ): void {
+        $pdf = $this->getDocument();
+
+        $pdf->addHTMLCell($this->getLargeTextRow($open, $close, $num), 15, $posy, 180);
+
+        $words = $this->getWordsPerPage($pdf);
+        $this->assertGreaterThan(2, \count($words));
+        $this->assertSame(0, $words[0] ?? -1);
+        $this->assertSame($num, \array_sum($words));
+    }
+
+    /** @throws \Throwable */
+    public function testSplitRowWithLargerTextAfterTheFirstWordStartsInPlace(): void
+    {
+        $pdf = $this->getDocument();
+
+        $pdf->addHTMLCell($this->getLargeTextRow('<td>a <span style="font-size:20pt">', '</span></td>'), 15, 280, 180);
+
+        $words = $this->getWordsPerPage($pdf);
+        $this->assertGreaterThan(2, \count($words));
+        $this->assertSame(600, \array_sum($words));
+    }
+
+    /** @throws \Throwable */
+    public function testGetHTMLCellWithAParagraphTallerThanThePageEnds(): void
+    {
+        $pdf = $this->getDocument();
+        $words = \implode(' ', \array_fill(0, 600, 'word'));
+
+        $out = $pdf->getHTMLCell('<p>x</p><p style="font-size:20pt">' . $words . '</p>', 15, 20, 180);
+
+        $this->assertSame(600, \substr_count($out, 'word'));
+        $this->assertCount(1, $this->getPageContents($pdf));
+    }
+
+    /**
      * Returns a table of four columns with the given number of rows.
      */
     private function getTableRows(int $num): string

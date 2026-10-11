@@ -8707,12 +8707,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Estimates the heights of a table row starting at the given TR node: 'height' of
      * all its cells, 'ownheight' of the cells that span one row only (both the current
-     * font height for a row without such cells), and 'spans' with the number of rows
-     * and the height of each cell that spans more rows.
+     * font height for a row without such cells), 'spans' with the number of rows
+     * and the height of each cell that spans more rows, and 'firstpart' of the
+     * largest cell padding and first lines kept together by the orphans property.
      *
      * @param THTMLRenderContext $hrc HTML render context.
      *
-     * @return array{height: float, ownheight: float, spans: list<array{rows: int, height: float}>}
+     * @return array{
+     *     height: float,
+     *     ownheight: float,
+     *     spans: list<array{rows: int, height: float}>,
+     *     firstpart: float,
+     * }
      *
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Throwable
@@ -8725,7 +8731,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $dom = &$hrc['dom'];
 
             if (!isset($dom[$trkey]) || !$dom[$trkey]['tag'] || !$dom[$trkey]['opening']) {
-                return ['height' => 0.0, 'ownheight' => 0.0, 'spans' => []];
+                return ['height' => 0.0, 'ownheight' => 0.0, 'spans' => [], 'firstpart' => 0.0];
             }
 
             // Fetch the parent-table per-column widths and cellpadding fallback to
@@ -8759,6 +8765,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             $rowheight = 0.0;
             $ownheight = 0.0;
+            $firstpart = 0.0;
             $spans = [];
             $depth = 0;
             $colidx = -1;
@@ -8829,6 +8836,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
 
                 $rowheight = \max($rowheight, $cellh);
+                $firstpart = \max(
+                    $firstpart,
+                    $padT + $padB + ($elmMargin['T'] ?? 0.0) + $this->estimateHTMLCellFirstLinesHeight($hrc, $key),
+                );
                 $rowspan = $this->getHTMLTableCellSpanAttr($elm, 'rowspan');
                 if ($rowspan > 1) {
                     $spans[] = ['rows' => $rowspan, 'height' => $cellh];
@@ -8847,10 +8858,40 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $ownheight = $fontHeight;
             }
 
-            return ['height' => $rowheight, 'ownheight' => $ownheight, 'spans' => $spans];
+            return ['height' => $rowheight, 'ownheight' => $ownheight, 'spans' => $spans, 'firstpart' => $firstpart];
         } finally {
             $this->restoreHTMLCallerFontState($callerfont);
         }
+    }
+
+    /**
+     * Returns the height of the first lines of a TD/TH cell that the orphans property
+     * keeps together: the line advance of the first text of the cell times its
+     * orphans value, or 0 when the cell has no text.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Throwable
+     */
+    protected function estimateHTMLCellFirstLinesHeight(array &$hrc, int $cellkey): float
+    {
+        $endkey = $this->findHTMLClosingTagIndex($hrc['dom'], $cellkey);
+        for ($key = $cellkey + 1; $key < $endkey; ++$key) {
+            $node = $hrc['dom'][$key] ?? null;
+            if (!\is_array($node) || $node['tag'] || \trim($node['value']) === '') {
+                continue;
+            }
+
+            $elm = $this->getHTMLDOMNode($hrc['dom'], $key);
+            if ($elm === null || \trim($this->normalizeHTMLText($hrc, $elm['value'], $key)) === '') {
+                continue;
+            }
+
+            return \max(1, (int) $elm['orphans']) * $this->getHTMLLineAdvance($hrc, $key);
+        }
+
+        return 0.0;
     }
 
     /**
@@ -9519,6 +9560,32 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         return \max(0.0, $remaining);
+    }
+
+    /**
+     * Returns the ordinate of the top of the current flow area: the content top of
+     * the current part of a cell of a split table row, or the top of the region.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     *
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     */
+    protected function getHTMLFlowTop(array $hrc): float
+    {
+        $regiontop = $this->page->getRegion()['RY'];
+        if (!$this->isHTMLFragmentingCell($hrc)) {
+            return $regiontop;
+        }
+
+        $cellidx = \array_key_last($hrc['bcellctx']);
+        $cell = $cellidx === null ? null : $hrc['bcellctx'][$cellidx] ?? null;
+        $frag = $hrc['tablestack'][$this->getHTMLFragmentingTableIndex($hrc)]['frag'] ?? null;
+        $segment = $cell === null ? null : $frag['segments'][$cell['segindex'] ?? 0] ?? null;
+        if ($cell === null || $segment === null) {
+            return $regiontop;
+        }
+
+        return $segment['top'] + $cell['padding']['T'];
     }
 
     /**
@@ -10213,7 +10280,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $inner = $this->flushOpenBlockBuffers($hrc, $tpy, $celldepth);
         $numtables = \count($hrc['tablestack']);
         for ($tidx = $fragidx + 1; $tidx < $numtables; ++$tidx) {
-            $inner .= $this->renderHTMLTableFrame($hrc, $tidx, $tpy);
+            $inner .= $this->renderHTMLOpenTablePart($hrc, $tidx) . $this->renderHTMLTableFrame($hrc, $tidx, $tpy);
         }
 
         $segbuffers = $cell['segbuffers'] ?? [];
@@ -10269,6 +10336,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $table['originy'] = $tpy;
             $table['captiontopy'] = $tpy;
             $table['rowtop'] = $tpy + $table['cellspacingv'];
+            foreach ($table['rowspans'] as $sidx => $span) {
+                $span['cellx'] += $dx;
+                $span['rowtop'] = $table['rowtop'];
+                $span['usedheight'] = 0.0;
+                $span['contenth'] = 0.0;
+                $table['rowspans'][$sidx] = $span;
+            }
+
             $hrc['tablestack'][$tidx] = $table;
         }
 
@@ -10558,6 +10633,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param float $tpy Vertical cursor at the bottom of the last rendered row.
      *
      * @return string PDF code.
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
      */
     protected function renderHTMLOpenTableFramesBeforeBreak(array &$hrc, float $tpy): string
     {
@@ -10565,46 +10642,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        $out = '';
         // The rows of the outermost table are already on the page; the rows of a
         // nested table are still in the buffer of the enclosing cell, so its cell
         // borders are kept for its closing tag.
-        $first = $hrc['tablestack'][0] ?? null;
-        if ($first !== null) {
-            // The cells spanning rows that continue on the next page are painted down
-            // to the last row of this page, without their bottom edge.
-            $parts = '';
-            $partborders = '';
-            $partbottom = $first['rowtop'] - $first['cellspacingv'];
-            foreach ($first['rowspans'] as $sidx => $cell) {
-                $height = \max(0.0, $partbottom - $cell['rowtop']);
-                $parts .= $this->renderHTMLTableCell(
-                    $cell['cellx'],
-                    $cell['rowtop'],
-                    $cell['cellw'],
-                    $height,
-                    $height,
-                    'top',
-                    [],
-                    $cell['fillstyle'],
-                    $cell['buffer'],
-                );
-                $partborders .= $this->renderHTMLTableCellBorders(
-                    $cell['cellx'],
-                    $cell['rowtop'],
-                    $cell['cellw'],
-                    $height,
-                    $this->sliceHTMLCellBorderStyles($cell['bstyles'], $cell['continued'] ?? false, true),
-                );
-                $cell['buffer'] = '';
-                $cell['continued'] = true;
-                $first['rowspans'][$sidx] = $cell;
-            }
-
-            $out .= $parts . ($first['borderbuf'] ?? '') . $partborders;
-            $first['borderbuf'] = '';
-            $hrc['tablestack'][0] = $first;
-        }
+        $out = $this->renderHTMLOpenTablePart($hrc, 0);
 
         foreach ($hrc['tablestack'] as $table) {
             $domkey = $table['domkey'];
@@ -10637,6 +10678,59 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 '',
             );
         }
+
+        return $out;
+    }
+
+    /**
+     * Returns the PDF code of the part of an open table on the page or region left
+     * by a break: the cells spanning rows that continue after it, down to the last
+     * row of the part and without their bottom edge, after the buffered cell borders.
+     * The spanning cells continue with an empty buffer and no top edge.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int $tidx Index of the table in the table stack.
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     */
+    protected function renderHTMLOpenTablePart(array &$hrc, int $tidx): string
+    {
+        $table = $hrc['tablestack'][$tidx] ?? null;
+        if ($table === null) {
+            return '';
+        }
+
+        $parts = '';
+        $partborders = '';
+        $partbottom = $table['rowtop'] - $table['cellspacingv'];
+        foreach ($table['rowspans'] as $sidx => $cell) {
+            $height = \max(0.0, $partbottom - $cell['rowtop']);
+            $parts .= $this->renderHTMLTableCell(
+                $cell['cellx'],
+                $cell['rowtop'],
+                $cell['cellw'],
+                $height,
+                $height,
+                'top',
+                [],
+                $cell['fillstyle'],
+                $cell['buffer'],
+            );
+            $partborders .= $this->renderHTMLTableCellBorders(
+                $cell['cellx'],
+                $cell['rowtop'],
+                $cell['cellw'],
+                $height,
+                $this->sliceHTMLCellBorderStyles($cell['bstyles'], $cell['continued'] ?? false, true),
+            );
+            $cell['buffer'] = '';
+            $cell['continued'] = true;
+            $table['rowspans'][$sidx] = $cell;
+        }
+
+        $out = $parts . ($table['borderbuf'] ?? '') . $partborders;
+        $table['borderbuf'] = '';
+        $hrc['tablestack'][$tidx] = $table;
 
         return $out;
     }
@@ -17993,7 +18087,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             $theadhtml = $tabletheadmap[$parent];
                         }
 
-                        $requiredh = $this->estimateHTMLTableRowHeight($hrc, $key);
+                        $rowcells = $this->estimateHTMLTableRowCells($hrc, $key);
+                        $requiredh = $rowcells['height'];
                         // The rows covered by a cell spanning them move together when
                         // they fit an empty region.
                         $grouph = $this->estimateHTMLTableRowGroupHeight($hrc, $key);
@@ -18011,7 +18106,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $regiontop = $region['RY'];
                         $remaining = $this->getHTMLRemainingHeight($hrc, $tpy);
                         // A row taller than an empty region is split over the pages:
-                        // it starts here unless too little room is left for its first line.
+                        // it starts here unless too little room is left for its first
+                        // lines, as kept together by the orphans property.
                         $fragmentRow =
                             !$this->isHTMLFragmentingCell($hrc)
                             && $requiredh
@@ -18025,7 +18121,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             && $requiredh > ($remaining + self::WIDTH_TOLERANCE)
                             && $tpy > ($regiontop + self::WIDTH_TOLERANCE)
                             && !$this->isHTMLFragmentingCell($hrc)
-                            && (!$fragmentRow || $remaining < (2.0 * $this->getHTMLLineAdvance($hrc, $key)));
+                            && (
+                                !$fragmentRow
+                                || $remaining < \max(
+                                    2.0 * $this->getHTMLLineAdvance($hrc, $key),
+                                    $rowcells['firstpart'],
+                                )
+                            );
 
                         if ($willBreak && $hrc['blockbuf'] !== []) {
                             $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
@@ -19184,8 +19286,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return null;
         }
 
-        $regionMV = $this->page->getRegion();
-        $regiontopMV = $regionMV['RY'];
         $remainingMV = $this->getHTMLRemainingHeight($hrc, $tpy);
         $maxFitLines = (int) \floor(($remainingMV + self::WIDTH_TOLERANCE) / $lineAdvance);
         if ($maxFitLines < 1) {
@@ -19222,7 +19322,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // there is room above it in this region (a mid-region break) or when the
         // page offers a further region to flow into: the lines that fit render
         // in this band and the rest break into the next one.
-        $atRegionTopMV = $tpy <= ($regiontopMV + self::WIDTH_TOLERANCE);
+        $atRegionTopMV = $tpy <= ($this->getHTMLFlowTop($hrc) + self::WIDTH_TOLERANCE);
         $canSplitAtTopMV = $atRegionTopMV && $this->htmlCanAdvanceRegion();
         if ($probeCount <= $maxFitLines || $atRegionTopMV && !$canSplitAtTopMV) {
             return null;
@@ -19249,6 +19349,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     }
                 }
 
+                $oldpid = (int) $this->page->getPageId();
+                $oldregion = (int) $this->page->getPage()['currentRegion'];
+                $oldtpy = $tpy;
                 $forceH = $this->getHTMLRemainingHeight($hrc, $tpy) + $lineAdvance + 1.0;
                 $brk = $this->breakHTMLIfNeeded($hrc, $forceH, $tpx, $tpy, $tpw, $tph);
 
@@ -19260,9 +19363,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
                 }
 
-                return $breakoutPrefix
-                . $brk
-                . $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+                if (
+                    (int) $this->page->getPageId() !== $oldpid
+                    || (int) $this->page->getPage()['currentRegion'] !== $oldregion
+                    || \abs($tpy - $oldtpy) > self::WIDTH_TOLERANCE
+                ) {
+                    return $breakoutPrefix
+                    . $brk
+                    . $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+                }
+
+                // The break did not move the paragraph: the lines that fit stay here.
+                $breakoutPrefix .= $brk;
+                $fitLines = $maxFitLines;
             }
         }
 
@@ -20005,12 +20118,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        $region = $this->page->getRegion();
-        $regiontop = $region['RY'];
         $remaining = $this->getHTMLRemainingHeight($hrc, $tpy);
         $willBreak =
             $lineAdvance > ($remaining + self::WIDTH_TOLERANCE)
-            && $tpy > ($regiontop + self::WIDTH_TOLERANCE)
+            && $tpy > ($this->getHTMLFlowTop($hrc) + self::WIDTH_TOLERANCE)
             && $this->htmlCanAdvanceRegion();
 
         if ($willBreak && $hrc['blockbuf'] !== [] && $appendFragment !== null) {
