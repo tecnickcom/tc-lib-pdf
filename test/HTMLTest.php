@@ -8957,7 +8957,7 @@ class HTMLTest extends TestUtil
 
         $ulKey = -1;
         foreach ($dom as $key => $node) {
-            if (empty($node['opening']) || $node['value'] !== 'ul') {
+            if (!$node['opening'] || $node['value'] !== 'ul') {
                 continue;
             }
 
@@ -8985,7 +8985,7 @@ class HTMLTest extends TestUtil
 
         $markers = [];
         foreach ($dom as $key => $node) {
-            if (empty($node['opening']) || $node['value'] !== 'ul') {
+            if (!$node['opening'] || $node['value'] !== 'ul') {
                 continue;
             }
 

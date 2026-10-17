@@ -18983,7 +18983,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $pid = (int) $this->page->getPageId();
             // The closure appends to the same page bucket on every call, so the
             // accumulated value must be preserved.
-            // @mago-expect analysis:redundant-null-coalesce
             $outbypage[$pid] = ($outbypage[$pid] ?? '') . $fragment;
         };
 
