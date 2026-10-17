@@ -23721,4 +23721,287 @@ class HTMLTest extends TestUtil
         );
         $this->assertSame(' office menu', $actual);
     }
+
+    /** 4x4 red PNG image as a data URI. */
+    private const LINK_TEST_PNG =
+        'data:image/png;base64,'
+            . 'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAFElEQVQI12M8oaHBAANMDEgANwcAOFQBIAzSVlcAAAAASUVORK5CYII=';
+
+    /**
+     * Returns the link annotations as [target, x, y, w, h] rows.
+     *
+     * @return list<array{0: string, 1: float, 2: float, 3: float, 4: float}>
+     */
+    private function getLinkAnnotations(\Com\Tecnick\Pdf\Tcpdf $obj): array
+    {
+        $links = [];
+        foreach ($this->getObjectArrayProperty($obj, 'annotation') as $entry) {
+            if (
+                !\is_array($entry['opt'] ?? null)
+                || ($entry['opt']['subtype'] ?? '') !== 'Link'
+                || !\is_string($entry['txt'] ?? null)
+            ) {
+                continue;
+            }
+
+            $links[] = [
+                $entry['txt'],
+                \floatval($entry['x'] ?? 0),
+                \floatval($entry['y'] ?? 0),
+                \floatval($entry['w'] ?? 0),
+                \floatval($entry['h'] ?? 0),
+            ];
+        }
+
+        return $links;
+    }
+
+    /**
+     * An image inside a link is covered by a link annotation with the image area.
+     *
+     * @throws \Throwable
+     */
+    public function testHTMLCellLinkedImageGetsLinkAnnotation(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->addHTMLCell(
+            '<p><a href="https://example.com/text">text link</a></p>'
+            . '<p><a href="https://example.com/image"><img src="'
+            . self::LINK_TEST_PNG
+            . '" style="width:20mm;height:10mm" /></a></p>',
+            15,
+            15,
+            180,
+        );
+
+        $links = $this->getLinkAnnotations($obj);
+        $this->assertCount(2, $links);
+        $this->assertSame('https://example.com/text', $links[0][0] ?? '');
+        $this->assertSame('https://example.com/image', $links[1][0] ?? '');
+        $this->assertEqualsWithDelta(15.0, $links[1][1] ?? 0.0, 0.001);
+        $this->assertEqualsWithDelta(20.0, $links[1][3] ?? 0.0, 0.001);
+        $this->assertEqualsWithDelta(10.0, $links[1][4] ?? 0.0, 0.001);
+        $this->assertGreaterThan(($links[0][2] ?? 0.0) + ($links[0][4] ?? 0.0) - 0.001, $links[1][2] ?? 0.0);
+        $this->assertCount(2, $obj->page->getPage()['annotrefs']);
+    }
+
+    /**
+     * A named destination link on an image keeps its target.
+     *
+     * @throws \Throwable
+     */
+    public function testHTMLCellLinkedImageKeepsNamedDestination(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->addHTMLCell(
+            '<p>before <a href="#dest"><img src="' . self::LINK_TEST_PNG . '" width="40" height="40" /></a> after</p>',
+            15,
+            15,
+            180,
+        );
+
+        $links = $this->getLinkAnnotations($obj);
+        $this->assertCount(1, $links);
+        $this->assertSame('#dest', $links[0][0] ?? '');
+        $this->assertEqualsWithDelta($links[0][3] ?? 0.0, $links[0][4] ?? -1.0, 0.001);
+    }
+
+    /**
+     * Text and image runs inside one link get one annotation each.
+     *
+     * @throws \Throwable
+     */
+    public function testHTMLCellLinkWithTextAndImageGetsOneAnnotationPerRun(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->addHTMLCell(
+            '<p><a href="https://example.com/x">go <img src="'
+            . self::LINK_TEST_PNG
+            . '" width="30" height="30" /> here</a></p>',
+            15,
+            15,
+            180,
+        );
+
+        $links = $this->getLinkAnnotations($obj);
+        $this->assertCount(3, $links);
+        foreach ($links as $link) {
+            $this->assertSame('https://example.com/x', $link[0]);
+        }
+
+        $this->assertLessThan($links[1][1] ?? 0.0, $links[0][1] ?? 0.0);
+        $this->assertLessThan($links[2][1] ?? 0.0, $links[1][1] ?? 0.0);
+    }
+
+    /**
+     * Images outside a link, or inside an anchor without href, get no annotation.
+     *
+     * @throws \Throwable
+     */
+    public function testHTMLCellImageWithoutLinkGetsNoAnnotation(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->addHTMLCell(
+            '<p><img src="'
+            . self::LINK_TEST_PNG
+            . '" width="30" height="30" /></p>'
+            . '<p><a name="anchor"><img src="'
+            . self::LINK_TEST_PNG
+            . '" width="30" height="30" /></a></p>',
+            15,
+            15,
+            180,
+        );
+
+        $this->assertSame([], $this->getLinkAnnotations($obj));
+        $this->assertSame([], $obj->page->getPage()['annotrefs']);
+    }
+
+    /**
+     * Returns the key of the font selected before the given text is drawn.
+     *
+     * @throws \Throwable
+     */
+    private function getHTMLTextFontKey(\Com\Tecnick\Pdf\Tcpdf $obj, string $text): string
+    {
+        $content = \implode('', $obj->page->getPage()['content']);
+        $textpos = \strpos($content, '(' . $text . ') Tj');
+        $this->assertNotFalse($textpos, 'Text not found: ' . $text);
+        $matches = [];
+        \preg_match_all('/\/F(\d+) [0-9.]+ Tf/', \substr($content, 0, (int) $textpos), $matches);
+        $indexes = $matches[1] ?? [];
+        $this->assertNotSame([], $indexes);
+        $index = (int) \end($indexes);
+        foreach ($obj->font->getFonts() as $key => $font) {
+            if ($font['i'] === $index) {
+                return $key;
+            }
+        }
+
+        $this->fail('Font not found: /F' . $index);
+    }
+
+    /**
+     * Returns the key of the font of the given text in a cell rendered from the HTML.
+     *
+     * @throws \Throwable
+     */
+    private function getHTMLCellTextFontKey(string $html, string $text): string
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $obj->addHTMLCell($html, 15, 15, 180);
+
+        return $this->getHTMLTextFontKey($obj, $text);
+    }
+
+    /**
+     * Font family lists where no family is available use the base font of the cell.
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function unknownFontFamilyProvider(): array
+    {
+        return [
+            'style attribute' => ['<p style="font-family:unknownfont">TEXTX</p>'],
+            'family list' => ['<p style="font-family:unknownfont, otherunknownfont">TEXTX</p>'],
+            'style rule' => ['<style>p.x { font-family: unknownfont; }</style><p class="x">TEXTX</p>'],
+            'font face' => ['<p><font face="unknownfont">TEXTX</font></p>'],
+            'font-size-adjust' => ['<p style="font-family:unknownfont; font-size-adjust:0.5">TEXTX</p>'],
+            'inside a parent family' => [
+                '<div style="font-family:courier"><p style="font-family:unknownfont">TEXTX</p></div>',
+            ],
+            'table cell' => [
+                '<table border="1"><tr><td style="font-family:unknownfont">TEXTX</td><td>b</td></tr></table>',
+            ],
+        ];
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    #[DataProvider('unknownFontFamilyProvider')]
+    public function testHTMLUnknownFontFamilyUsesTheBaseFont(string $html): void
+    {
+        $this->assertSame('helvetica', $this->getHTMLCellTextFontKey($html, 'TEXTX'));
+    }
+
+    /**
+     * The first available family of a list is used.
+     *
+     * @throws \Throwable
+     */
+    public function testHTMLFontFamilyListUsesTheFirstAvailableFamily(): void
+    {
+        $this->assertSame('courier', $this->getHTMLCellTextFontKey(
+            '<p style="font-family:unknownfont, courier, times">TEXTX</p>',
+            'TEXTX',
+        ));
+    }
+
+    /**
+     * Character references in a style attribute are decoded before the declarations are parsed.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function styleAttributeCharacterReferenceProvider(): array
+    {
+        return [
+            'decimal apostrophe' => ['<p style="font-family:&#39;courier&#39;">TEXTX</p>', 'courier'],
+            'named quote' => ['<p style="font-family:&quot;courier&quot;">TEXTX</p>', 'courier'],
+            'hexadecimal apostrophe' => ['<p style="font-family:&#x27;times&#x27;; color:red">TEXTX</p>', 'times'],
+        ];
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    #[DataProvider('styleAttributeCharacterReferenceProvider')]
+    public function testHTMLStyleAttributeCharacterReferencesAreDecoded(string $html, string $fontkey): void
+    {
+        $this->assertSame($fontkey, $this->getHTMLCellTextFontKey($html, 'TEXTX'));
+    }
+
+    /**
+     * A numeric character reference in a style attribute color is decoded.
+     *
+     * @throws \Throwable
+     */
+    public function testHTMLStyleAttributeColorCharacterReferenceIsDecoded(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $obj->addHTMLCell('<p style="font-family:&#39;times&#39;; color:&#35;ff0000">TEXTX</p>', 15, 15, 180);
+
+        $content = \implode('', $obj->page->getPage()['content']);
+        $this->assertStringContainsString('1.000000 0.000000 0.000000 rg', $content);
+        $this->assertSame('times', $this->getHTMLTextFontKey($obj, 'TEXTX'));
+    }
+
+    /**
+     * A table cell in an unknown font family is measured and drawn in the base font.
+     *
+     * @throws \Throwable
+     */
+    public function testHTMLTableCellInAnUnknownFontFamilyMatchesTheBaseFont(): void
+    {
+        $table = '<table border="1"><tr><td%s>averyveryveryverylongunbreakableword</td><td>b c d</td></tr></table>';
+        $contents = [];
+        foreach (['', ' style="font-family:unknownfont"'] as $style) {
+            $obj = $this->getTestObject();
+            $this->initFontAndPage($obj);
+            $obj->addHTMLCell(\sprintf($table, $style), 15, 15, 60);
+            $contents[] = \implode('', $obj->page->getPage()['content']);
+        }
+
+        $this->assertSame($contents[0], $contents[1] ?? '');
+    }
 }

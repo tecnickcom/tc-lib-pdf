@@ -40,7 +40,7 @@
     "tecnickcom/tc-lib-pdf-image": "^3.15",
     "tecnickcom/tc-lib-pdf-font": "^4.6",
     "tecnickcom/tc-lib-file": "^3.9",
-    "tecnickcom/tc-lib-pdf-encrypt": "^2.11",
+    "tecnickcom/tc-lib-pdf-encrypt": "^2.12",
     "tecnickcom/tc-lib-pdf-sign": "^2.0",
     "tecnickcom/tc-lib-unicode-data": "^3.1",
     "tecnickcom/tc-lib-unicode": "^3.2",

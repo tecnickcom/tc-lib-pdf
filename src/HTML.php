@@ -2412,7 +2412,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
 
                 // An unmatched value group is null, so an empty quoted value stays empty.
-                $dom[$key]['attribute'][$name] = $attrm[2] ?? $attrm[3] ?? $attrm[4] ?? 'true';
+                $value = $attrm[2] ?? $attrm[3] ?? $attrm[4] ?? 'true';
+                if ($name === 'style') {
+                    // Character references are decoded before the declarations are parsed.
+                    $value = \html_entity_decode($value, ENT_QUOTES, $this->encoding);
+                }
+
+                $dom[$key]['attribute'][$name] = $value;
             }
         }
 
@@ -10760,6 +10766,30 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Add a link annotation for the current active HTML link over the given area.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     *
+     * @throws \Com\Tecnick\File\Exception
+     * @throws \Com\Tecnick\Pdf\Image\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws PdfException
+     */
+    protected function addHTMLLinkAnnotation(array &$hrc, float $posx, float $posy, float $width, float $height): void
+    {
+        $link = $this->getCurrentHTMLLink($hrc);
+        if ($link === '' || $width <= 0.0 || $height <= 0.0) {
+            return;
+        }
+
+        $lnkid = $this->setLink($posx, $posy, $width, $height, $link);
+        $this->page->addAnnotRef($lnkid, $this->page->getPageID());
+        if ($this->isTaggedMode() && $lnkid > 0) {
+            $this->registerPdfUaAnnotation($lnkid, $this->page->getPageID());
+        }
+    }
+
+    /**
      * Get the current active HTML link.
      *
      * @param THTMLRenderContext $hrc HTML render context.
@@ -11361,6 +11391,22 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Append the base font to a CSS font family list, as the family used when no
+     * listed family is available.
+     *
+     * @param string $fontname CSS font family list.
+     * @param string $basefont Base font family.
+     */
+    protected function appendHTMLBaseFontFamily(string $fontname, string $basefont): string
+    {
+        if ($basefont === '' || $fontname === '' || $fontname === $basefont) {
+            return $fontname;
+        }
+
+        return $fontname . ',' . $basefont;
+    }
+
+    /**
      * Return a stable base font family name for HTML rendering.
      *
      * @throws \Com\Tecnick\Pdf\Font\Exception
@@ -11526,13 +11572,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $curfont = $this->font->getCurrentFont();
-        $fontname = $elm['fontname'] === '' ? $hrc['cellctx']['basefont'] : $elm['fontname'];
+        $basefont = $hrc['cellctx']['basefont'];
+        $fontname = $elm['fontname'] === '' ? $basefont : $elm['fontname'];
 
         // The 'B'/'I' style suffix is applied separately via $fontstyle.
         $stripped = $this->stripHTMLFontKeyStyleSuffix($fontname);
         if ($stripped !== '') {
             $fontname = $stripped;
         }
+
+        $fontname = $this->appendHTMLBaseFontFamily($fontname, $basefont);
         $fontsize = $elm['fontsize'] > 0 ? $elm['fontsize'] : $curfont['size'];
         $fontstyle = '';
         if ($elm['fontstyle'] !== '') {
@@ -15482,6 +15531,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return $this->renderHTMLLiteralText($hrc, $key, $alt, $tpx, $tpy, $tpw, $height);
         }
 
+        $this->addHTMLLinkAnnotation($hrc, $imagex, $imagey, $width, $height);
+
         $tpx = $imagex + $width;
         $imagebottom = $imagey + $height;
         $this->updateHTMLLineAdvance($hrc, \max($lineheight, $imagebottom - $tpy));
@@ -16708,6 +16759,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param array<int, array{0: int, 1: int}> $grid First column and column span of each cell,
      *                                                keyed by DOM index (see getHTMLTableGrid()).
      * @param float $cellpadding    Table cellpadding attribute (user units), the default cell padding.
+     * @param string $basefont      Font family used when no family of a cell is available.
      *
      * @return array<int, float>
      *
@@ -16721,6 +16773,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float $availableWidth,
         array $grid = [],
         float $cellpadding = 0.0,
+        string $basefont = '',
     ): array {
         $defaultWidth = $cols > 0 ? $availableWidth / $cols : $availableWidth;
         $colwidths = \array_fill(0, \max(0, $cols), $defaultWidth);
@@ -16927,7 +16980,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         return $this->applyHTMLTableMinColWidths(
             $colwidths,
-            $this->getHTMLTableMinColWidths($dom, $tablekey, $cols, $grid, $cellpadding),
+            $this->getHTMLTableMinColWidths($dom, $tablekey, $cols, $grid, $cellpadding, $basefont),
             $explicitCols,
         );
     }
@@ -16941,6 +16994,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @param array<int, THTMLDOMNode> $dom
      * @param array<int, array{0: int, 1: int}> $grid First column and column span of each cell.
+     * @param string $basefont Font family used when no family of a cell is available.
      *
      * @return array<int, float>
      *
@@ -16953,6 +17007,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         int $cols,
         array $grid,
         float $cellpadding,
+        string $basefont = '',
     ): array {
         // The longest segment, by number of characters, of each column and font.
         /** @var array<int, array<string, array{len: int, txt: string, elm: THTMLAttrib}>> $longest */
@@ -17013,7 +17068,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             foreach ($segments as $segment) {
                 $elm = $segment['elm'];
                 $padding = \max(($elm['padding']['L'] ?? 0.0) + ($elm['padding']['R'] ?? 0.0), 2 * $cellpadding);
-                $width = $this->getHTMLTextWidthInFont($segment['txt'], $elm) + $padding;
+                $width = $this->getHTMLTextWidthInFont($segment['txt'], $elm, $basefont) + $padding;
                 $minwidths[$col] = \max($minwidths[$col] ?? 0.0, $width);
             }
         }
@@ -17100,14 +17155,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * stack is left unchanged.
      *
      * @param THTMLAttrib $elm DOM node.
+     * @param string $basefont Font family used when no family of the node is available.
      *
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Unicode\Exception
      */
-    protected function getHTMLTextWidthInFont(string $txt, array $elm): float
+    protected function getHTMLTextWidthInFont(string $txt, array $elm, string $basefont = ''): float
     {
         $curfont = $this->font->getCurrentFont();
-        $fontname = $elm['fontname'] === '' ? $curfont['key'] : $this->stripHTMLFontKeyStyleSuffix($elm['fontname']);
+        $fontname = $elm['fontname'] === ''
+            ? $curfont['key']
+            : $this->appendHTMLBaseFontFamily($this->stripHTMLFontKeyStyleSuffix($elm['fontname']), $basefont);
         $fontsize = $elm['fontsize'] > 0.0 ? $elm['fontsize'] : $curfont['size'];
         $fontstyle = '';
         foreach (['B', 'I'] as $style) {
@@ -18298,6 +18356,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             $availableForCols,
                             $grid['cells'],
                             $elm['pendingcellpadding'],
+                            $hrc['cellctx']['basefont'],
                         );
 
                         // Ensure replayed THEAD fragments on page breaks keep
@@ -21086,14 +21145,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $isInlineBlockParent,
         );
 
-        $link = $this->getCurrentHTMLLink($hrc);
-        if ($link !== '' && $bbox['w'] > 0.0 && $bbox['h'] > 0.0) {
-            $lnkid = $this->setLink($bbox['x'], $bbox['y'], $bbox['w'], $bbox['h'], $link);
-            $this->page->addAnnotRef($lnkid, $this->page->getPageID());
-            if ($this->isTaggedMode() && $lnkid > 0) {
-                $this->registerPdfUaAnnotation($lnkid, $this->page->getPageID());
-            }
-        }
+        $this->addHTMLLinkAnnotation($hrc, $bbox['x'], $bbox['y'], $bbox['w'], $bbox['h']);
 
         if ($wrapped) {
             // Re-anchor the line cursor to the last visual line produced by the

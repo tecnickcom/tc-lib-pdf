@@ -2567,6 +2567,38 @@ class OutputTest extends TestUtil
     }
 
     /**
+     * A linked image is a Figure inside the Link structure element, next to the OBJR of its annotation.
+     *
+     * @throws \Throwable
+     */
+    public function testGetOutPDFBodyTagsHtmlLinkedImageWithFigureAndObjr(): void
+    {
+        $obj = $this->getInternalUncompressedTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
+
+        $obj->addHTMLCell(
+            '<p><a href="https://example.com"><img src="data:image/png;base64,'
+            . 'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAFElEQVQI12M8oaHBAANMDEgANwcAOFQBIAzSVlcAAAAASUVORK5CYII='
+            . '" width="30" height="30" alt="Red square" /></a></p>',
+            10,
+            10,
+            80,
+            20,
+        );
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertSame(1, \substr_count($out, '/Subtype /Link'));
+        $matches = [];
+        $this->assertSame(1, \preg_match('/\/Type \/StructElem \/S \/Link .*?\/K \[([^\]]*)\]/s', $out, $matches));
+        $this->assertMatchesRegularExpression('/^\s*\d+ 0 R\s+<< \/Type \/OBJR /', $matches[1] ?? '');
+        $this->assertMatchesRegularExpression('/\/Type \/StructElem \/S \/Figure /', $out);
+    }
+
+    /**
      * @throws \Throwable
      */
     public function testGetOutCatalogIncludesRequiredEntries(): void
