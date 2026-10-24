@@ -8914,6 +8914,51 @@ class HTMLTest extends TestUtil
     }
 
     /**
+     * Base64 1x1 PNG whose bytes contain the '|' marker field separator.
+     */
+    private const PNG_WITH_FIELD_SEPARATOR = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADElEQVQImWNgYAgCAABWAFO8xnxsAAAAAElFTkSuQmCC';
+
+    /**
+     * @throws \Throwable
+     */
+    public function testListStyleImageRasterDataUriResolvesToDataMarker(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $png = (string) \base64_decode(self::PNG_WITH_FIELD_SEPARATOR, true);
+        $this->assertStringContainsString('|', $png);
+        $marker = $obj->exposeGetHTMLListImageMarkerType(
+            'url(data:image/png;base64,' . self::PNG_WITH_FIELD_SEPARATOR . ')',
+        );
+
+        $this->assertStringStartsWith('img|png|', $marker);
+        $this->assertStringEndsWith('|@' . $png, $marker);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    #[RequiresPhpExtension('gd')]
+    public function testListStyleImageRasterDataUriRendersImage(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<ul style="list-style-image:url(data:image/png;base64,'
+            . self::PNG_WITH_FIELD_SEPARATOR
+            . ')"><li>Item</li></ul>',
+            10,
+            10,
+            100,
+            0,
+        );
+
+        $this->assertMatchesRegularExpression('/\/IMG(?:plain|mask)?\d+ Do Q/', $out);
+    }
+
+    /**
      * @throws \Throwable
      */
     public function testParseHTMLStyleAttributesPreservesDataUriValues(): void

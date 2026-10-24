@@ -75,7 +75,7 @@ $pdf->page->addContent($bfont['out']);
 // - text-indent first-line behavior on list-item text
 // - nested OL/UL interactions
 // - li::marker styling (color, font-weight, font-style)
-// - list-style-image CSS property parsing
+// - list-style-image CSS property parsing (SVG and PNG data URIs)
 // - vector unordered markers, drawn when the font has no glyph for them
 // - decimal fallback for counter styles the font cannot render
 // - the presentational type attribute on OL, UL and LI
@@ -165,6 +165,7 @@ $html = <<<HTML
 
     /* Variation set: list-style-image (custom bullets) */
     .list-img-svg { list-style-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPjxjaXJjbGUgY3g9IjQiIGN5PSI0IiByPSI0IiBmaWxsPSIjRkY2NjAwIi8+PC9zdmc+); }
+    .list-img-png { list-style-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADElEQVQImWNgYAgCAABWAFO8xnxsAAAAAElFTkSuQmCC); }
 
     /* Position guides, visual hints only: they do not change the layout.
        red   = list container box edge
@@ -380,6 +381,10 @@ $html = <<<HTML
             <li>Another nested custom image bullet</li>
           </ul>
         </li>
+      </ul>
+      <ul class="list-img-png marker-guide">
+        <li>PNG data URI bullet marker image</li>
+        <li>Second item with PNG data URI bullet</li>
       </ul>
     </div>
 

@@ -7864,7 +7864,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             default:
                 if (\substr($type, 0, 4) === 'img|') {
                     // custom image type ('img|type|width|height|image.ext')
-                    $img = \explode('|', $type);
+                    $img = \explode('|', $type, 5);
                     $type = 'img';
                     break;
                 }
@@ -11144,9 +11144,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 if ($decoded === false || $decoded === '') {
                     return '';
                 }
-                $source = $decoded;
+                $source = '@' . $decoded;
             } else {
-                $source = \rawurldecode($payload);
+                $source = '@' . \rawurldecode($payload);
             }
             if ($imgtype === 'svg+xml') {
                 $imgtype = 'svg';
@@ -11175,10 +11175,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
-        if ($source !== '' && $source[0] !== '@' && !\str_contains($source, '://')) {
-            $baseDirs = [];
-            $scriptFilename = $_SERVER['SCRIPT_FILENAME'];
-            $baseDirs[] = \dirname($scriptFilename);
+        if ($source[0] !== '@' && !\str_contains($source, '://')) {
+            $baseDirs = [$this->getHTMLScriptDir($_SERVER)];
 
             $cwd = \getcwd();
             if (\is_string($cwd)) {
@@ -11196,6 +11194,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $imgsize = \max(1.0, \round($fontsize * 0.5, 3));
 
         return 'img|' . $imgtype . '|' . (string) $imgsize . '|' . (string) $imgsize . '|' . $source;
+    }
+
+    /**
+     * Return the directory of the executing script, or an empty string when
+     * SCRIPT_FILENAME is not set.
+     *
+     * @param array<array-key, mixed> $server Server and execution environment variables.
+     */
+    protected function getHTMLScriptDir(array $server): string
+    {
+        return isset($server['SCRIPT_FILENAME']) && \is_string($server['SCRIPT_FILENAME'])
+            ? \dirname($server['SCRIPT_FILENAME'])
+            : '';
     }
 
     /**
@@ -15363,8 +15374,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         if ($src !== '' && $src[0] !== '@' && !\str_contains($src, '://')) {
-            $baseDirs = [];
-            $baseDirs[] = \dirname($_SERVER['SCRIPT_FILENAME']);
+            $baseDirs = [$this->getHTMLScriptDir($_SERVER)];
 
             $cwd = \getcwd();
             if (\is_string($cwd)) {
