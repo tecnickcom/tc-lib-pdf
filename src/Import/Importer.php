@@ -264,7 +264,7 @@ class Importer implements ImporterInterface
     /**
      * Register a source PDF file.
      *
-     * @param string               $path File path to a readable PDF.
+     * @param string               $path File path to a readable PDF inside allowedPaths.
      * @param array<string, mixed> $cfg  Optional parser configuration.
      *
      * @phpstan-param ParserOptions|array<string, mixed> $cfg
@@ -279,8 +279,10 @@ class Importer implements ImporterInterface
      */
     public function setImportSourceFile(string $path, array $cfg = []): string
     {
+        // A path outside the allowlist is reported as not found, so the error
+        // does not reveal whether it exists.
         $realPath = \realpath($path);
-        if ($realPath === false || !\is_readable($realPath)) {
+        if ($realPath === false || !$this->file->isAllowedFile($realPath) || !\is_readable($realPath)) {
             throw new ImportSourceNotFoundException('Source PDF file not found or not readable: ' . $path);
         }
 

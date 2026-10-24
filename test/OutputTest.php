@@ -6335,6 +6335,43 @@ class OutputTest extends TestUtil
     }
 
     /**
+     * @return array<string, array{string}>
+     */
+    public static function rejectedTimestampHostProvider(): array
+    {
+        return [
+            'not allowlisted' => ['https://tsa.example.invalid/'],
+            'file scheme' => ['file:///etc/hosts'],
+            'gopher scheme' => ['gopher://127.0.0.1:25/'],
+        ];
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    #[DataProvider('rejectedTimestampHostProvider')]
+    public function testPostTimestampRequestRejectsHostOutsideAllowlist(string $host): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'sigtimestamp', [
+            'enabled' => true,
+            'host' => $host,
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+            'hash_algorithm' => 'sha256',
+            'policy_oid' => '',
+            'nonce_enabled' => false,
+            'timeout' => 1,
+            'verify_peer' => true,
+        ]);
+        $this->bcExpectException(\Com\Tecnick\Pdf\Exception::class);
+        $this->expectExceptionMessageMatches('/^invalid URL$/');
+
+        $obj->exposeParentPostTimestampRequest('req');
+    }
+
+    /**
      * @throws \Throwable
      */
     public function testGetCertificateSourceContentWithEmptySourceReturnsEmpty(): void

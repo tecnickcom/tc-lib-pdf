@@ -427,6 +427,18 @@ class TcpdfImporterFacadeTest extends TestCase
     /**
      * @throws \Throwable
      */
+    public function testSetImportSourceFileReportsPathOutsideAllowlistAsNotFound(): void
+    {
+        $allowed = (string) \realpath(__DIR__ . '/../src');
+        $pdf = new Tcpdf('mm', true, false, true, '', null, ['allowedPaths' => [$allowed]]);
+        $this->expectException(ImportSourceNotFoundException::class);
+        $this->expectExceptionMessageMatches('/^Source PDF file not found or not readable: /');
+        $pdf->setImportSourceFile($this->simplePdf);
+    }
+
+    /**
+     * @throws \Throwable
+     */
     public function testSetImportSourceFileThrowsForEncryptedPdf(): void
     {
         $pdf = $this->makePdf();

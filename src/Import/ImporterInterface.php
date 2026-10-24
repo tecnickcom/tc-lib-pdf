@@ -55,7 +55,7 @@ interface ImporterInterface
     /**
      * Register a source PDF file and return a stable source identifier.
      *
-     * @param string               $path File path to a readable PDF.
+     * @param string               $path File path to a readable PDF inside allowedPaths.
      * @param array<string, mixed> $cfg  Optional parser configuration.
      *
      * @phpstan-param ParserOptions|array<string, mixed> $cfg

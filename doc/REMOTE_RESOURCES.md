@@ -19,9 +19,11 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 
 Only the listed host names are permitted. Any attempt to load a resource from an unlisted host is silently blocked.
 
+The same list applies to signature network requests: the Time Stamping Authority host set with `setSignTimeStamp()` and the OCSP and CRL endpoints used for LTV material must be listed, otherwise the request is refused.
+
 ## Restricting Local Paths
 
-`allowedPaths` controls which local path prefixes may be read by the shared file helper for internal library IO, such as fonts and other explicit file operations. When omitted, the default set of trusted roots covers the system temp directory, the `K_PATH_FONTS` directory when that constant is defined, the tc-lib-pdf package root, and, when the package is installed as a Composer dependency, the `vendor/tecnickcom` directory holding the sibling packages. Paths outside these roots are rejected. The defaults are returned by `Com\Tecnick\Pdf\Base::defaultFileAllowedPaths()`.
+`allowedPaths` controls which local path prefixes may be read by the shared file helper for internal library IO, such as fonts, PDF import sources, and other explicit file operations. When omitted, the default set of trusted roots covers the system temp directory, the `K_PATH_FONTS` directory when that constant is defined, the tc-lib-pdf package root, and, when the package is installed as a Composer dependency, the `vendor/tecnickcom` directory holding the sibling packages. Paths outside these roots are rejected. The defaults are returned by `Com\Tecnick\Pdf\Base::defaultFileAllowedPaths()`.
 
 `markupAllowedPaths` controls which local path prefixes may be read when resources are referenced by rendered HTML, CSS, or SVG markup. When omitted, an explicit `allowedPaths` value is reused if one is provided; otherwise a stricter default that excludes the system temp directory applies, returned by `Com\Tecnick\Pdf\Base::defaultMarkupAllowedPaths()`.
 

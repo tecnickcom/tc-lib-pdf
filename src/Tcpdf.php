@@ -629,7 +629,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      *            - Name (string)
      *            - Reason (string)
      *        - password (string)
-     *        - privkey (string) Private key (string or filename prefixed with 'file://').
+     *        - privkey (string) Private key (string or filename prefixed with 'file://');
+     *          the file is read by OpenSSL and is not checked against allowedPaths.
      *        - signcert (string) Signing certificate (string or filename prefixed with 'file://').
      *        - ltv (array) LTV collection options.
      *            - enabled (bool) Enable validation material collection.
@@ -872,7 +873,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      *
      * @param TSignTimeStamp $data Signature timestamp data:
      *        - enabled (bool) If true enable timestamp signature.
-     *        - host (string) Time Stamping Authority (TSA) server (prefixed with 'https://')
+     *        - host (string) Time Stamping Authority (TSA) server (prefixed with 'https://');
+     *          the host must be listed in allowedHosts.
      *        - username (string) TSA username or authorization PEM file.
      *        - password (string) TSA password.
      *        - cert (string) cURL optional location of TSA certificate for authorization.
@@ -1494,12 +1496,10 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         if ($this->importer === null) {
             // Pass xobjects by reference so Importer writes directly into this document's registry.
             $xobjects = &$this->xobjects;
-            $importFile = clone $this->file;
-            $importFile->setAllowedPaths(['*']);
             $this->importer = new ObjImporter(
                 $xobjects,
                 $this->pon,
-                $importFile,
+                $this->file,
                 $this->pdfa,
                 $this->encrypt,
                 $this->requiresEmbeddedFonts(),
@@ -1512,7 +1512,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
     /**
      * Register a source PDF file for import.
      *
-     * @param string              $path File path to a readable PDF.
+     * @param string              $path File path to a readable PDF inside allowedPaths.
      * @param array<string, mixed> $cfg  Optional parser configuration: 'ignore_filter_errors',
      *                                   'decode_streams', 'max_stream_size', 'max_resolution_depth',
      *                                   'max_nesting_depth' and 'strict_limits'.

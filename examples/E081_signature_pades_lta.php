@@ -30,7 +30,10 @@ require __DIR__ . '/../vendor/autoload.php';
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 // main TCPDF object
-$pdf = new \Com\Tecnick\Pdf\Tcpdf();
+// The TSA host must be listed in allowedHosts to be reachable.
+$pdf = new \Com\Tecnick\Pdf\Tcpdf(fileOptions: [
+    'allowedHosts' => ['freetsa.org'],
+]);
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');

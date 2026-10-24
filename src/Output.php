@@ -5935,6 +5935,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             throw new PdfException('Invalid TSA host');
         }
 
+        // Both transports only reach an allowlisted HTTP(S) host.
+        if (!$this->file->isValidURL($host)) {
+            throw new PdfException('invalid URL');
+        }
+
         $timeout = (int) $this->sigtimestamp['timeout'];
         if ($timeout < 1) {
             $timeout = 5;
@@ -5965,7 +5970,16 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 CURLOPT_CONNECTTIMEOUT => $timeout,
                 CURLOPT_SSL_VERIFYPEER => $this->sigtimestamp['verify_peer'],
                 CURLOPT_SSL_VERIFYHOST => $this->sigtimestamp['verify_peer'] ? 2 : 0,
+                // Do not follow redirects: only the initial host is validated
+                // against the allowlist.
+                CURLOPT_FOLLOWLOCATION => false,
             ];
+
+            if (\defined('CURLOPT_PROTOCOLS_STR')) {
+                $opts[CURLOPT_PROTOCOLS_STR] = 'http,https';
+            } else {
+                $opts[CURLOPT_PROTOCOLS] = CURLPROTO_HTTP | CURLPROTO_HTTPS;
+            }
 
             if ($this->sigtimestamp['cert'] !== '') {
                 $opts[CURLOPT_CAINFO] = $this->sigtimestamp['cert'];
@@ -5999,10 +6013,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 'cafile' => $this->sigtimestamp['cert'],
             ],
         ]);
-
-        if (!$this->file->isValidURL($host)) {
-            throw new PdfException('invalid URL');
-        }
 
         \set_error_handler(static fn(): bool => true);
         $response = \file_get_contents($host, false, $context);

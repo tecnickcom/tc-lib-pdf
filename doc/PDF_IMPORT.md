@@ -13,6 +13,8 @@ $sourceId = $pdf->setImportSourceFile('/path/to/source.pdf');
 $count = $pdf->getSourcePageCount($sourceId);
 ```
 
+`setImportSourceFile()` reads the file through the same local-path allowlist as other resources: the path must be inside one of the `allowedPaths` file options (see [REMOTE_RESOURCES.md](REMOTE_RESOURCES.md)). A path outside the allowlist raises `ImportSourceNotFoundException`, as a missing file does. `setImportSourceData()` takes the bytes directly and performs no path check.
+
 The page count is derived from the page tree actually reachable through `/Kids`; the declared `/Count` entry of the `/Pages` dictionary is ignored, so a forged or wrong `/Count` cannot influence how many pages are counted or imported. Structurally broken page trees (missing `/Kids`, unexpected node types, duplicate or cyclic references) raise `ImportCorruptedSourceException`.
 
 The reachable-page walk runs once per registered source and produces a flattened page index (one effective page dictionary per page, with inherited attributes resolved) that is cached and reused by `getSourcePageCount()`, `importPage()`, and `importPages()`.
