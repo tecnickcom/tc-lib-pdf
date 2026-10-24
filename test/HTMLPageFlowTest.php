@@ -1123,4 +1123,62 @@ class HTMLPageFlowTest extends TestUtil
         $this->assertStringNotContainsString('(A)', $pages[0] ?? '');
         $this->assertSame(1, \substr_count($pages[1] ?? '', '(A)'));
     }
+
+    /**
+     * Renders a table with a caption at each start position from 40 mm above the page
+     * bottom down to the bottom, and checks that the caption is drawn once, inside the
+     * page, on a page that also holds a body row.
+     *
+     * @throws \Throwable
+     */
+    private function assertTableCaptionKeptWithRows(string $side): void
+    {
+        for ($offset = 40.0; $offset > 0.0; $offset -= 0.5) {
+            $pdf = $this->getDocument();
+            $region = $pdf->page->getRegion();
+            $pdf->addHTMLCell(
+                '<table border="1" cellpadding="3"><caption style="caption-side:'
+                . $side
+                . '">Cap</caption><thead><tr><th>A</th><th>B</th></tr></thead><tbody>'
+                . $this->getTableHeadBodyRows(2)
+                . '</tbody></table>',
+                10,
+                $region['RY'] + $region['RH'] - $offset,
+                100,
+            );
+
+            $found = 0;
+            foreach ($this->getPageContents($pdf) as $pidx => $content) {
+                $texts = $this->getTextOrdinates($content);
+                $names = \array_map(static fn(array $text): string => $text[0], $texts);
+                $pos = \array_search('Cap', $names, true);
+                if (!\is_int($pos)) {
+                    continue;
+                }
+
+                ++$found;
+                $where = $side . ' caption at offset ' . $offset . ' page ' . $pidx;
+                $this->assertGreaterThan(0.0, $this->getTextAt($texts, $pos)[1], $where . ' below the page');
+                $this->assertNotSame([], \preg_grep('/^r[0-9]+$/', $names), $where . ' without a body row');
+            }
+
+            $this->assertSame(1, $found, $side . ' caption count at offset ' . $offset);
+        }
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testTableTopCaptionMovesWithTheFirstRows(): void
+    {
+        $this->assertTableCaptionKeptWithRows('top');
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testTableBottomCaptionMovesWithTheLastRow(): void
+    {
+        $this->assertTableCaptionKeptWithRows('bottom');
+    }
 }

@@ -6,8 +6,8 @@ declare(strict_types=1);
  * E092_html_table_row_split.php
  *
  * Visual inspection sheet for HTML table rows taller than a page, which continue
- * on the next pages, and for cells spanning rows over a page break. Each case
- * states the expected result.
+ * on the next pages, for cells spanning rows over a page break, and for table heads
+ * and captions near the page bottom. Each case states the expected result.
  *
  * @since       2026-10-10
  * @category    Library
@@ -39,7 +39,7 @@ $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 092');
 $pdf->setTitle('HTML Table Row Split');
-$pdf->setKeywords('TCPDF tc-lib-pdf example html table row page break rowspan nobr thead');
+$pdf->setKeywords('TCPDF tc-lib-pdf example html table row page break rowspan nobr thead caption');
 $pdf->setPDFFilename('092_html_table_row_split.pdf');
 
 $selectFont = function (string $family = 'helvetica', string $style = '', float $size = 10) use ($pdf): void {
@@ -213,6 +213,70 @@ $posy = $drawTitle(
 );
 $selectFont();
 $pdf->addHTMLCell($spanTable(40), 15, $posy, 180);
+
+// ----------
+// Part 3: table heads and captions near the page bottom.
+// ----------
+
+/**
+ * Returns a table with a head, the given body rows and an optional caption.
+ */
+$headTable = function (int $num, string $caption = ''): string {
+    $rows = '';
+    for ($idx = 1; $idx <= $num; ++$idx) {
+        $rows .= '<tr><td>row ' . $idx . '</td><td>text ' . $idx . '</td></tr>';
+    }
+
+    return (
+        '<table border="1" cellpadding="2">'
+        . $caption
+        . '<thead><tr style="background-color:#cccccc"><th>Column A</th><th>Column B</th></tr></thead><tbody>'
+        . $rows
+        . '</tbody></table>'
+    );
+};
+
+$posy = $drawTitle(
+    'A table head that does not fit above the page bottom',
+    'the table starts 3 mm above the dashed line; this page holds no part of it; the next page starts with '
+    . 'the head drawn once, followed by rows 1 to 6.',
+);
+$selectFont();
+$region = $pdf->page->getRegion();
+$pdf->addHTMLCell($headTable(6), 15, $region['RY'] + $region['RH'] - 3, 180);
+
+$posy = $drawTitle(
+    'A table head that fits above the page bottom without its first row',
+    'the table starts 8 mm above the dashed line; the head is not left alone on this page; the next page '
+    . 'starts with the head drawn once, followed by rows 1 to 6.',
+);
+$selectFont();
+$region = $pdf->page->getRegion();
+$pdf->addHTMLCell($headTable(6), 15, $region['RY'] + $region['RH'] - 8, 180);
+
+$posy = $drawTitle(
+    'A top caption that fits above the page bottom without the first row',
+    'the table starts 12 mm above the dashed line; the caption is not left alone on this page; the next '
+    . 'page starts with the caption, then the head, followed by rows 1 to 6.',
+);
+$selectFont();
+$region = $pdf->page->getRegion();
+$pdf->addHTMLCell($headTable(6, '<caption>Top caption</caption>'), 15, $region['RY'] + $region['RH'] - 12, 180);
+
+$posy = $drawTitle(
+    'A bottom caption that does not fit below the last row',
+    'the table starts 28 mm above the dashed line; this page holds the head and rows 1 to 3; the next page '
+    . 'starts with the repeated head, followed by row 4 and the caption below it; nothing is drawn below the '
+    . 'dashed line.',
+);
+$selectFont();
+$region = $pdf->page->getRegion();
+$pdf->addHTMLCell(
+    $headTable(4, '<caption style="caption-side:bottom">Bottom caption</caption>'),
+    15,
+    $region['RY'] + $region['RH'] - 28,
+    180,
+);
 
 // =============================================================
 
