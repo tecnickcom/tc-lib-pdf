@@ -729,6 +729,11 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         return $this->formatPdfUaActualText($txt);
     }
 
+    public function exposeResolvePageAliasMarks(string $content, int $pagenum = -1, int $pagetotal = -1): string
+    {
+        return $this->resolvePageAliasMarks($content, $pagenum, $pagetotal);
+    }
+
     public function exposeIsWrapWordSeparator(?int $ord): bool
     {
         return $this->isWrapWordSeparator($ord);

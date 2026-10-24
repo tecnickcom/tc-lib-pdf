@@ -19,6 +19,7 @@ declare(strict_types=1);
 namespace Com\Tecnick\Pdf;
 
 use Com\Tecnick\Pdf\Exception as PdfException;
+use Com\Tecnick\Pdf\Page\Settings as PageSettings;
 use Com\Tecnick\Unicode\Bidi;
 use Com\Tecnick\Unicode\Data\Constant as UnicodeConstant;
 use Com\Tecnick\Unicode\Data\LineBreak;
@@ -91,6 +92,16 @@ use Com\Tecnick\Unicode\TextDirection;
  *          'pel': array<int, int>,
  *      }
  *
+ * @phpstan-type TPageAliasMark array{
+ *          'kind': string,
+ *          'mode': string,
+ *          'digits': array<int, string>,
+ *          'dwidth': array<int, float>,
+ *          'awidth': float,
+ *          'literal': string,
+ *          'aliases': array<int, int>,
+ *      }
+ *
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
 abstract class Text extends \Com\Tecnick\Pdf\Cell
@@ -135,6 +146,28 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * WORD JOINER code point.
      */
     protected const WORD_JOINER = 0x2060;
+
+    /**
+     * Page number aliases, keyed by kind: PN = page number, PT = total pages of the group.
+     *
+     * @var array<string, string>
+     */
+    protected const PAGE_ALIASES = [
+        'PN' => PageSettings::PAGE_NUM,
+        'PT' => PageSettings::PAGE_TOT,
+    ];
+
+    /**
+     * Start of the placeholder string operand written for a page number alias.
+     * The escaped strings never contain it: an unescaped '(' starts a string, and
+     * escapeString() never writes a backslash before '#'.
+     */
+    protected const PAGE_ALIAS_MARK = '(\\#A';
+
+    /**
+     * Pattern matching a page number alias placeholder and capturing its mark ID.
+     */
+    protected const PAGE_ALIAS_MARK_REGEX = '/\\(\\\\#A(\\d+)\\\\#\\)/';
 
     /**
      * Lowest code point with Line_Break class ID (see LineBreak::RANGES).
@@ -366,6 +399,32 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * Number of lines with glyphs written by outTextLines().
      */
     protected int $textGlyphLines = 0;
+
+    /**
+     * Horizontal alignment of the text line being written, used to place the width
+     * difference between a page number alias and its value:
+     * L = none (the line gets shorter), C = half before the line, R = all before the line,
+     * J = after each alias.
+     */
+    protected string $textAliasAlign = 'L';
+
+    /**
+     * Page number alias marks, keyed by mark ID.
+     *
+     * Kinds: PN and PT (alias written in a text string, 'literal' holds its escaped
+     * codes), LINE (shift at the start of a line holding the 'aliases' marks), TEXT
+     * (marked-content /ActualText, 'literal' holds its UTF-8 text).
+     *
+     * @var array<int, TPageAliasMark>
+     */
+    protected array $pageAliasMarks = [];
+
+    /**
+     * Escaped character codes of the digits 0..9, keyed by font key.
+     *
+     * @var array<string, array<int, string>>
+     */
+    protected array $pageAliasDigits = [];
 
     /**
      * Returns the PDF code to render a text block inside a rectangular cell.
@@ -1989,7 +2048,13 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             : 'P';
         $atEntry = '';
         if ($actualText !== '') {
-            $atEntry = ' /ActualText ' . $this->formatPdfUaActualText($actualText);
+            $atEntry =
+                ' /ActualText '
+                . (
+                    $this->hasPageAlias($actualText)
+                        ? $this->getPageAliasActualTextMark($actualText)
+                        : $this->formatPdfUaActualText($actualText)
+                );
         }
         $open = '/' . $role . ' <</MCID ' . $mcid . $atEntry . '>> BDC' . "\n";
         $close = 'EMC' . "\n";
@@ -2500,6 +2565,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $out .= $this->getOutWordSeparator($txt_posx, $line_posy);
             }
 
+            $this->textAliasAlign = $jwidth > 0 ? 'J' : $line_halign;
             $out .= $this->getOutTextLine(
                 $line_txt,
                 $line_ordarr,
@@ -2519,6 +2585,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $clip,
                 $shadow,
             );
+            $this->textAliasAlign = 'L';
 
             if ($lineseparator && $baseRtl) {
                 $line_pwidth = $jwidth > 0 ? $jwidth : $this->toUnit($data['totwidth']) + ($data['spaces'] * $line_ws);
@@ -2654,6 +2721,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         // $posx is in user units while the measured width is in points.
         $totWidth = $this->toUnit($dim['totwidth']);
 
+        // The anchored edge of a left-to-right line is kept when a page number alias is
+        // replaced by a value of a different width.
+        $aliasAlign = 'L';
         switch ($txtanchor) {
             case 'M':
                 if ($this->rtl || $forcedir === 'R') {
@@ -2661,6 +2731,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                     break;
                 }
                 $posx -= $totWidth / 2;
+                $aliasAlign = 'C';
                 break;
             case 'E':
                 if ($this->rtl || $forcedir === 'R') {
@@ -2668,13 +2739,19 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                     break;
                 }
                 $posx -= $totWidth;
+                $aliasAlign = 'R';
                 break;
             default:
                 // do nothing
                 break;
         }
 
-        return $this->getOutTextLine(
+        if ($width > 0) {
+            $aliasAlign = 'J';
+        }
+
+        $this->textAliasAlign = $aliasAlign;
+        $out = $this->getOutTextLine(
             $txt,
             $ordarr,
             $dim,
@@ -2693,6 +2770,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $clip,
             $shadow,
         );
+        $this->textAliasAlign = 'L';
+
+        return $out;
     }
 
     /**
@@ -2883,7 +2963,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $bidiobj = new Bidi($txt, null, $ordarr, $forcedir, true, true);
             /** @var array<int, int> $ordarr */
             $ordarr = \array_values($bidiobj->getLogicalOrdArray());
-            $bidi = $this->getTextBidiLevels($bidiobj);
+            $bidi = $this->getPageAliasBidiLevels($ordarr, $this->getTextBidiLevels($bidiobj));
             [$ordarr, $bidi] = $this->mapOrdArrByLevelRun($ordarr, $bidi, $this->replaceUnicodeChars(...));
         }
 
@@ -3696,15 +3776,16 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         $this->bbox = $this->getNextBBoxList($this->bbox, $this->getLastBBox());
         $bboxid = (int) \array_key_last($this->bbox);
+        // Mark IDs of the page number aliases written in this line.
+        $aliases = [];
 
         if (!$this->isunicode || $this->font->isCurrentByteFont()) {
             if ($this->isunicode) {
-                $latin = $this->uniconv->uniArrToLatinArr($ordarr);
-                /** @var array<int<0, 255>> $latin */
-                $txt = $this->uniconv->latinArrToStr($latin);
+                $txt = $this->getOutAliasEscapedStr($ordarr, $aliases);
+            } else {
+                $txt = $this->encrypt->escapeString($txt);
             }
-            $txt = $this->encrypt->escapeString($txt);
-            $txt = $this->getOutTextShowing($txt, 'Tj');
+            $txt = $this->getOutAliasTextShowing($txt, $aliases);
             if ($pwidth > 0) {
                 $spacesVal = (int) $dim['spaces'];
                 $spaces = $spacesVal !== 0 ? $spacesVal : 1;
@@ -3722,10 +3803,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         }
 
         if ($pwidth <= 0) {
-            $txt = $this->encrypt->escapeString($this->getOutCompositeStr($ordarr));
+            $txt = $this->getOutAliasEscapedStr($ordarr, $aliases);
             $totWidth = $dim['totwidth'];
             $this->bbox[$bboxid]['w'] = $this->toUnit($totWidth);
-            return $this->getOutTextShowing($txt, 'Tj');
+            return $this->getOutAliasTextShowing($txt, $aliases);
         }
 
         $font = $this->font->getCurrentFont();
@@ -3764,12 +3845,365 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         $parts = [];
         foreach ($chunks as $chunk) {
-            $parts[] = $this->encrypt->escapeString($this->getOutCompositeStr($chunk));
+            $parts[] = $this->getOutAliasEscapedStr($chunk, $aliases);
         }
 
         $txt = \implode(\sprintf(') %F (', $spacewidth), $parts);
 
-        return $this->getOutTextShowing($txt, 'TJ');
+        return $this->getOutAliasTextShowing($txt, $aliases, 'TJ');
+    }
+
+    /**
+     * Returns the escaped character codes of the given codepoints for the current font.
+     *
+     * @param array<int, int> $ordarr Array of UTF-8 codepoints (integer values).
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function getOutEscapedStr(array $ordarr): string
+    {
+        if ($this->font->isCurrentByteFont()) {
+            $latin = $this->uniconv->uniArrToLatinArr($ordarr);
+            /** @var array<int<0, 255>> $latin */
+            return $this->encrypt->escapeString($this->uniconv->latinArrToStr($latin));
+        }
+
+        return $this->encrypt->escapeString($this->getOutCompositeStr($ordarr));
+    }
+
+    /**
+     * Returns the escaped character codes of the given codepoints for the current font,
+     * with each page number alias written as a separate placeholder string operand:
+     * the string is closed before the placeholder and reopened after it.
+     *
+     * @param array<int, int> $ordarr  Array of UTF-8 codepoints (integer values).
+     * @param array<int, int> $aliases Mark IDs of the aliases, appended in place.
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function getOutAliasEscapedStr(array $ordarr, array &$aliases): string
+    {
+        $ordarr = \array_values($ordarr);
+        $out = '';
+        $start = 0;
+        foreach ($this->getPageAliasPositions($ordarr) as $pos => $kind) {
+            $len = \strlen(self::PAGE_ALIASES[$kind] ?? '');
+            $out .= $this->getOutEscapedStr(\array_slice($ordarr, $start, $pos - $start));
+            $mid = $this->addPageAliasMark($kind, \array_slice($ordarr, $pos, $len));
+            $aliases[] = $mid;
+            $out .= ')' . $this->getPageAliasMarkStr($mid) . '(';
+            $start = $pos + $len;
+        }
+
+        return $out . $this->getOutEscapedStr(\array_slice($ordarr, $start));
+    }
+
+    /**
+     * Returns the text showing operator for the escaped string: a TJ array when the
+     * string holds page number alias placeholders, otherwise the operator of $mode.
+     *
+     * @param string          $str     Escaped string, as returned by getOutAliasEscapedStr().
+     * @param array<int, int> $aliases Mark IDs of the aliases in the string.
+     * @param string          $mode    Text showing operator for a string without aliases.
+     */
+    protected function getOutAliasTextShowing(string $str, array $aliases, string $mode = 'Tj'): string
+    {
+        if ($aliases === []) {
+            return $this->getOutTextShowing($str, $mode);
+        }
+
+        // An escaped string never contains "()", so only the empty operands left
+        // around the placeholders are removed.
+        return '[' . $this->getPageAliasLineMark($aliases) . \str_replace('()', '', '(' . $str . ')') . '] TJ';
+    }
+
+    /**
+     * Returns the positions of the page number aliases in the codepoints.
+     *
+     * @param array<int, int> $ordarr Array of UTF-8 codepoints (integer values), with sequential keys.
+     *
+     * @return array<int, string> Alias kinds keyed by position, in ascending order.
+     */
+    protected function getPageAliasPositions(array $ordarr): array
+    {
+        $found = [];
+        foreach (self::PAGE_ALIASES as $kind => $alias) {
+            $ords = \array_map(\ord(...), \str_split($alias));
+            foreach (\array_keys($ordarr, $ords[0] ?? 0, true) as $pos) {
+                if (\array_slice($ordarr, (int) $pos, \count($ords)) !== $ords) {
+                    continue;
+                }
+
+                $found[(int) $pos] = $kind;
+            }
+        }
+
+        \ksort($found);
+
+        return $found;
+    }
+
+    /**
+     * Returns true when the text contains a page number alias.
+     */
+    protected function hasPageAlias(string $txt): bool
+    {
+        return \str_replace(self::PAGE_ALIASES, '', $txt) !== $txt;
+    }
+
+    /**
+     * Returns the Bidi levels with the characters of each page number alias at the
+     * level of its letters, so that the alias is one left-to-right run in visual order.
+     *
+     * @param array<int, int> $ordarr Code points in logical order, with sequential keys.
+     * @param TBidiLevels     $bidi   Bidi levels of $ordarr.
+     *
+     * @return TBidiLevels
+     */
+    protected function getPageAliasBidiLevels(array $ordarr, array $bidi): array
+    {
+        if ($bidi['level'] === []) {
+            return $bidi;
+        }
+
+        foreach ($this->getPageAliasPositions($ordarr) as $pos => $kind) {
+            $len = \strlen(self::PAGE_ALIASES[$kind] ?? '');
+            // The letters of the alias have the even level of a left-to-right run.
+            $level = \max(0, ...\array_slice($bidi['level'], $pos, $len));
+            for ($idx = $pos; $idx < ($pos + $len); ++$idx) {
+                $bidi['level'][$idx] = $level;
+            }
+        }
+
+        return $bidi;
+    }
+
+    /**
+     * Registers a page number alias written with the current font and returns its mark ID.
+     *
+     * The digits 0..9 are encoded with the current font, so that their glyphs are
+     * part of the font subset, widths and ToUnicode map.
+     *
+     * @param string          $kind   Alias kind: PN or PT.
+     * @param array<int, int> $ordarr Codepoints of the alias.
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function addPageAliasMark(string $kind, array $ordarr): int
+    {
+        $font = $this->font->getCurrentFont();
+        $fkey = $font['key'];
+        $digits = $this->pageAliasDigits[$fkey] ?? [];
+        if ($digits === []) {
+            for ($digit = 0; $digit <= 9; ++$digit) {
+                $this->font->addSubsetChar($fkey, 0x30 + $digit);
+                $digits[$digit] = $this->getOutEscapedStr([0x30 + $digit]);
+            }
+
+            $this->pageAliasDigits[$fkey] = $digits;
+        }
+
+        // Widths in thousandths of the text space unit, as the TJ adjustments, with
+        // the character spacing applied after each glyph.
+        $stretching = $font['stretching'] > 0.0 ? $font['stretching'] : 1.0;
+        $size = $font['size'] > 0.0 ? $font['size'] : 1.0;
+        $scale = 1000 / ($size * $stretching);
+        $spacing = $font['spacing'] * $stretching;
+        $dwidth = [];
+        foreach ($digits as $digit => $code) {
+            $dwidth[$digit] = $code === '' ? 0.0 : ($this->font->getCharWidth(0x30 + $digit) + $spacing) * $scale;
+        }
+
+        $awidth = 0.0;
+        foreach ($ordarr as $ord) {
+            $awidth += ($this->font->getCharWidth($ord) + $spacing) * $scale;
+        }
+
+        $this->pageAliasMarks[] = [
+            'kind' => $kind,
+            'mode' => $this->textAliasAlign,
+            'digits' => $digits,
+            'dwidth' => $dwidth,
+            'awidth' => $awidth,
+            'literal' => $this->getOutEscapedStr($ordarr),
+            'aliases' => [],
+        ];
+
+        return (int) \array_key_last($this->pageAliasMarks);
+    }
+
+    /**
+     * Returns the placeholder mark that shifts a centered or right-aligned line by the
+     * width difference of its page number aliases, or an empty string.
+     *
+     * @param array<int, int> $aliases Mark IDs of the aliases in the line.
+     */
+    protected function getPageAliasLineMark(array $aliases): string
+    {
+        if ($this->textAliasAlign !== 'C' && $this->textAliasAlign !== 'R') {
+            return '';
+        }
+
+        $this->pageAliasMarks[] = [
+            'kind' => 'LINE',
+            'mode' => $this->textAliasAlign,
+            'digits' => [],
+            'dwidth' => [],
+            'awidth' => 0.0,
+            'literal' => '',
+            'aliases' => $aliases,
+        ];
+
+        return $this->getPageAliasMarkStr((int) \array_key_last($this->pageAliasMarks));
+    }
+
+    /**
+     * Returns the placeholder of an /ActualText value holding page number aliases.
+     *
+     * @param string $txt UTF-8 text.
+     */
+    protected function getPageAliasActualTextMark(string $txt): string
+    {
+        $this->pageAliasMarks[] = [
+            'kind' => 'TEXT',
+            'mode' => 'L',
+            'digits' => [],
+            'dwidth' => [],
+            'awidth' => 0.0,
+            'literal' => $txt,
+            'aliases' => [],
+        ];
+
+        return $this->getPageAliasMarkStr((int) \array_key_last($this->pageAliasMarks));
+    }
+
+    /**
+     * Returns the placeholder string operand of the given mark ID.
+     */
+    protected function getPageAliasMarkStr(int $tid): string
+    {
+        return self::PAGE_ALIAS_MARK . $tid . '\\#)';
+    }
+
+    /**
+     * Replaces the page number alias placeholders of a content with the page number and
+     * the total number of pages of its group, or with the alias text when the content
+     * belongs to no single page (e.g. a Form XObject).
+     *
+     * @param string $content   Content stream.
+     * @param int    $pagenum   Page number in the group, or -1 for the alias text.
+     * @param int    $pagetotal Number of pages in the group.
+     */
+    protected function resolvePageAliasMarks(string $content, int $pagenum = -1, int $pagetotal = -1): string
+    {
+        if (!\str_contains($content, self::PAGE_ALIAS_MARK)) {
+            return $content;
+        }
+
+        return (
+            \preg_replace_callback(
+                self::PAGE_ALIAS_MARK_REGEX,
+                /**
+                 * @param array<int|string, string> $match
+                 */
+                fn(array $match): string => $this->getPageAliasMarkValue(
+                    (int) ($match[1] ?? -1),
+                    $match[0] ?? '',
+                    $pagenum,
+                    $pagetotal,
+                ),
+                $content,
+            ) ?? $content
+        );
+    }
+
+    /**
+     * Returns the content that replaces a page number alias placeholder.
+     *
+     * @param int    $tid       Mark ID.
+     * @param string $mark      Placeholder, returned for an unknown mark ID.
+     * @param int    $pagenum   Page number in the group, or -1 for the alias text.
+     * @param int    $pagetotal Number of pages in the group.
+     */
+    protected function getPageAliasMarkValue(int $tid, string $mark, int $pagenum, int $pagetotal): string
+    {
+        $data = $this->pageAliasMarks[$tid] ?? null;
+        if ($data === null) {
+            return $mark;
+        }
+
+        if ($data['kind'] === 'TEXT') {
+            $txt = $data['literal'];
+            if ($pagenum >= 0) {
+                // The values follow the order of PAGE_ALIASES.
+                $txt = \str_replace(self::PAGE_ALIASES, [(string) $pagenum, (string) $pagetotal], $txt);
+            }
+
+            return $this->formatPdfUaActualText($txt);
+        }
+
+        if ($pagenum < 0) {
+            return $data['kind'] === 'LINE' ? '' : '(' . $data['literal'] . ')';
+        }
+
+        if ($data['kind'] === 'LINE') {
+            $shift = 0.0;
+            foreach ($data['aliases'] as $aid) {
+                $alias = $this->pageAliasMarks[$aid] ?? null;
+                if ($alias !== null) {
+                    $shift += $this->getPageAliasSlack($alias, $pagenum, $pagetotal);
+                }
+            }
+
+            $shift *= $data['mode'] === 'C' ? 0.5 : 1.0;
+            return \abs($shift) < self::LINE_FIT_EPSILON ? '' : \sprintf('%F ', -$shift);
+        }
+
+        $out = '';
+        foreach (\str_split($this->getPageAliasNumber($data['kind'], $pagenum, $pagetotal)) as $chr) {
+            $out .= $data['digits'][(int) $chr] ?? '';
+        }
+
+        $out = '(' . $out . ')';
+        if ($data['mode'] !== 'J') {
+            return $out;
+        }
+
+        $slack = $this->getPageAliasSlack($data, $pagenum, $pagetotal);
+        return \abs($slack) < self::LINE_FIT_EPSILON ? $out : \sprintf('%s %F ', $out, -$slack);
+    }
+
+    /**
+     * Returns the value of a page number alias as a decimal string.
+     *
+     * @param string $kind      Alias kind: PN or PT.
+     * @param int    $pagenum   Page number in the group.
+     * @param int    $pagetotal Number of pages in the group.
+     */
+    protected function getPageAliasNumber(string $kind, int $pagenum, int $pagetotal): string
+    {
+        return (string) ($kind === 'PT' ? $pagetotal : $pagenum);
+    }
+
+    /**
+     * Returns the width of a page number alias less the width of its value, in
+     * thousandths of the text space unit.
+     *
+     * @param TPageAliasMark $data      Alias mark data.
+     * @param int             $pagenum   Page number in the group.
+     * @param int             $pagetotal Number of pages in the group.
+     */
+    protected function getPageAliasSlack(array $data, int $pagenum, int $pagetotal): float
+    {
+        $width = 0.0;
+        foreach (\str_split($this->getPageAliasNumber($data['kind'], $pagenum, $pagetotal)) as $chr) {
+            $width += $data['dwidth'][(int) $chr] ?? 0.0;
+        }
+
+        return $data['awidth'] - $width;
     }
 
     /**
