@@ -973,4 +973,154 @@ class HTMLPageFlowTest extends TestUtil
             $this->assertSame($snapshot['before'], $snapshot['after']);
         }
     }
+
+    /**
+     * Renders the table at each start position from 40 mm above the page bottom down
+     * to the bottom, and checks every page of each document: a header row is drawn at
+     * most once, and never without a body row after it.
+     *
+     * @param list<string> $heads Text of the header cells.
+     *
+     * @throws \Throwable
+     */
+    private function assertTableHeadDrawnOncePerPage(string $table, array $heads, string $mode = ''): void
+    {
+        for ($offset = 40.0; $offset > 0.0; $offset -= 0.5) {
+            $pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, false, $mode);
+            /** @var int $pon */
+            $pon = $this->getObjectProperty($pdf, 'pon');
+            $font = $pdf->font->insert($pon, 'helvetica', '', 10);
+            $pdf->addPage();
+            $pdf->page->addContent($font['out']);
+            $region = $pdf->page->getRegion();
+            $pdf->addHTMLCell($table, 10, $region['RY'] + $region['RH'] - $offset, 100);
+
+            foreach ($this->getPageContents($pdf) as $pidx => $content) {
+                foreach ($heads as $head) {
+                    $count = \substr_count($content, '(' . $head . ')');
+                    $this->assertLessThanOrEqual(1, $count, $head . ' at offset ' . $offset . ' page ' . $pidx);
+                    if ($count === 1) {
+                        $this->assertTrue(
+                            $this->hasTextAfter($content, $head, $heads),
+                            $head . ' without a body row at offset ' . $offset . ' page ' . $pidx,
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Returns true when a text other than the given ones is shown after $text.
+     *
+     * @param list<string> $skip Texts to skip.
+     */
+    private function hasTextAfter(string $content, string $text, array $skip): bool
+    {
+        $matches = [];
+        \preg_match_all('/\\(((?:\\\\.|[^\\\\)])*)\\) Tj/', $content, $matches);
+        $texts = [];
+        foreach ($matches[1] ?? [] as $match) {
+            $texts[] = \trim($match);
+        }
+
+        $pos = \array_search($text, $texts, true);
+        if (!\is_int($pos)) {
+            return false;
+        }
+
+        foreach (\array_slice($texts, $pos + 1) as $next) {
+            if ($next !== '' && !\in_array($next, $skip, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Returns the body rows of the table head cases.
+     */
+    private function getTableHeadBodyRows(int $num = 6): string
+    {
+        $rows = '';
+        for ($idx = 1; $idx <= $num; ++$idx) {
+            $rows .= '<tr><td>r' . $idx . '</td><td>t' . $idx . '</td></tr>';
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testTableHeadMovesOnceWithTheFirstBodyRow(): void
+    {
+        $this->assertTableHeadDrawnOncePerPage('<table border="1" cellpadding="3"><thead><tr><th>A</th><th>B</th></tr></thead><tbody>'
+        . $this->getTableHeadBodyRows()
+        . '</tbody></table>', ['A']);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testTableHeadOfTwoRowsMovesTogether(): void
+    {
+        $this->assertTableHeadDrawnOncePerPage('<table border="1" cellpadding="2"><thead><tr><th>A</th><th>B</th></tr>'
+        . '<tr><th>H2</th><th>H3</th></tr></thead><tbody>'
+        . $this->getTableHeadBodyRows()
+        . '</tbody></table>', ['A', 'H2']);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testTableHeadMovesOnceInTaggedMode(): void
+    {
+        $this->assertTableHeadDrawnOncePerPage(
+            '<table border="1" cellpadding="3"><thead><tr><th>A</th><th>B</th></tr></thead><tbody>'
+            . $this->getTableHeadBodyRows()
+            . '</tbody></table>',
+            ['A'],
+            'pdfua',
+        );
+    }
+
+    /**
+     * The first body row taller than the page splits under the head without a loop.
+     *
+     * @throws \Throwable
+     */
+    public function testTableHeadWithFirstBodyRowTallerThanThePage(): void
+    {
+        $this->assertTableHeadDrawnOncePerPage(
+            '<table border="1"><thead><tr><th>A</th></tr></thead><tbody><tr><td>r1<br />'
+            . $this->getNumberedLines(90)
+            . '</td></tr></tbody></table>',
+            ['A'],
+        );
+    }
+
+    /**
+     * A header row with a page break before it is drawn once on the new page.
+     *
+     * @throws \Throwable
+     */
+    public function testTableHeadRowWithPageBreakIsDrawnOnce(): void
+    {
+        $pdf = $this->getDocument();
+        $pdf->addHTMLCell(
+            '<p>Intro</p><table border="1"><thead><tr pagebreak="true"><th>A</th></tr></thead><tbody>'
+            . $this->getTableHeadBodyRows(2)
+            . '</tbody></table>',
+            10,
+            20,
+            100,
+        );
+
+        $pages = $this->getPageContents($pdf);
+        $this->assertCount(2, $pages);
+        $this->assertStringNotContainsString('(A)', $pages[0] ?? '');
+        $this->assertSame(1, \substr_count($pages[1] ?? '', '(A)'));
+    }
 }

@@ -9890,6 +9890,121 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Returns the table head HTML replayed before the given row after a page break:
+     * empty for a row of the table head, which is drawn itself.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int $trkey DOM key of the opening <tr> tag.
+     * @param array<int, string> $tabletheadmap Table head HTML keyed by the DOM key of its table.
+     */
+    protected function getHTMLTableRowReplayHead(array &$hrc, int $trkey, array $tabletheadmap): string
+    {
+        $row = $this->getHTMLDOMNode($hrc['dom'], $trkey);
+        if ($row === null || $row['thead'] === 'true') {
+            return '';
+        }
+
+        $parent = $row['parent'];
+        $table = $this->getHTMLDOMNode($hrc['dom'], $parent);
+        if ($table !== null && $table['thead'] !== '') {
+            return $table['thead'];
+        }
+
+        return $tabletheadmap[$parent] ?? '';
+    }
+
+    /**
+     * Returns the height that keeps the table head together with the first body row,
+     * when the given row is the first row of the table head; 0 otherwise, or when the
+     * head and the first body row do not fit an empty region together.
+     *
+     * The first body row counts with the rows its cells span, or with its first part
+     * when it can be split over the pages.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int $trkey DOM key of the opening <tr> tag.
+     * @param int $tablekey DOM key of the table node.
+     *
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Throwable
+     */
+    protected function estimateHTMLTableHeadKeepHeight(array &$hrc, int $trkey, int $tablekey): float
+    {
+        $row = $this->getHTMLDOMNode($hrc['dom'], $trkey);
+        if ($row === null || $row['thead'] !== 'true') {
+            return 0.0;
+        }
+
+        $rows = $this->getHTMLTableRowKeys($hrc, $tablekey);
+        if (($rows[0] ?? -1) !== $trkey) {
+            return 0.0;
+        }
+
+        $headh = 0.0;
+        $bodykey = -1;
+        foreach ($rows as $rowkey) {
+            if (($hrc['dom'][$rowkey]['thead'] ?? '') !== 'true') {
+                $bodykey = $rowkey;
+                break;
+            }
+
+            $headh += $this->estimateHTMLTableRowCells($hrc, $rowkey)['height'];
+        }
+
+        if ($bodykey < 0) {
+            return 0.0;
+        }
+
+        $regionh = $this->page->getRegion()['RH'];
+        $bodycells = $this->estimateHTMLTableRowCells($hrc, $bodykey);
+        $bodyh = \max($bodycells['height'], $this->estimateHTMLTableRowGroupHeight($hrc, $bodykey));
+        if ($bodyh > ($regionh - $headh) && $this->canFragmentHTMLTableRow($hrc, $bodykey)) {
+            $bodyh = \max(2.0 * $this->getHTMLLineAdvance($hrc, $bodykey), $bodycells['firstpart']);
+        }
+
+        $keeph = $headh + $bodyh;
+
+        return $keeph > ($regionh + self::WIDTH_TOLERANCE) ? 0.0 : $keeph;
+    }
+
+    /**
+     * Returns the DOM keys of the opening <tr> tags of a table, in document order,
+     * excluding the rows of nested tables.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int $tablekey DOM key of the opening <table> tag.
+     *
+     * @return list<int>
+     */
+    protected function getHTMLTableRowKeys(array &$hrc, int $tablekey): array
+    {
+        $rows = [];
+        $depth = 0;
+        $numel = \count($hrc['dom']);
+        for ($key = $tablekey + 1; $key < $numel; ++$key) {
+            $node = $hrc['dom'][$key] ?? null;
+            if (!\is_array($node) || !$node['tag']) {
+                continue;
+            }
+
+            if ($node['value'] === 'table') {
+                if (!$node['opening'] && $depth === 0) {
+                    break;
+                }
+
+                $depth += $node['opening'] ? 1 : -1;
+                continue;
+            }
+
+            if ($depth === 0 && $node['opening'] && $node['value'] === 'tr') {
+                $rows[] = $key;
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
      * Returns true when the table row can be split over the pages: a row of a table
      * that is not inside a table cell, without cells spanning other rows, with a next
      * region or page to continue on.
@@ -18112,13 +18227,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                     if ($didpagebreak && $elm['value'] === 'tr') {
                         $parent = $elm['parent'];
-                        $theadhtml = '';
-                        if (isset($dom[$parent], $dom[$parent]['thead']) && $dom[$parent]['thead'] !== '') {
-                            $theadhtml = $dom[$parent]['thead'];
-                        } elseif (isset($tabletheadmap[$parent]) && $tabletheadmap[$parent] !== '') {
-                            $theadhtml = $tabletheadmap[$parent];
-                        }
-
+                        $theadhtml = $this->getHTMLTableRowReplayHead($hrc, $key, $tabletheadmap);
                         if ($theadhtml !== '') {
                             $appendFragment($this->replayHTMLTableHead(
                                 $hrc,
@@ -18138,15 +18247,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     // text and <li>.
                     if ($elm['value'] === 'tr' && $hrc['cellctx']['maxheight'] <= 0.0) {
                         $parent = $elm['parent'];
-                        $theadhtml = '';
-                        if (isset($dom[$parent], $dom[$parent]['thead']) && $dom[$parent]['thead'] !== '') {
-                            $theadhtml = $dom[$parent]['thead'];
-                        } elseif (isset($tabletheadmap[$parent]) && $tabletheadmap[$parent] !== '') {
-                            $theadhtml = $tabletheadmap[$parent];
-                        }
-
+                        $theadhtml = $this->getHTMLTableRowReplayHead($hrc, $key, $tabletheadmap);
                         $rowcells = $this->estimateHTMLTableRowCells($hrc, $key);
-                        $requiredh = $rowcells['height'];
+                        $requiredh = \max($rowcells['height'], $this->estimateHTMLTableHeadKeepHeight(
+                            $hrc,
+                            $key,
+                            $parent,
+                        ));
                         // The rows covered by a cell spanning them move together when
                         // they fit an empty region.
                         $grouph = $this->estimateHTMLTableRowGroupHeight($hrc, $key);

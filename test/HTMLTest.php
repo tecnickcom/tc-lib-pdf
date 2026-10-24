@@ -10948,11 +10948,14 @@ class HTMLTest extends TestUtil
         /** @var \Com\Tecnick\Pdf\Page\Page $page */
         $page = $this->getObjectProperty($obj, 'page');
         $region = $page->getRegion();
-        $starty = \max(0.0, $region['RH'] - 5.0);
+        // The head and the first body row fit the first page, the second body row
+        // moves to the next page under the replayed head.
+        $starty = \max(0.0, $region['RH'] - 20.0);
 
         $out = $this->addHTMLCellContent(
             $obj,
-            '<table cellpadding="6"><thead><tr><th>HDR</th></tr></thead><tr><td>BODY</td></tr></table>',
+            '<table cellpadding="6"><thead><tr><th>HDR</th></tr></thead><tr><td>FIRST</td></tr>'
+            . '<tr><td>BODY</td></tr></table>',
             0,
             $starty,
             30,
