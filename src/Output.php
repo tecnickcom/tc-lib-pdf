@@ -455,6 +455,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $this->encrypt,
             fileHelper: $this->file,
             subsetCache: $this->fontSubsetCacheAdapter(),
+            cidset: $this->pdfa === 1,
         );
         $out .= $this->outfont->getFontsBlock();
         $this->pon = $this->outfont->getObjectNumber();
