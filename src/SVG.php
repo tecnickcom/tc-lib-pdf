@@ -2184,26 +2184,17 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $normalized = self::DEFSVGSTYLE;
 
         foreach ($normalized as $key => $default) {
+            /** @var mixed $value */
+            $value = $style[$key] ?? null;
             if ($key === 'transfmatrix') {
-                if (
-                    isset($style[$key])
-                    && \is_array($style[$key])
-                    && isset(
-                        $style[$key][0],
-                        $style[$key][1],
-                        $style[$key][2],
-                        $style[$key][3],
-                        $style[$key][4],
-                        $style[$key][5],
-                    )
-                ) {
+                if (\is_array($value) && isset($value[0], $value[1], $value[2], $value[3], $value[4], $value[5])) {
                     $normalized[$key] = [
-                        $this->normalizeSVGStyleFloatValue($style[$key][0], self::TMXID[0]),
-                        $this->normalizeSVGStyleFloatValue($style[$key][1], self::TMXID[1]),
-                        $this->normalizeSVGStyleFloatValue($style[$key][2], self::TMXID[2]),
-                        $this->normalizeSVGStyleFloatValue($style[$key][3], self::TMXID[3]),
-                        $this->normalizeSVGStyleFloatValue($style[$key][4], self::TMXID[4]),
-                        $this->normalizeSVGStyleFloatValue($style[$key][5], self::TMXID[5]),
+                        $this->normalizeSVGStyleFloatValue($value[0], self::TMXID[0]),
+                        $this->normalizeSVGStyleFloatValue($value[1], self::TMXID[1]),
+                        $this->normalizeSVGStyleFloatValue($value[2], self::TMXID[2]),
+                        $this->normalizeSVGStyleFloatValue($value[3], self::TMXID[3]),
+                        $this->normalizeSVGStyleFloatValue($value[4], self::TMXID[4]),
+                        $this->normalizeSVGStyleFloatValue($value[5], self::TMXID[5]),
                     ];
                 }
 
@@ -2212,11 +2203,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
             if (\in_array($key, self::SVGALPHAPROP, true)) {
                 $normalized[$key] = $default;
-                if (
-                    isset($style[$key])
-                    && (\is_string($style[$key]) || \is_float($style[$key]) || \is_int($style[$key]))
-                ) {
-                    $normalized[$key] = $this->normalizeSVGAlphaValue($style[$key]);
+                if (\is_string($value) || \is_float($value) || \is_int($value)) {
+                    $normalized[$key] = $this->normalizeSVGAlphaValue($value);
                 }
 
                 continue;
@@ -2225,34 +2213,27 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             if (\in_array($key, self::SVGLENGTHPROP, true)) {
                 // A length keeps its unit suffix here and is resolved against the
                 // SVG reference values where it is used.
-                if (
-                    isset($style[$key])
-                    && \is_string($style[$key])
-                    && \preg_match(self::SVGLENGTHREGEX, \trim($style[$key])) === 1
-                ) {
-                    $normalized[$key] = \trim($style[$key]);
+                if (\is_string($value) && \preg_match(self::SVGLENGTHREGEX, \trim($value)) === 1) {
+                    $normalized[$key] = \trim($value);
                     continue;
                 }
 
-                $normalized[$key] = $this->normalizeSVGStyleFloatValue(
-                    $style[$key] ?? null,
-                    \is_float($default) ? $default : 0.0,
-                );
+                $normalized[$key] = $this->normalizeSVGStyleFloatValue($value, \is_float($default) ? $default : 0.0);
                 continue;
             }
 
             if (\is_float($default)) {
-                $normalized[$key] = $this->normalizeSVGStyleFloatValue($style[$key] ?? $default, $default);
+                $normalized[$key] = $this->normalizeSVGStyleFloatValue($value ?? $default, $default);
                 continue;
             }
 
-            if (isset($style[$key]) && \is_string($style[$key])) {
-                $normalized[$key] = $style[$key];
+            if (\is_string($value)) {
+                $normalized[$key] = $value;
                 continue;
             }
 
-            if (isset($style[$key]) && (\is_bool($style[$key]) || \is_int($style[$key]) || \is_float($style[$key]))) {
-                $normalized[$key] = (string) $style[$key];
+            if (\is_bool($value) || \is_int($value) || \is_float($value)) {
+                $normalized[$key] = (string) $value;
             }
         }
 
@@ -5318,7 +5299,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $attrval = [];
 
         if (
-            $this->svgobjs[$soid]['clipmode']
+            $svgobj['clipmode']
             && !isset($attr['fill'])
             && (
                 !isset($attr['style'])

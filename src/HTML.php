@@ -3077,7 +3077,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'enabled' => $this->isHTMLFormControlTag($dom, $key)
                 && !$this->hasHTMLBooleanAttribute($dom, $key, 'disabled'),
             'checked' => $this->hasHTMLBooleanAttribute($dom, $key, 'checked')
-                || $node['value'] === 'option' && $this->hasHTMLBooleanAttribute($dom, $key, 'selected'),
+                || $this->hasHTMLBooleanAttribute($dom, $key, 'selected') && $node['value'] === 'option',
             default => false,
         };
     }
@@ -9121,15 +9121,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function findHTMLClosingTagIndex(array $dom, int $startkey): int
     {
-        if (
-            !($dom[$startkey]['tag'] ?? false)
-            || !($dom[$startkey]['opening'] ?? false)
-            || (!isset($dom[$startkey]['value']) || $dom[$startkey]['value'] === '')
-        ) {
+        $node = $dom[$startkey] ?? null;
+        if ($node === null || !$node['tag'] || !$node['opening'] || $node['value'] === '') {
             return $startkey;
         }
 
-        $tag = $dom[$startkey]['value'];
+        $tag = $node['value'];
         $depth = 0;
         $numel = \count($dom);
         for ($key = $startkey + 1; $key < $numel; ++$key) {
@@ -14470,7 +14467,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $float = $node['float'] !== '' ? \strtolower(\trim($node['float'])) : 'none';
         $clear = $node['clear'] !== '' ? \strtolower(\trim($node['clear'])) : 'none';
-        if (\in_array($clear, ['left', 'right', 'both'], true) && $this->hasActiveHTMLFloatRow($hrc, $tpy)) {
+        if ($this->hasActiveHTMLFloatRow($hrc, $tpy) && \in_array($clear, ['left', 'right', 'both'], true)) {
             $this->flushHTMLFloatRow($hrc, $tpx, $tpy, $tpw);
         }
 
@@ -14495,7 +14492,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hasinlinecontent =
             $tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE)
             && ($lineadvancectx > self::WIDTH_TOLERANCE || $linebottomctx > ($tpy + self::WIDTH_TOLERANCE));
-        $isFloatInActiveRow = \in_array($float, ['left', 'right'], true) && $this->hasActiveHTMLFloatRow($hrc, $tpy);
+        $isFloatInActiveRow = $this->hasActiveHTMLFloatRow($hrc, $tpy) && \in_array($float, ['left', 'right'], true);
         $lineadvance = $hasinlinecontent ? $this->getCurrentHTMLLineAdvance($hrc, $key) : 0.0;
         $hasExplicitCompactLineHeight = $this->isHTMLCompactLineHeightNode($node);
         if (
@@ -16696,7 +16693,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getHTMLNodeTextContent(array $dom, int $startkey): string
     {
-        if (!($dom[$startkey]['tag'] ?? false) || !($dom[$startkey]['opening'] ?? false)) {
+        $node = $dom[$startkey] ?? null;
+        if ($node === null || !$node['tag'] || !$node['opening']) {
             return '';
         }
 
@@ -18391,15 +18389,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         // A row taller than an empty region is split over the pages:
                         // it starts here unless too little room is left for its first
                         // lines, as kept together by the orphans property.
-                        $fragmentRow =
+                        $fragmentRow = false;
+                        if (
                             !$this->isHTMLFragmentingCell($hrc)
                             && $requiredh
                                 > (
                                     $this->getHTMLTableRowRegionHeight($hrc, $theadhtml, $parent)
                                     + self::WIDTH_TOLERANCE
                                 )
-                            && $this->canFragmentHTMLTableRow($hrc, $key);
-                        $willBreak =
+                            && $this->canFragmentHTMLTableRow($hrc, $key)
+                        ) {
+                            $fragmentRow = true;
+                        }
+
+                        $willBreak = false;
+                        if (
                             $requiredh > 0.0
                             && $requiredh > ($remaining + self::WIDTH_TOLERANCE)
                             && $tpy > ($regiontop + self::WIDTH_TOLERANCE)
@@ -18410,7 +18414,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                                     2.0 * $this->getHTMLLineAdvance($hrc, $key),
                                     $rowcells['firstpart'],
                                 )
-                            );
+                            )
+                        ) {
+                            $willBreak = true;
+                        }
 
                         if ($willBreak && $hrc['blockbuf'] !== []) {
                             $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
@@ -20189,8 +20196,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         // For inline-block elements, always render the border (don't check for block ancestor bg)
         // For pure inline elements, check if block ancestor has same bgcolor
-        $shouldRenderBorder = $isInlineBlockParent || !$this->hasBlockLvBgAncestor($hrc, $currentkey);
-        if (!$shouldRenderBorder) {
+        if (!$isInlineBlockParent && $this->hasBlockLvBgAncestor($hrc, $currentkey)) {
             return '';
         }
 
@@ -23806,7 +23812,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             $sharedStyle = $this->getHTMLCollapsedPreferredVerticalBorderStyle(
                                 $rightStyle,
                                 $leftStyle,
-                                isset($table['dir']) ? $table['dir'] : 'ltr',
+                                $table['dir'],
                             );
                         }
 

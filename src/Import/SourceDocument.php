@@ -178,20 +178,24 @@ class SourceDocument
         /** @var array<string, bool|int> $parserCfg */
         $parserCfg = ['decode_streams' => false];
         foreach (['ignore_filter_errors', 'decode_streams', 'strict_limits'] as $key) {
-            if (!isset($cfg[$key]) || !\is_bool($cfg[$key])) {
+            /** @var mixed $value */
+            $value = $cfg[$key] ?? null;
+            if (!\is_bool($value)) {
                 continue;
             }
 
-            $parserCfg[$key] = $cfg[$key];
+            $parserCfg[$key] = $value;
         }
 
         // the parser clamps each limit with its own rule, so the value is passed through as given
         foreach (['max_stream_size', 'max_resolution_depth', 'max_nesting_depth'] as $key) {
-            if (!isset($cfg[$key]) || !\is_int($cfg[$key])) {
+            /** @var mixed $value */
+            $value = $cfg[$key] ?? null;
+            if (!\is_int($value)) {
                 continue;
             }
 
-            $parserCfg[$key] = $cfg[$key];
+            $parserCfg[$key] = $value;
         }
 
         return $parserCfg;

@@ -653,26 +653,18 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
         $adj = isset($styles['all']['lineWidth'])
             ? $this->toPoints($styles['all']['lineWidth'] * $cell['borderpos'])
             : 0.0;
-        $adjx = isset($styles['3']['lineWidth'])
-            ? $this->toPoints($styles['3']['lineWidth'] * $cell['borderpos'])
-            : $adj;
-        $adjy = isset($styles['0']['lineWidth'])
-            ? $this->toPoints($styles['0']['lineWidth'] * $cell['borderpos'])
-            : $adj;
-        $adjw =
-            $adjx
-            + (
-                isset($styles['1']['lineWidth'])
-                    ? $this->toPoints($styles['1']['lineWidth'] * $cell['borderpos'])
-                    : $adj
-            );
-        $adjh =
-            $adjy
-            + (
-                isset($styles['2']['lineWidth'])
-                    ? $this->toPoints($styles['2']['lineWidth'] * $cell['borderpos'])
-                    : $adj
-            );
+        $sideadj = [$adj, $adj, $adj, $adj];
+        foreach ([0, 1, 2, 3] as $side) {
+            $linewidth = $styles[$side]['lineWidth'] ?? null;
+            if ($linewidth !== null) {
+                $sideadj[$side] = $this->toPoints($linewidth * $cell['borderpos']);
+            }
+        }
+
+        $adjx = $sideadj[3];
+        $adjy = $sideadj[0];
+        $adjw = $adjx + $sideadj[1];
+        $adjh = $adjy + $sideadj[2];
 
         // draw only sides with a positive stroke width;
         // PDF "0 w" is a hairline stroke, not "no border".
