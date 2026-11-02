@@ -278,6 +278,62 @@ $pdf->addHTMLCell(
     180,
 );
 
+/**
+ * Returns a table of three columns with the given table attributes and head row.
+ */
+$headColumnsTable = function (string $tableattr, string $headrow, int $num): string {
+    $rows = '';
+    for ($idx = 1; $idx <= $num; ++$idx) {
+        $rows .= '<tr><td>Item ' . $idx . '</td><td>Description ' . $idx . '</td><td>' . $idx . '.00</td></tr>';
+    }
+
+    return (
+        '<table '
+        . $tableattr
+        . '><thead><tr style="background-color:#cccccc">'
+        . $headrow
+        . '</tr></thead><tbody>'
+        . $rows
+        . '</tbody></table>'
+    );
+};
+
+$posy = $drawTitle(
+    'A repeated table head with percentage widths on the head cells',
+    'the table starts 30 mm above the dashed line; the head repeated on the next page has the same column '
+    . 'widths as the body rows below it and as the head on this page.',
+);
+$selectFont();
+$region = $pdf->page->getRegion();
+$pdf->addHTMLCell(
+    $headColumnsTable(
+        'border="1" cellpadding="2"',
+        '<th style="width: 25%">Item</th><th>Description</th><th style="width: 15%">Price</th>',
+        12,
+    ),
+    15,
+    $region['RY'] + $region['RH'] - 30,
+    180,
+);
+
+$posy = $drawTitle(
+    'A repeated table head of a table with margins',
+    'the table has a 20 px top and bottom margin and starts 30 mm above the dashed line; the head repeated on '
+    . 'the next page touches the first body row.',
+);
+$selectFont();
+$region = $pdf->page->getRegion();
+$pdf->addHTMLCell(
+    $headColumnsTable(
+        'border="1" cellpadding="2" style="margin: 20px 0"',
+        '<th>Item</th><th>Description</th><th>Price</th>',
+        12,
+    ),
+    15,
+    $region['RY'] + $region['RH'] - 30,
+    180,
+);
+
 // =============================================================
 
 $rawpdf = $pdf->getOutPDFString();

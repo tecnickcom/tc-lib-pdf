@@ -81,6 +81,13 @@ $pdf->page->addContent($bfont['out']);
 // caption/colgroup/col/tfoot; unsupported styling on colgroup/col remains
 // intentionally a no-op in this conservative implementation.
 
+// A small SVG image embedded as a data URI, in base64 and in percent-encoded form.
+$svgImage =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="12">'
+    . '<rect width="24" height="12" rx="3" fill="#3366cc"/><circle cx="6" cy="6" r="3" fill="#ffcc00"/></svg>';
+$svgBase64 = 'data:image/svg+xml;base64,' . \base64_encode($svgImage);
+$svgEncoded = 'data:image/svg+xml,' . \rawurlencode($svgImage);
+
 $html = <<<HTML
     <style>
     .demo {
@@ -439,6 +446,10 @@ $html_03 .= <<<EOF
     <div style="background-color:#880000;color:white;">DIV LEVEL 1<div style="background-color:#008800;color:white;">DIV LEVEL 2</div>DIV LEVEL 1</div>
     <br />
     <span style="background-color:#880000;color:white;">SPAN LEVEL 1 <span style="background-color:#008800;color:white;">SPAN LEVEL 2</span> SPAN LEVEL 1</span>
+    <hr />
+    <h2>Images from Data URIs</h2>
+    SVG, base64: <img src="{$svgBase64}" alt="SVG base64" width="48" height="24" />
+    SVG, percent-encoded: <img src="{$svgEncoded}" alt="SVG percent-encoded" width="48" height="24" />
     EOF;
 
 $pdf->addHTMLCell(html: $html_03, posx: 20, posy: 10, width: 180);

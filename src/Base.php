@@ -717,7 +717,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.82.4';
+    protected string $version = '8.83.0';
 
     /**
      * Encrypt object.
@@ -2222,6 +2222,16 @@ abstract class Base
         $last = \array_key_last($list);
 
         return [($last ?? -1) + 1 => $box];
+    }
+
+    /**
+     * Add the bounding box of a drawn cell to the cell bounding box list.
+     *
+     * @param TBBox $box Cell bounding box in user units.
+     */
+    protected function pushCellBBox(array $box): void
+    {
+        $this->cellbbox = $this->getNextBBoxList($this->cellbbox, $box);
     }
 
     /**

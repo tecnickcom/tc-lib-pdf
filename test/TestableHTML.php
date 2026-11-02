@@ -853,6 +853,24 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getHTMLListImageMarkerType($listImage);
     }
 
+    /**
+     * @return array{mime: string, data: string}|null
+     */
+    public function exposeDecodeHTMLDataUri(string $src): ?array
+    {
+        return $this->decodeHTMLDataUri($src);
+    }
+
+    public function exposeIsHTMLSvgImageData(string $data): bool
+    {
+        return $this->isHTMLSvgImageData($data);
+    }
+
+    public function exposeIsHTMLSvgImageSource(string $src): bool
+    {
+        return $this->isHTMLSvgImageSource($src);
+    }
+
     public function exposeGetHTMLBackgroundShorthandColor(string $background): string
     {
         return $this->getHTMLBackgroundShorthandColor($background);

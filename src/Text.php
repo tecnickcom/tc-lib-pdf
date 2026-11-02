@@ -19,6 +19,7 @@ declare(strict_types=1);
 namespace Com\Tecnick\Pdf;
 
 use Com\Tecnick\Pdf\Exception as PdfException;
+use Com\Tecnick\Pdf\Font\Stack as ObjFont;
 use Com\Tecnick\Pdf\Page\Settings as PageSettings;
 use Com\Tecnick\Unicode\Bidi;
 use Com\Tecnick\Unicode\Data\Constant as UnicodeConstant;
@@ -597,7 +598,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $txt_out = $fontout_prefix . $txt_out;
             }
 
-            $this->cellbbox = $this->getNextBBoxList($this->cellbbox, [
+            $this->pushCellBBox([
                 'x' => $this->toUnit($cell_pntx),
                 'y' => $this->toYUnit($cell_pnty),
                 'w' => $this->toUnit($cell_pwidth),
@@ -955,7 +956,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $txt_pnty = $this->textVPosFromCell($cell_pnty, $cell_pheight, $txt_pheight, $valign, $cell);
                 $line_posy = $this->toYUnit($txt_pnty);
 
-                $this->cellbbox = $this->getNextBBoxList($this->cellbbox, [
+                $this->pushCellBBox([
                     'x' => $this->toUnit($cell_pntx),
                     'y' => $this->toYUnit($cell_pnty),
                     'w' => $this->toUnit($cell_pwidth),
@@ -3864,7 +3865,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     protected function getOutEscapedStr(array $ordarr): string
     {
         if ($this->font->isCurrentByteFont()) {
-            $latin = $this->uniconv->uniArrToLatinArr($ordarr);
+            $latin = $this->uniconv->uniArrToLatinArr($this->getOrdArrWithoutSelectors($ordarr));
             /** @var array<int<0, 255>> $latin */
             return $this->encrypt->escapeString($this->uniconv->latinArrToStr($latin));
         }
@@ -4224,7 +4225,23 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             return $this->font->ordArrToGidStr($this->getMappedOrdArr($ordarr));
         }
 
-        return $this->uniconv->toUTF16BE(\implode('', $this->uniconv->ordArrToChrArr($ordarr)));
+        return $this->uniconv->toUTF16BE(\implode(
+            '',
+            $this->uniconv->ordArrToChrArr($this->getOrdArrWithoutSelectors($ordarr)),
+        ));
+    }
+
+    /**
+     * Returns the given codepoints without the variation selectors, for the fonts that
+     * show no variation sequence: a selector takes no space and has no glyph of its own.
+     *
+     * @param array<int, int> $ordarr Array of UTF-8 codepoints (integer values).
+     *
+     * @return array<int, int>
+     */
+    protected function getOrdArrWithoutSelectors(array $ordarr): array
+    {
+        return \array_values(\array_filter($ordarr, static fn(int $ord): bool => !ObjFont::isVariationSelector($ord)));
     }
 
     /**
@@ -4250,7 +4267,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $mapped = [];
         $dropped = [];
         foreach ($ordarr as $ord) {
-            if ($this->font->getGidForOrd($ord) === 0) {
+            // a variation selector selects the glyph of its base character
+            if ($this->font->getGidForOrd($ord) === 0 && !ObjFont::isVariationSelector($ord)) {
                 $dropped[] = \sprintf('U+%04X', $ord);
                 continue;
             }

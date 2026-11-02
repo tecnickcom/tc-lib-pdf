@@ -1181,4 +1181,124 @@ class HTMLPageFlowTest extends TestUtil
     {
         $this->assertTableCaptionKeptWithRows('bottom');
     }
+
+    /**
+     * Returns the abscissa and ordinate (points) of the first text shown with Td that
+     * equals $text, or null.
+     *
+     * @return array{0: float, 1: float}|null
+     */
+    private function getTextPosition(string $content, string $text): ?array
+    {
+        $matches = [];
+        \preg_match_all('/ ([-0-9.]+) ([-0-9.]+) Td \(((?:\\\\.|[^\\\\)])*)\) Tj/', $content, $matches, PREG_SET_ORDER);
+        foreach ($matches as $match) {
+            if (($match[3] ?? '') === $text) {
+                return [\floatval($match[1] ?? 0.0), \floatval($match[2] ?? 0.0)];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Renders a 60-row table with the given head and table attributes, and checks that the
+     * head repeated on the second page has the abscissae of the head on the first page and
+     * the same distance to the first body row below it.
+     *
+     * @throws \Throwable
+     */
+    private function assertRepeatedHeadMatchesTheFirst(string $tableattr, string $headrow): void
+    {
+        $rows = '';
+        for ($idx = 1; $idx <= 60; ++$idx) {
+            $rows .= '<tr><td>Item ' . $idx . '</td><td>Desc ' . $idx . '</td><td>' . $idx . '.00</td></tr>';
+        }
+
+        $pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, false);
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($pdf, 'pon');
+        $font = $pdf->font->insert($pon, 'helvetica', '', 10);
+        $pdf->addPage();
+        $pdf->page->addContent($font['out']);
+        $pdf->addHTMLCell(
+            '<table ' . $tableattr . '><thead>' . $headrow . '</thead><tbody>' . $rows . '</tbody></table>',
+            15,
+            20,
+            180,
+        );
+
+        $first = $this->getPageContent($pdf, 0);
+        $second = $this->getPageContent($pdf, 1);
+        $matches = [];
+        $this->assertSame(1, \preg_match('/\(Item ([0-9]+)\) Tj(?![\s\S]*\(Item [0-9]+\) Tj)/', $first, $matches));
+        $nextrow = 'Item ' . ((int) ($matches[1] ?? 0) + 1);
+
+        foreach (['Item', 'Description', 'Price'] as $head) {
+            $one = $this->getTextPosition($first, $head);
+            $two = $this->getTextPosition($second, $head);
+            $this->assertNotNull($one, $head);
+            $this->assertNotNull($two, $head . ' repeated');
+            $this->assertEqualsWithDelta($one[0], $two[0], 0.01, $head . ' abscissa');
+        }
+
+        $headfirst = $this->getTextPosition($first, 'Item');
+        $rowfirst = $this->getTextPosition($first, 'Item 1');
+        $headsecond = $this->getTextPosition($second, 'Item');
+        $rowsecond = $this->getTextPosition($second, $nextrow);
+        $this->assertNotNull($headfirst);
+        $this->assertNotNull($rowfirst);
+        $this->assertNotNull($headsecond);
+        $this->assertNotNull($rowsecond, $nextrow);
+        $this->assertEqualsWithDelta(
+            $headfirst[1] - $rowfirst[1],
+            $headsecond[1] - $rowsecond[1],
+            0.01,
+            'distance between the head and the first body row',
+        );
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testRepeatedHeadKeepsTheColumnsOfPercentWidthHeadCells(): void
+    {
+        $this->assertRepeatedHeadMatchesTheFirst(
+            'border="1" cellpadding="4"',
+            '<tr><th style="width: 25%">Item</th><th>Description</th><th width="15%">Price</th></tr>',
+        );
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testRepeatedHeadOfATableWithMarginsTouchesTheBody(): void
+    {
+        $this->assertRepeatedHeadMatchesTheFirst(
+            'border="1" cellpadding="4" style="margin: 20px 40px"',
+            '<tr><th>Item</th><th>Description</th><th>Price</th></tr>',
+        );
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testRepeatedHeadOfAPaddedTableKeepsItsColumns(): void
+    {
+        $this->assertRepeatedHeadMatchesTheFirst(
+            'border="1" cellpadding="4" style="padding: 10px; border: 2px solid red"',
+            '<tr><th style="width: 25%">Item</th><th>Description</th><th>Price</th></tr>',
+        );
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testRepeatedHeadOfAPercentWidthTableKeepsItsColumns(): void
+    {
+        $this->assertRepeatedHeadMatchesTheFirst(
+            'border="1" cellpadding="4" cellspacing="3" style="width: 80%"',
+            '<tr><th style="width: 25%">Item</th><th>Description</th><th style="width: 15%">Price</th></tr>',
+        );
+    }
 }

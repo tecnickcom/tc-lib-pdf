@@ -887,6 +887,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         'text-decoration' => 'none',
         'width' => '0',
         'height' => '0',
+        'min-width' => 'auto',
+        'min-height' => 'auto',
+        'max-width' => 'none',
+        'max-height' => 'none',
         'text-align' => 'left',
         'vertical-align' => 'baseline',
         'padding' => '0',
@@ -905,6 +909,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         'border-bottom' => 'none',
         'border-left' => 'none',
         'border-width' => '0',
+        'border-top-width' => '0',
+        'border-right-width' => '0',
+        'border-bottom-width' => '0',
+        'border-left-width' => '0',
         'border-style' => 'none',
         'border-color' => 'black',
         'border-collapse' => 'separate',
@@ -920,6 +928,87 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         'break-before' => 'auto',
         'break-after' => 'auto',
         'widows' => '2',
+    ];
+
+    /**
+     * CSS properties read by the style parsers whose value is inherited by default.
+     *
+     * @var array<string, true>
+     */
+    protected const HTML_STYLE_INHERITED_CSS_PROPERTIES = [
+        'border-collapse' => true,
+        'border-spacing' => true,
+        'caption-side' => true,
+        'color' => true,
+        'direction' => true,
+        'empty-cells' => true,
+        'font' => true,
+        'font-family' => true,
+        'font-size' => true,
+        'font-size-adjust' => true,
+        'font-stretch' => true,
+        'font-style' => true,
+        'font-variant' => true,
+        'font-weight' => true,
+        'letter-spacing' => true,
+        'line-height' => true,
+        'list-style' => true,
+        'list-style-image' => true,
+        'list-style-position' => true,
+        'list-style-type' => true,
+        'orphans' => true,
+        'overflow-wrap' => true,
+        'quotes' => true,
+        'text-align' => true,
+        'text-indent' => true,
+        'text-transform' => true,
+        'visibility' => true,
+        'white-space' => true,
+        'widows' => true,
+        'word-break' => true,
+        'word-spacing' => true,
+    ];
+
+    /**
+     * Length properties checked by dropHTMLStyleInvalidLengths(): the keywords each one
+     * accepts besides a value with a number, and the maximum number of values.
+     *
+     * @var array<string, array{0: array<int, string>, 1: int}>
+     */
+    protected const HTML_STYLE_LENGTH_KEYWORDS = [
+        'border-bottom-width' => [['thin', 'medium', 'thick'], 1],
+        'border-left-width' => [['thin', 'medium', 'thick'], 1],
+        'border-right-width' => [['thin', 'medium', 'thick'], 1],
+        'border-spacing' => [[], 2],
+        'border-top-width' => [['thin', 'medium', 'thick'], 1],
+        'border-width' => [['thin', 'medium', 'thick'], 4],
+        'bottom' => [['auto'], 1],
+        'font-size' => [
+            ['xx-small', 'x-small', 'small', 'medium', 'large', 'x-large', 'xx-large', 'smaller', 'larger'],
+            1,
+        ],
+        'height' => [['auto'], 1],
+        'left' => [['auto'], 1],
+        'letter-spacing' => [['normal'], 1],
+        'line-height' => [['normal'], 1],
+        'margin' => [['auto'], 4],
+        'margin-bottom' => [['auto'], 1],
+        'margin-left' => [['auto'], 1],
+        'margin-right' => [['auto'], 1],
+        'margin-top' => [['auto'], 1],
+        'max-height' => [['none'], 1],
+        'max-width' => [['none'], 1],
+        'min-height' => [['auto'], 1],
+        'min-width' => [['auto'], 1],
+        'padding' => [[], 4],
+        'padding-bottom' => [[], 1],
+        'padding-left' => [[], 1],
+        'padding-right' => [[], 1],
+        'padding-top' => [[], 1],
+        'right' => [['auto'], 1],
+        'top' => [['auto'], 1],
+        'width' => [['auto'], 1],
+        'word-spacing' => [['normal'], 1],
     ];
 
     /**
@@ -2413,8 +2502,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                 // An unmatched value group is null, so an empty quoted value stays empty.
                 $value = $attrm[2] ?? $attrm[3] ?? $attrm[4] ?? 'true';
-                if ($name === 'style') {
-                    // Character references are decoded before the declarations are parsed.
+                if ($name !== 'href') {
+                    // Character references are decoded once; a link target is decoded
+                    // when the link annotation is written.
                     $value = \html_entity_decode($value, ENT_QUOTES, $this->encoding);
                 }
 
@@ -3487,7 +3577,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $styles = $this->parseHTMLStyleDeclarationMap($dom[$key]['attribute']['style']);
-        $styles = $this->resolveHTMLStyleInitialValues($styles);
+        $styles = $this->dropHTMLStyleInvalidLengths($this->resolveHTMLStyleWideKeywords($styles));
         if ($styles === []) {
             return;
         }
@@ -3573,13 +3663,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
-     * Resolve CSS `initial` keyword values using an explicit property metadata table.
+     * Resolve the CSS-wide keywords of a declaration map.
+     *
+     * - `initial`: the value of HTML_STYLE_INITIAL_VALUE_MAP; a property without one is
+     *   dropped, so the element keeps its default.
+     * - `unset`: `inherit` for an inherited property, `initial` otherwise.
+     * - `revert`, `revert-layer`: the declaration is dropped, so the element keeps the
+     *   value of its tag defaults or of its parent.
+     * - `inherit` is left to the property parsers.
      *
      * @param array<string, string> $styles
      *
      * @return array<string, string>
      */
-    protected function resolveHTMLStyleInitialValues(array $styles): array
+    protected function resolveHTMLStyleWideKeywords(array $styles): array
     {
         if ($styles === []) {
             return [];
@@ -3598,16 +3695,66 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         foreach ($resolved as $property => $value) {
-            if (\trim(\strtolower($value)) !== 'initial') {
-                continue;
+            $keyword = \trim(\strtolower($value));
+            if ($keyword === 'unset') {
+                $keyword = isset(self::HTML_STYLE_INHERITED_CSS_PROPERTIES[$property]) ? 'inherit' : 'initial';
+                $resolved[$property] = $keyword;
             }
 
-            if (isset(self::HTML_STYLE_INITIAL_VALUE_MAP[$property])) {
-                $resolved[$property] = self::HTML_STYLE_INITIAL_VALUE_MAP[$property];
+            if ($keyword === 'initial') {
+                if (isset(self::HTML_STYLE_INITIAL_VALUE_MAP[$property])) {
+                    $resolved[$property] = self::HTML_STYLE_INITIAL_VALUE_MAP[$property];
+                } else {
+                    unset($resolved[$property]);
+                }
+            } elseif ($keyword === 'revert' || $keyword === 'revert-layer') {
+                unset($resolved[$property]);
             }
         }
 
         return $resolved;
+    }
+
+    /**
+     * Drop the length declarations that hold a value the length parsers cannot read.
+     *
+     * Each space separated value must contain a digit or be a keyword the property
+     * accepts (see HTML_STYLE_LENGTH_KEYWORDS); `inherit` is accepted by every property.
+     * A parenthesized group such as calc(...) counts as one value. An invalid
+     * declaration is ignored, as in CSS, and the element keeps its inherited or default
+     * value.
+     *
+     * @param array<string, string> $styles
+     *
+     * @return array<string, string>
+     */
+    protected function dropHTMLStyleInvalidLengths(array $styles): array
+    {
+        foreach ($styles as $property => $value) {
+            $rule = self::HTML_STYLE_LENGTH_KEYWORDS[$property] ?? null;
+            if ($rule === null) {
+                continue;
+            }
+
+            $value = \strtolower(\trim($value));
+            if ($value === 'inherit') {
+                continue;
+            }
+
+            $tokens = [];
+            \preg_match_all('/(?:[^\s(]+|\([^)]*\))+/', $value, $tokens);
+            $values = $tokens[0] ?? [];
+            $valid = $values !== [] && \count($values) <= $rule[1];
+            foreach ($values as $token) {
+                $valid = $valid && (\preg_match('/\d/', $token) === 1 || \in_array($token, $rule[0], true));
+            }
+
+            if (!$valid) {
+                unset($styles[$property]);
+            }
+        }
+
+        return $styles;
     }
 
     /**
@@ -5040,6 +5187,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $dom[$key]['width'] = $this->toUnit($this->getUnitValuePoints($parentWidth, $ref));
                 }
             }
+        } elseif (\strtolower($width) === 'auto') {
+            $dom[$key]['width'] = 0.0;
         } else {
             $ref = $this->getHTMLNodeUnitRef($dom, $key);
             $dom[$key]['width'] = $this->toUnit($this->getUnitValuePoints($width, $ref));
@@ -5126,6 +5275,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $dom[$key]['height'] = $this->toUnit($this->getUnitValuePoints($parentHeight, $ref));
                 }
             }
+        } elseif (\strtolower($height) === 'auto') {
+            $dom[$key]['height'] = 0.0;
         } else {
             $ref = $this->getHTMLNodeUnitRef($dom, $key);
             $dom[$key]['height'] = $this->toUnit($this->getUnitValuePoints($height, $ref));
@@ -6897,6 +7048,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $this->parseHTMLAttributesStroke($dom, $key);
         $this->parseHTMLAttributesFill($dom, $key);
         $this->parseHTMLAttributesClip($dom, $key);
+        $this->parseHTMLAttributesHeadReplay($dom, $key);
+    }
+
+    /**
+     * Drops the margins and padding of the table of a repeated table head (see
+     * injectHTMLTableHeadColWidths()), which is drawn at the content edge of the table it
+     * repeats.
+     *
+     * @param array<int, THTMLDOMNode> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesHeadReplay(array &$dom, int $key): void
+    {
+        if (($dom[$key]['attribute']['data-tcpdf-headreplay'] ?? '') === '1') {
+            $dom[$key]['margin'] = ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0];
+            $dom[$key]['padding'] = ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0];
+        }
     }
 
     /**
@@ -7549,6 +7717,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Applies width attributes.
      *
+     * The attribute is a presentational hint: a width declared in the style takes
+     * precedence, and a value without a number is ignored.
+     *
      * @param array<int, THTMLDOMNode> $dom DOM array.
      * @param int $key Current element ID.
      *
@@ -7556,14 +7727,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLAttributesWidth(array &$dom, int $key): void
     {
-        // check for width attribute
-        if (isset($dom[$key]['attribute']['width']) && \is_string($dom[$key]['attribute']['width'])) {
-            $dom[$key]['width'] = $this->toUnit($this->getUnitValuePoints($dom[$key]['attribute']['width']));
+        $width = $dom[$key]['attribute']['width'] ?? null;
+        if (\is_string($width) && \preg_match('/\d/', $width) === 1 && ($dom[$key]['style']['width'] ?? '') === '') {
+            $dom[$key]['width'] = $this->toUnit($this->getUnitValuePoints($width));
         }
     }
 
     /**
      * Applies height attributes.
+     *
+     * The attribute is a presentational hint: a height declared in the style takes
+     * precedence, and a value without a number is ignored.
      *
      * @param array<int, THTMLDOMNode> $dom DOM array.
      * @param int $key Current element ID.
@@ -7572,9 +7746,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLAttributesHeight(array &$dom, int $key): void
     {
-        // check for height attribute
-        if (isset($dom[$key]['attribute']['height']) && \is_string($dom[$key]['attribute']['height'])) {
-            $dom[$key]['height'] = $this->toUnit($this->getUnitValuePoints($dom[$key]['attribute']['height']));
+        $height = $dom[$key]['attribute']['height'] ?? null;
+        if (\is_string($height) && \preg_match('/\d/', $height) === 1 && ($dom[$key]['style']['height'] ?? '') === '') {
+            $dom[$key]['height'] = $this->toUnit($this->getUnitValuePoints($height));
         }
     }
 
@@ -7895,7 +8069,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     'lineWidth' => 0,
                     'lineCap' => 'butt',
                     'lineJoin' => 'miter',
-                    'miterLimit' => 0,
                     'dashArray' => [],
                     'dashPhase' => 0,
                     'lineColor' => $markerColor !== ''
@@ -7930,7 +8103,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     'lineWidth' => $rad / 3,
                     'lineCap' => 'butt',
                     'lineJoin' => 'miter',
-                    'miterLimit' => 0,
                     'dashArray' => [],
                     'dashPhase' => 0,
                     'lineColor' => $markerColor !== ''
@@ -7965,7 +8137,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     'lineWidth' => 0,
                     'lineCap' => 'butt',
                     'lineJoin' => 'miter',
-                    'miterLimit' => 0,
                     'dashArray' => [],
                     'dashPhase' => 0,
                     'lineColor' => $markerColor !== ''
@@ -7994,30 +8165,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $markerx = $this->placeHTMLliMarker($posx, $lspace, $imgw, $inside, $advance);
                 $imgtype = strtolower($img[1] ?? '');
                 $imgsrc = $img[4] ?? '';
-                if (
-                    $imgtype === 'svg+xml'
-                    || \str_starts_with($imgsrc, '@<svg')
-                    || \str_contains($imgsrc, '<svg')
-                    || \str_starts_with($imgsrc, 'data:image/svg+xml')
-                ) {
-                    $imgtype = 'svg';
-                    if (\str_starts_with($imgsrc, 'data:image/svg+xml')) {
-                        $svgdata = [];
-                        if (\preg_match('/^data:image\/svg\+xml(?:;base64)?,(.*)$/i', $imgsrc, $svgdata)) {
-                            $payload = isset($svgdata[1]) ? $svgdata[1] : '';
-                            $rawsvg = \rawurldecode($payload);
-                            if (\str_contains($imgsrc, ';base64,')) {
-                                $decoded = \base64_decode($payload, true);
-                                if ($decoded !== false && $decoded !== '') {
-                                    $rawsvg = $decoded;
-                                }
-                            }
+                $datauri = $this->decodeHTMLDataUri($imgsrc);
+                if ($datauri !== null) {
+                    $imgsrc = '@' . $datauri['data'];
+                }
 
-                            if ($rawsvg !== '') {
-                                $imgsrc = '@' . $rawsvg;
-                            }
-                        }
-                    }
+                if ($imgtype === 'svg+xml' || $this->isHTMLSvgImageSource($imgsrc)) {
+                    $imgtype = 'svg';
                 }
                 $imgwidth = $imgw;
                 $imgHeightRaw = $img[3] ?? null;
@@ -8522,6 +8676,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * replayed headers on continuation pages use the same column geometry
      * computed for the original table.
      *
+     * The table tag of the fragment is marked with data-tcpdf-headreplay: its COL
+     * widths are used as they are (see getHTMLTableReplayColWidths()) and its margins
+     * and padding are dropped (see parseHTMLAttributesHeadReplay()), as the fragment is
+     * drawn at the content edge of the table it repeats.
+     *
      * @param array<int, float> $colwidths
      */
     protected function injectHTMLTableHeadColWidths(string $thead, array $colwidths): string
@@ -8557,7 +8716,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $colgroup .= '</colgroup>';
 
-        return \substr($thead, 0, $tagEnd + 1) . $colgroup . \substr($thead, $tagEnd + 1);
+        return (
+            \substr($thead, 0, $tablePos + 6)
+            . ' data-tcpdf-headreplay="1"'
+            . \substr($thead, $tablePos + 6, $tagEnd + 1 - ($tablePos + 6))
+            . $colgroup
+            . \substr($thead, $tagEnd + 1)
+        );
     }
 
     /**
@@ -11129,24 +11294,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $imgtype = '';
-        $dataMatch = [];
-        if (\preg_match('/^data:image\/([^;,]+)(;base64)?,(.*)$/i', $source, $dataMatch)) {
-            $imageTypeMatch = $dataMatch[1] ?? '';
-            $imgtype = \strtolower($imageTypeMatch);
-            $isBase64 = isset($dataMatch[2]) && $dataMatch[2] !== '';
-            $payloadMatch = $dataMatch[3] ?? '';
-            $payload = $payloadMatch;
-            if ($isBase64) {
-                $decoded = \base64_decode($payload, true);
-                if ($decoded === false || $decoded === '') {
-                    return '';
-                }
-                $source = '@' . $decoded;
-            } else {
-                $source = '@' . \rawurldecode($payload);
+        if (\str_starts_with(\strtolower($source), 'data:')) {
+            $datauri = $this->decodeHTMLDataUri($source);
+            if ($datauri === null) {
+                return '';
             }
-            if ($imgtype === 'svg+xml') {
+
+            $source = '@' . $datauri['data'];
+            if ($this->isHTMLSvgImageData($datauri['data'])) {
                 $imgtype = 'svg';
+            } elseif (\str_starts_with($datauri['mime'], 'image/')) {
+                $imgtype = \substr($datauri['mime'], 6);
             }
         }
 
@@ -11164,12 +11322,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         if ($imgtype === '') {
             $imgtype = 'png';
-        }
-
-        if ($imgtype === 'svg' && !\str_starts_with($source, '@')) {
-            if (\str_contains($source, '<svg')) {
-                $source = '@' . $source;
-            }
         }
 
         if ($source[0] !== '@' && !\str_contains($source, '://')) {
@@ -11499,7 +11651,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $fontsize = $fontstate['size'];
         if (isset($markerStyles['font-size']) && \is_string($markerStyles['font-size'])) {
             $fsize = \trim($markerStyles['font-size']);
-            if ($fsize !== '') {
+            // a value without a number is not a length and is ignored
+            if (\preg_match('/\d/', $fsize) === 1) {
                 $ref = $this->getHTMLUnitRef($fontsize, $fontsize, $fontsize);
                 $csssize = $this->getUnitValuePoints($fsize, $ref);
                 if ($csssize > 0.0) {
@@ -15356,18 +15509,75 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Decode an RFC 2397 data URI: data:[<mediatype>][;parameter]*[;base64],<data>.
+     *
+     * The media type defaults to text/plain and its parameters are ignored. The data is
+     * percent-decoded, then base64-decoded with ASCII whitespace ignored when the URI
+     * carries the base64 flag.
+     *
+     * @return array{mime: string, data: string}|null The lowercase media type and the
+     *         decoded bytes, or null when the source is not a data URI or holds no data.
+     */
+    protected function decodeHTMLDataUri(string $src): ?array
+    {
+        $matches = [];
+        if (\preg_match('/^data:([^,]*),(.*)$/is', \trim($src), $matches) !== 1) {
+            return null;
+        }
+
+        $params = \explode(';', $matches[1] ?? '');
+        $mime = \strtolower(\trim($params[0]));
+        $base64 = false;
+        foreach (\array_slice($params, 1) as $param) {
+            $base64 = $base64 || \strtolower(\trim($param)) === 'base64';
+        }
+
+        $data = \rawurldecode($matches[2] ?? '');
+        if ($base64) {
+            $data = \base64_decode(\preg_replace('/[\t\n\f\r ]+/', '', $data) ?? '', true);
+            if ($data === false) {
+                return null;
+            }
+        }
+
+        if ($data === '') {
+            return null;
+        }
+
+        return ['mime' => $mime === '' ? 'text/plain' : $mime, 'data' => $data];
+    }
+
+    /**
+     * Return true when the bytes are an SVG document: after an optional UTF-8 BOM,
+     * whitespace, XML declaration, processing instructions, comments and DOCTYPE, the
+     * root element is svg, with or without a namespace prefix.
+     */
+    protected function isHTMLSvgImageData(string $data): bool
+    {
+        if (\str_starts_with($data, "\xEF\xBB\xBF")) {
+            $data = \substr($data, 3);
+        }
+
+        // the prolog is read from the head of the document only
+        return (
+            \preg_match('/^(?:\s+|<\?.*?\?>|<!--.*?-->|<!DOCTYPE[^>\[]*(?:\[.*?\])?\s*>)*<(?:[A-Za-z_][\w.\-]*:)?svg[\s\/>]/is', \substr(
+                $data,
+                0,
+                65_536,
+            )) === 1
+        );
+    }
+
+    /**
      * Normalize an HTML image source to a resolvable local/remote/data reference.
+     *
+     * A data URI is returned as its decoded bytes prefixed with '@'.
      */
     protected function resolveHTMLImageSource(string $src): string
     {
-        // Support base64 data URIs: data:<mime>;base64,<data>
-        $matches = [];
-        if (\preg_match('/^data:[^;]+;base64,(.+)$/s', $src, $matches)) {
-            $payload = isset($matches[1]) ? $matches[1] : '';
-            $decoded = \base64_decode($payload, true);
-            if ($decoded !== false) {
-                $src = '@' . $decoded;
-            }
+        $datauri = $this->decodeHTMLDataUri($src);
+        if ($datauri !== null) {
+            return '@' . $datauri['data'];
         }
 
         if ($src !== '' && $src[0] !== '@' && !\str_contains($src, '://')) {
@@ -15385,17 +15595,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
-     * Return true if the provided image source is SVG.
+     * Return true if the resolved image source is SVG: image data ('@' prefix) holding an
+     * SVG document, or a path or URL with the .svg extension.
      */
     protected function isHTMLSvgImageSource(string $src): bool
     {
-        $lowsrc = \strtolower($src);
-        return (
-            \str_starts_with($lowsrc, 'data:image/svg+xml')
-            || \str_starts_with($src, '@<svg')
-            || \str_contains($lowsrc, '<svg')
-            || \preg_match('/\.svg(?:[?#].*)?$/i', $src) === 1
-        );
+        if (\str_starts_with($src, '@')) {
+            return $this->isHTMLSvgImageData(\substr($src, 1));
+        }
+
+        return \preg_match('/\.svg(?:[?#].*)?$/i', $src) === 1;
     }
 
     /**
@@ -15628,7 +15837,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float $height,
     ): string {
         $pageheight = $this->page->getPage()['height'];
-        if (\str_ends_with(\strtolower($src), '.svg')) {
+        if ($this->isHTMLSvgImageSource($src)) {
             $svgid = $this->addSVG($src, $imagex, $imagey, $width, $height, $pageheight, true);
 
             return $this->getSetSVG($svgid);
@@ -16957,6 +17166,43 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         return $fallback;
+    }
+
+    /**
+     * Returns the column widths of a repeated table head: the COL widths of the colgroup
+     * injected by injectHTMLTableHeadColWidths(), used as they are.
+     *
+     * @param array<int, THTMLDOMNode> $dom
+     * @param int $tablekey DOM index of the opening <table> tag.
+     * @param int $cols     Total number of columns.
+     *
+     * @return array<int, float>|null The widths, or null when the table is not a repeated
+     *                                head or its colgroup does not give one width per column.
+     */
+    protected function getHTMLTableReplayColWidths(array $dom, int $tablekey, int $cols): ?array
+    {
+        if (($dom[$tablekey]['attribute']['data-tcpdf-headreplay'] ?? '') !== '1') {
+            return null;
+        }
+
+        $widths = [];
+        $numel = \count($dom);
+        for ($key = $tablekey + 1; $key < $numel; ++$key) {
+            $elm = $this->getHTMLDOMNode($dom, $key);
+            if ($elm === null || !$elm['tag']) {
+                continue;
+            }
+
+            if ($elm['value'] !== 'col' && $elm['value'] !== 'colgroup') {
+                break;
+            }
+
+            if ($elm['value'] === 'col' && $elm['opening']) {
+                $widths[] = $elm['width'];
+            }
+        }
+
+        return \count($widths) === $cols ? $widths : null;
     }
 
     /**
@@ -18581,7 +18827,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $effectiveCellSpacing = $this->getHTMLTableCellSpacingH($elm);
                         $availableForCols = \max(0.0, $tableWidth - ($effectiveCellSpacing * \max(0, $tableCols + 1)));
 
-                        $elm['pendingcolwidths'] = $this->computeHTMLTableColWidths(
+                        $elm['pendingcolwidths'] = $this->getHTMLTableReplayColWidths(
+                            $dom,
+                            $key,
+                            $tableCols,
+                        ) ?? $this->computeHTMLTableColWidths(
                             $dom,
                             $key,
                             $tableCols,
