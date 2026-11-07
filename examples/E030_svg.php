@@ -552,7 +552,7 @@ $pdf->page->addContent($pdf->getSetSVG(soid: $svg08a));
 // Sheet covering the rules a document stylesheet contributes to the cascade,
 // the compositing of a translucent group, the dash pattern, the dash offset
 // and the miter limit, and the use element against a shape, a group and a
-// symbol target.
+// symbol target, including text drawn through use.
 //
 // Each case is drawn next to a reference shape painted directly in the
 // expected form: the two must be identical.

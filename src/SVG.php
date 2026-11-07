@@ -424,12 +424,14 @@ use TSVGStyle;
  *
  * @phpstan-type TSVGObj array{
  *    'defsmode': bool,
+ *    'defsdepth': int,
  *    'defsopen': array<int, string>,
  *    'defsstack': array<int, array{
  *        'name': string,
  *        'open': string,
  *        'close': string,
  *        'records': array<string, string>,
+ *        'owners'?: array<int, string>,
  *    }>,
  *    'clipmode': bool,
  *    'clipid': int|string,
@@ -818,6 +820,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @var array<int, string>
      */
     protected const SVGDEFSMODESTART = [
+        'defs',
         'clipPath',
         'linearGradient',
         'radialGradient',
@@ -828,6 +831,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'mask',
         'filter',
     ];
+
+    /**
+     * Name of the defs record that holds the character data captured before the
+     * next element record.
+     */
+    protected const SVGDEFSTEXTNODE = '#text';
 
     /**
      * Modes to check when processing SVG end tags.
@@ -854,6 +863,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected const SVGDEFOBJ = [
         'defsmode' => false,
+        'defsdepth' => 0,
         'clipmode' => false,
         'defsopen' => [],
         'defsstack' => [],
@@ -2762,23 +2772,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                             continue;
                         }
 
-                        $childName = $child['name'];
-                        $childAttr = $child['attr'];
-
-                        /** @var TSVGAttributes $childAttr */
+                        /** @var TSVGAttribChild $child */
 
                         $prevOut = $svgobj['out'];
                         $prevLen = \strlen($prevOut);
-                        if (isset($childAttr['closing_tag'])) {
-                            $childContentRaw = $childAttr['content'] ?? null;
-                            if (\is_string($childContentRaw) && $childContentRaw !== '') {
-                                $svgobj['text'] .= $childContentRaw;
-                            }
-
-                            $this->handleSVGTagEnd($maskParser, $childName);
-                        } else {
-                            $this->handleSVGTagStart($maskParser, $childName, $childAttr, $soid);
-                        }
+                        $this->replaySVGDefsChild($maskParser, $soid, $child);
 
                         $currOut = $svgobj['out'];
                         $currLen = \strlen($currOut);
@@ -3531,38 +3529,28 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
             $patParser = \xml_parser_create('UTF-8');
 
-            $this->svgobjs[$soid]['patternmode'] = (int) ($this->svgobjs[$soid]['patternmode'] ?? 0) + 1;
-            $xmldepth = $this->svgobjs[$soid]['xmldepth'];
-            $selchain = $this->svgobjs[$soid]['selchain'];
+            $svgobj = &$this->getSVGObjRef($soid);
+            $svgobj['patternmode'] = (int) $svgobj['patternmode'] + 1;
+            $xmldepth = $svgobj['xmldepth'];
+            $selchain = $svgobj['selchain'];
             try {
-                if (isset($patterndef['child']) && $patterndef['child'] !== []) {
-                    foreach ($patterndef['child'] as $child) {
-                        $prevOut = $this->svgobjs[$soid]['out'];
-                        $prevLen = \strlen($prevOut);
-                        if (isset($child['attr']['closing_tag'])) {
-                            if (isset($child['attr']['content']) && $child['attr']['content'] !== '') {
-                                $this->svgobjs[$soid]['text'] .= $child['attr']['content'];
-                            }
-                            $this->handleSVGTagEnd($patParser, $child['name']);
-                        } else {
-                            /** @var TSVGAttributes $childAttr */
-                            $childAttr = $child['attr'];
-                            $this->handleSVGTagStart($patParser, $child['name'], $childAttr, $soid);
-                        }
+                foreach ($patterndef['child'] ?? [] as $child) {
+                    $prevOut = $svgobj['out'];
+                    $prevLen = \strlen($prevOut);
+                    $this->replaySVGDefsChild($patParser, $soid, $child);
 
-                        $currOut = $this->svgobjs[$soid]['out'];
-                        $currLen = \strlen($currOut);
-                        if ($currLen > $prevLen) {
-                            $stream .= \substr($currOut, $prevLen);
+                    $currOut = $svgobj['out'];
+                    $currLen = \strlen($currOut);
+                    if ($currLen > $prevLen) {
+                        $stream .= \substr($currOut, $prevLen);
 
-                            $this->svgobjs[$soid]['out'] = $prevOut;
-                        }
+                        $svgobj['out'] = $prevOut;
                     }
                 }
             } finally {
-                $this->svgobjs[$soid]['patternmode'] = \max(0, (int) $this->svgobjs[$soid]['patternmode'] - 1);
-                $this->svgobjs[$soid]['xmldepth'] = $xmldepth;
-                $this->svgobjs[$soid]['selchain'] = $selchain;
+                $svgobj['patternmode'] = \max(0, (int) $svgobj['patternmode'] - 1);
+                $svgobj['xmldepth'] = $xmldepth;
+                $svgobj['selchain'] = $selchain;
                 unset($patParser);
             }
 
@@ -3822,22 +3810,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
                         if (isset($patterndef['child']) && $patterndef['child'] !== []) {
                             foreach ($patterndef['child'] as $child) {
-                                $childName = $child['name'];
-                                $childAttr = $child['attr'];
                                 $prevOut = $svgobj['out'];
                                 $prevLen = \strlen($prevOut);
-                                if (!isset($childAttr['closing_tag'])) {
-                                    $this->handleSVGTagStart($patParser, $childName, $childAttr, $soid);
-                                    continue;
-                                }
-
-                                $childContent = $childAttr['content'] ?? null;
-                                if (\is_string($childContent) && $childContent !== '') {
-                                    // Replay text captured in defs before closing the element.
-
-                                    $svgobj['text'] .= $childContent;
-                                }
-                                $this->handleSVGTagEnd($patParser, $childName);
+                                $this->replaySVGDefsChild($patParser, $soid, $child);
 
                                 $currOut = $svgobj['out'];
                                 $currLen = \strlen($currOut);
@@ -4345,7 +4320,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $this->svgobjs[$soid]['cssbuffer'] .= $data;
             return;
         }
-        if ((int) $this->svgobjs[$soid]['charskip'] > 0) {
+        if ((int) $this->svgobjs[$soid]['charskip'] > 0 || $this->svgobjs[$soid]['clipmode']) {
+            // A clipping path is built from shapes only: its text is not drawn.
             return;
         }
         if ((int) $this->svgobjs[$soid]['textdepth'] < 1) {
@@ -5272,16 +5248,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             if (\in_array($name, self::SVGDEFSMODESTART, true)) {
                 // A dedicated handler registers these: only the nesting is
                 // tracked here, so that their children reach them.
-                $elemid = $attr['id'] ?? '';
-                $svgobj['defsstack'][] = [
-                    'name' => $name,
-                    'open' => $elemid,
-                    'close' => '',
-                    'records' => [],
-                ];
-                if ($elemid !== '') {
-                    $svgobj['defsopen'][] = $elemid;
-                }
+                $this->pushSVGDefsScope($soid, $name, $attr['id'] ?? '');
             } else {
                 $this->captureSVGDefsStart($soid, $name, $attr);
                 return;
@@ -5471,7 +5438,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * An element with an id becomes an entry of its own, so that a reference can
      * reach it. It is also recorded in every entry that encloses it, because the
-     * child list of an entry is the flat replay of its whole subtree.
+     * child list of an entry is the flat replay of its whole subtree. The
+     * character data collected since the previous record is recorded before it.
      *
      * @param int $soid ID of the current SVG object.
      * @param string $name Element name.
@@ -5481,25 +5449,24 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     {
         $svgobj = &$this->getSVGObjRef($soid);
         $elemid = $attr['id'] ?? '';
-
-        $owners = $svgobj['defsopen'];
-        if ($owners === [] && $elemid === '') {
-            // The entries registered by a dedicated handler are not on the open
-            // stack: an element with no id belongs to the last of them.
-            $lastid = \array_key_last($svgobj['defs']);
-            if ($lastid !== null) {
-                $owners = [$lastid];
-            }
-        }
+        $chars = $svgobj['text'];
+        $svgobj['text'] = '';
 
         $records = [];
-        foreach ($owners as $ownerid) {
+        foreach ($svgobj['defsopen'] as $ownerid) {
             $entry = $svgobj['defs'][$ownerid] ?? null;
             if (!\is_array($entry)) {
                 continue;
             }
 
             $children = $entry['child'] ?? [];
+            if ($chars !== '') {
+                $children['DF_' . (\count($children) + 1)] = [
+                    'name' => self::SVGDEFSTEXTNODE,
+                    'attr' => ['content' => $chars],
+                ];
+            }
+
             $key = $elemid === '' ? 'DF_' . (\count($children) + 1) : $elemid;
             $childattr = $attr;
             $childattr['id'] = $key;
@@ -5532,7 +5499,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * Record the end of an element captured inside a defs block.
      *
      * The closing tag is recorded next to every start it matches, so that each
-     * replay of the subtree closes what it opens.
+     * replay of the subtree closes what it opens. It carries the character data
+     * collected since the previous record.
      *
      * @param int $soid ID of the current SVG object.
      * @param string $name Element name.
@@ -5540,6 +5508,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected function captureSVGDefsEnd(int $soid, string $name): void
     {
         $svgobj = &$this->getSVGObjRef($soid);
+        $chars = $svgobj['text'];
+        $svgobj['text'] = '';
+
         $stack = $svgobj['defsstack'];
         $frame = \end($stack);
         if (!\is_array($frame) || $frame['name'] !== $name) {
@@ -5548,11 +5519,16 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         \array_pop($svgobj['defsstack']);
 
+        if (isset($frame['owners'])) {
+            $svgobj['defsopen'] = $frame['owners'];
+            return;
+        }
+
         $sentinel = [
             'name' => $name,
             'attr' => [
                 'closing_tag' => true,
-                'content' => $svgobj['text'],
+                'content' => $chars,
             ],
         ];
 
@@ -5580,10 +5556,35 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
-     * Toggle defs capture mode.
+     * Open the capture scope of an element registered by a dedicated handler.
+     *
+     * The elements captured inside it belong to the element alone, not to the
+     * entries that enclose it. The enclosing owners are restored by its end tag.
      *
      * @param int $soid ID of the current SVG object.
-     * @param bool $enabled Whether defs capture is enabled.
+     * @param string $name Element name.
+     * @param string $elemid Element id, or an empty string.
+     */
+    protected function pushSVGDefsScope(int $soid, string $name, string $elemid): void
+    {
+        $svgobj = &$this->getSVGObjRef($soid);
+        $svgobj['defsstack'][] = [
+            'name' => $name,
+            'open' => '',
+            'close' => '',
+            'records' => [],
+            'owners' => $svgobj['defsopen'],
+        ];
+        $svgobj['defsopen'] = $elemid === '' ? [] : [$elemid];
+    }
+
+    /**
+     * Enter or leave one level of defs capture mode.
+     *
+     * The mode stays enabled until the outermost capturing container is closed.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param bool $enabled Whether a level is entered (true) or left (false).
      *
      * @return string
      */
@@ -5593,11 +5594,15 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return '';
         }
 
-        $this->svgobjs[$soid]['defsmode'] = $enabled;
-        if (!$enabled) {
+        $svgobj = &$this->getSVGObjRef($soid);
+        $svgobj['defsdepth'] = $enabled ? $svgobj['defsdepth'] + 1 : \max(0, $svgobj['defsdepth'] - 1);
+        $svgobj['defsmode'] = $svgobj['defsdepth'] > 0;
+        // Character data collected outside of a captured element is not drawn.
+        $svgobj['text'] = '';
+        if (!$svgobj['defsmode']) {
             // A subtree left open by a malformed defs block does not carry over.
-            $this->svgobjs[$soid]['defsopen'] = [];
-            $this->svgobjs[$soid]['defsstack'] = [];
+            $svgobj['defsopen'] = [];
+            $svgobj['defsstack'] = [];
         }
 
         return '';
@@ -5618,12 +5623,18 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return '';
         }
 
+        $svgobj = &$this->getSVGObjRef($soid);
         if (isset($attr['id'])) {
-            $this->svgobjs[$soid]['defs'][$attr['id']] = [
+            $svgobj['defs'][$attr['id']] = [
                 'name' => $name,
                 'attr' => $attr,
                 'child' => [],
             ];
+        }
+
+        if (!$svgobj['defsmode']) {
+            // Inside defs mode the start tag handler has already opened the scope.
+            $this->pushSVGDefsScope($soid, $name, $attr['id'] ?? '');
         }
 
         return $this->setSVGDefsMode($soid, true);
@@ -7216,37 +7227,30 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         // Prevent marker content from recursively emitting nested markers.
 
-        $this->svgobjs[$soid]['markermode'] = (int) ($this->svgobjs[$soid]['markermode'] ?? 0) + 1;
-        $xmldepth = $this->svgobjs[$soid]['xmldepth'];
-        $selchain = $this->svgobjs[$soid]['selchain'];
+        $svgobj = &$this->getSVGObjRef($soid);
+        $svgobj['markermode'] = (int) $svgobj['markermode'] + 1;
+        $xmldepth = $svgobj['xmldepth'];
+        $selchain = $svgobj['selchain'];
 
         // The replayed children append to the object output buffer, so their
         // stream is moved here to keep it inside the marker transform.
-        $prevOut = $this->svgobjs[$soid]['out'];
+        $prevOut = $svgobj['out'];
         $prevLen = \strlen($prevOut);
 
         try {
-            if (isset($markerdef['child']) && $markerdef['child'] !== []) {
-                foreach ($markerdef['child'] as $child) {
-                    if (isset($child['attr']['closing_tag'])) {
-                        $this->handleSVGTagEnd($parser, $child['name']);
-                    } else {
-                        /** @var TSVGAttributes $childAttr */
-                        $childAttr = $child['attr'];
-                        $this->handleSVGTagStart($parser, $child['name'], $childAttr, $soid);
-                    }
-                }
+            foreach ($markerdef['child'] ?? [] as $child) {
+                $this->replaySVGDefsChild($parser, $soid, $child);
             }
         } finally {
-            $this->svgobjs[$soid]['markermode'] = \max(0, (int) $this->svgobjs[$soid]['markermode'] - 1);
-            $this->svgobjs[$soid]['xmldepth'] = $xmldepth;
-            $this->svgobjs[$soid]['selchain'] = $selchain;
+            $svgobj['markermode'] = \max(0, (int) $svgobj['markermode'] - 1);
+            $svgobj['xmldepth'] = $xmldepth;
+            $svgobj['selchain'] = $selchain;
         }
 
-        $currOut = $this->svgobjs[$soid]['out'];
+        $currOut = $svgobj['out'];
         if (\strlen($currOut) > $prevLen) {
             $out .= \substr($currOut, $prevLen);
-            $this->svgobjs[$soid]['out'] = $prevOut;
+            $svgobj['out'] = $prevOut;
         }
 
         $out .= $this->graph->getStopTransform();
@@ -7578,6 +7582,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         $out = '';
         $svgobj['text'] = $this->normalizeSVGTextContent($soid, $svgobj['text'], false);
+        if ($svgobj['text'] !== '' && !$this->font->hasCurrentFont()) {
+            // Character data outside of any styled text element has no font to
+            // be measured or drawn with.
+            $svgobj['text'] = '';
+        }
+
         if ($svgobj['text'] !== '') {
             // Flush the text accumulated between an outer <text> start and this
             // nested <text>/<tspan> start: emit the text-line operator and clear
@@ -8879,6 +8889,50 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
+     * Replay one record captured in a defs block through the tag handlers.
+     *
+     * The character data of a text record or of a closing tag is appended to the
+     * text buffer, as the parser does before the tag that follows it.
+     *
+     * @param \XMLParser $parser The XML parser calling the handler.
+     * @param int $soid ID of the current SVG object.
+     * @param TSVGAttribChild $child Captured record.
+     *
+     * @throws \Com\Tecnick\File\Exception
+     * @throws \Com\Tecnick\Pdf\Exception
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Pdf\Graph\Exception
+     * @throws \Com\Tecnick\Pdf\Image\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function replaySVGDefsChild(\XMLParser $parser, int $soid, array $child): void
+    {
+        $name = $this->normalizeSVGNodeName($child['name']);
+        if ($name === '' || !isset($this->svgobjs[$soid])) {
+            return;
+        }
+
+        $attr = $child['attr'];
+        $closing = isset($attr['closing_tag']);
+        $chars = $attr['content'] ?? '';
+        if (($closing || $name === self::SVGDEFSTEXTNODE) && $chars !== '') {
+            $this->svgobjs[$soid]['text'] .= $chars;
+        }
+
+        if ($name === self::SVGDEFSTEXTNODE) {
+            return;
+        }
+
+        if ($closing) {
+            $this->handleSVGTagEnd($parser, $name);
+            return;
+        }
+
+        $this->handleSVGTagStart($parser, $name, $attr, $soid);
+    }
+
+    /**
      * Parse the SVG Start tag 'use'.
      *
      * @param \XMLParser $parser The XML parser calling the handler.
@@ -9081,21 +9135,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $svgobj['out'] .= $out;
 
             // Replay each child element stored under the symbol def.
-            if (isset($use['child']) && $use['child'] !== []) {
-                foreach ($use['child'] as $child) {
-                    $childName = $this->normalizeSVGNodeName($child['name']);
-                    if ($childName === '') {
-                        continue;
-                    }
-
-                    if (isset($child['attr']['closing_tag'])) {
-                        // closing-tag sentinel: emit the matching end handler
-                        $this->handleSVGTagEnd($parser, $childName);
-                    } else {
-                        $childAttr = $child['attr'];
-                        $this->handleSVGTagStart($parser, $childName, $childAttr, $soid);
-                    }
-                }
+            foreach ($use['child'] ?? [] as $child) {
+                $this->replaySVGDefsChild($parser, $soid, $child);
             }
 
             $svgobj['out'] .= $this->parseSVGTagENDsvg($soid);
@@ -9156,19 +9197,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         // A container target carries its subtree, including the sentinel for its
         // own closing tag, in the defs entry: without the replay the container is
         // opened and never filled or closed.
-        if (isset($use['child']) && $use['child'] !== []) {
-            foreach ($use['child'] as $child) {
-                $childName = $this->normalizeSVGNodeName($child['name']);
-                if ($childName === '') {
-                    continue;
-                }
-
-                if (isset($child['attr']['closing_tag'])) {
-                    $this->handleSVGTagEnd($parser, $childName);
-                } else {
-                    $this->handleSVGTagStart($parser, $childName, $child['attr'], $soid);
-                }
-            }
+        foreach ($use['child'] ?? [] as $child) {
+            $this->replaySVGDefsChild($parser, $soid, $child);
         }
 
         return '';

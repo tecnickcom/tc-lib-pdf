@@ -37,6 +37,10 @@
     <symbol id="badge">
       <rect width="16" height="10"/>
     </symbol>
+    <symbol id="label">
+      <text x="0" y="4" font-family="Helvetica" font-size="3.6" fill="#0a6e46">A <tspan fill="#18486b">symbol</tspan> label</text>
+    </symbol>
+    <text id="caption" x="0" y="4" font-family="Helvetica" font-size="3.6" fill="#0a6e46">A <tspan fill="#18486b">defs</tspan> text</text>
   </defs>
 
   <rect x="0" y="0" width="210" height="297" fill="#ffffff"/>
@@ -128,6 +132,13 @@
   <text x="12" y="208" font-family="Helvetica" font-size="3" fill="#4a6f8a">Miter limit: the left spike keeps its point, the right one is cut off.</text>
   <path d="M20 226 L28 212 L36 226" fill="none" stroke="#0a6e46" stroke-width="3" stroke-miterlimit="10"/>
   <path d="M60 226 L68 212 L76 226" fill="none" stroke="#0a6e46" stroke-width="3" stroke-miterlimit="1"/>
+
+  <!-- Text drawn through use matches the same text drawn in place. -->
+  <text x="110" y="214" font-family="Helvetica" font-size="3" fill="#4a6f8a">Text through use, above the same text in place.</text>
+  <use href="#label" x="110" y="216"/>
+  <use href="#caption" x="150" y="216"/>
+  <text x="110" y="226" font-family="Helvetica" font-size="3.6" fill="#0a6e46">A <tspan fill="#18486b">symbol</tspan> label</text>
+  <text x="150" y="226" font-family="Helvetica" font-size="3.6" fill="#0a6e46">A <tspan fill="#18486b">defs</tspan> text</text>
 
   <!-- A use element paints its target, wherever it points. -->
   <text x="12" y="240" font-family="Helvetica" font-size="3.6" fill="#18486b">4. use: shape, group and symbol targets, placed by x and y</text>

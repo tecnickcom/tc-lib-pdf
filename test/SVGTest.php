@@ -1535,6 +1535,9 @@ class SVGTest extends TestUtil
         $obj->exposeHandleSVGTagStart($parser, 'path', ['d' => 'M 0 0 L 10 5 L 0 10 Z'], 521);
         $obj->exposeHandleSVGTagEnd($parser, 'path');
         $obj->exposeHandleSVGTagEnd($parser, 'marker');
+        // The enclosing defs block is still open.
+        $this->assertTrue($obj->getSvgObj(521)['defsmode']);
+        $obj->exposeHandleSVGTagEnd($parser, 'defs');
 
         $svgobj = $obj->getSvgObj(521);
         $this->assertFalse($svgobj['defsmode']);
@@ -1597,6 +1600,9 @@ class SVGTest extends TestUtil
         );
         $obj->exposeHandleSVGTagEnd($parser, 'rect');
         $obj->exposeHandleSVGTagEnd($parser, 'pattern');
+        // The enclosing defs block is still open.
+        $this->assertTrue($obj->getSvgObj(538)['defsmode']);
+        $obj->exposeHandleSVGTagEnd($parser, 'defs');
 
         $svgobj = $obj->getSvgObj(538);
         $this->assertFalse($svgobj['defsmode']);
@@ -1658,6 +1664,9 @@ class SVGTest extends TestUtil
         );
         $obj->exposeHandleSVGTagEnd($parser, 'rect');
         $obj->exposeHandleSVGTagEnd($parser, 'mask');
+        // The enclosing defs block is still open.
+        $this->assertTrue($obj->getSvgObj(549)['defsmode']);
+        $obj->exposeHandleSVGTagEnd($parser, 'defs');
 
         $svgobj = $obj->getSvgObj(549);
         $this->assertFalse($svgobj['defsmode']);
@@ -10043,5 +10052,378 @@ class SVGTest extends TestUtil
 
             $this->assertStringContainsString('8.000000 M', $out);
         }
+    }
+
+    /**
+     * Render an SVG fragment and return the strings of its text runs, including
+     * the ones drawn in pattern and mask streams.
+     *
+     * @return array<int, string>
+     *
+     * @throws \Throwable
+     */
+    private function getSVGTextRuns(string $body, bool $withFont = true): array
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf();
+        if ($withFont) {
+            $height = $this->initFontAndPage($obj)['height'];
+        } else {
+            self::setUpFontsPath();
+            $page = $obj->addPage();
+            if (!isset($page['height']) || !\is_float($page['height'])) {
+                $this->fail('Unexpected addPage() return shape.');
+            }
+
+            $height = $page['height'];
+        }
+
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+            . $body
+            . '</svg>';
+        $out = $obj->getSetSVG($obj->addSVG($svg, 0, 0, 100, 100, $height));
+
+        /** @var array<string, array{outdata: string}> $patterns */
+        $patterns = $this->getObjectProperty($obj, 'patterns');
+        foreach ($patterns as $pattern) {
+            $out .= $pattern['outdata'];
+        }
+
+        /** @var array<string, array{stream: string}> $masks */
+        $masks = $this->getObjectProperty($obj, 'svgmasks');
+        foreach ($masks as $mask) {
+            $out .= $mask['stream'];
+        }
+
+        $runs = [];
+        \preg_match_all('/\(((?:[^()\\\\]|\\\\.)*)\) Tj/', $out, $runs);
+
+        return \array_values($runs[1] ?? []);
+    }
+
+    /**
+     * The text of a symbol drawn by a use element selects its font before it is
+     * shown, also when no font was selected before the SVG.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGUseOfSymbolTextSelectsTheFontFirst(): void
+    {
+        self::setUpFontsPath();
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm');
+        $page = $obj->addPage(['format' => 'A4', 'orientation' => 'P']);
+        if (!isset($page['width'], $page['height']) || !\is_float($page['width']) || !\is_float($page['height'])) {
+            $this->fail('Unexpected addPage() return shape.');
+        }
+
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="210mm" height="297mm"'
+            . ' viewBox="0 0 793.7 1122.5">'
+            . '<symbol id="page1" viewBox="0 0 793.7 1122.5">'
+            . '<text x="40" y="80" font-size="32" fill="black" font-family="helvetica">'
+            . 'This text should be visible</text>'
+            . '</symbol>'
+            . '<use href="#page1" x="0" y="0"/>'
+            . '</svg>';
+        $out = $obj->getSetSVG($obj->addSVG($svg, 0, 0, $page['width'], $page['height'], $page['height']));
+
+        $this->assertSame(1, \substr_count($out, ' Tj'));
+        $this->assertSame(1, \substr_count($out, '(This text should be visible) Tj'));
+        $fontPos = \strpos($out, ' Tf');
+        $this->assertIsInt($fontPos);
+        $this->assertGreaterThan($fontPos, \strpos($out, ' Tj'));
+        [$open, $close] = $this->countSVGGraphicStates($out);
+        $this->assertSame($open, $close);
+    }
+
+    /**
+     * A text element referenced from defs is drawn, also when no font was
+     * selected before the SVG.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGUseOfDefsTextWithoutCurrentFont(): void
+    {
+        $runs = $this->getSVGTextRuns(
+            '<defs><text id="t" x="10" y="40" font-family="helvetica" font-size="10">Defs text</text></defs>'
+            . '<use href="#t"/>',
+            false,
+        );
+
+        $this->assertSame(['Defs text'], $runs);
+    }
+
+    /**
+     * Character data left in the text buffer is dropped when no font is selected.
+     *
+     * @throws \Throwable
+     */
+    public function testSvgTextStartDropsPendingTextWithoutCurrentFont(): void
+    {
+        self::setUpFontsPath();
+        $obj = $this->getInternalTestObject();
+        $obj->addPage();
+        $obj->initSvgObjForHandlers(329);
+        $obj->patchSvgObj(329, ['text' => 'stale']);
+        $parser = \xml_parser_create('UTF-8');
+
+        $obj->exposeHandleSVGTagStart($parser, 'text', ['x' => '1', 'y' => '1', 'font-family' => 'helvetica'], 329);
+
+        $this->assertStringNotContainsString('(stale) Tj', $obj->getSvgObj(329)['out']);
+        $this->assertSame('', $obj->getSvgObj(329)['text']);
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function svgReplayedTextProvider(): array
+    {
+        // %s is replaced by the attributes the container needs on the text element.
+        $texts = [
+            'mixed content' =>
+                '<text%s x="10" y="40" font-family="helvetica" font-size="10">'
+                    . 'A <tspan fill="#ff0000">B</tspan> C</text>',
+            'collapsed white space' =>
+                '<text%s x="10" y="40" font-family="helvetica" font-size="10">'
+                    . "\n  A  <tspan>  B  </tspan>\n  C  \n</text>",
+            'preserved white space' =>
+                '<text%s x="10" y="40" font-family="helvetica" font-size="10"'
+                    . ' xml:space="preserve">  A  <tspan>B</tspan>  C  </text>',
+            'two text elements' =>
+                '<text%s x="10" y="40" font-family="helvetica" font-size="10">First</text>'
+                    . '<text x="10" y="60" font-family="helvetica" font-size="8">Second</text>',
+        ];
+        $containers = [
+            'symbol' => '<symbol id="s">%s</symbol><use href="#s"/>',
+            'defs group' => '<defs><g id="g">%s</g></defs><use href="#g"/>',
+            'defs text' => '<defs>%s</defs><use href="#t"/>',
+            'marker' =>
+                '<defs><marker id="m" markerWidth="100" markerHeight="100" markerUnits="userSpaceOnUse">'
+                    . '%s</marker></defs><path d="M 0 0 L 50 0" stroke="#000000" fill="none" marker-end="url(#m)"/>',
+            'pattern' =>
+                '<defs><pattern id="p" width="100" height="100" patternUnits="userSpaceOnUse">%s'
+                    . '</pattern></defs><rect width="100" height="100" fill="url(#p)"/>',
+            'mask' =>
+                '<defs><mask id="k">%s</mask></defs><rect width="100" height="100" fill="#0000ff"'
+                    . ' mask="url(#k)"/>',
+        ];
+
+        $cases = [];
+        foreach ($containers as $cname => $container) {
+            foreach ($texts as $tname => $text) {
+                if ($cname === 'defs text' && $tname === 'two text elements') {
+                    continue;
+                }
+
+                $textid = $cname === 'defs text' ? ' id="t"' : '';
+                $cases[$cname . ', ' . $tname] = [
+                    \sprintf($text, ''),
+                    \sprintf($container, \sprintf($text, $textid)),
+                ];
+            }
+        }
+
+        return $cases;
+    }
+
+    /**
+     * Text replayed from defs is drawn as the same runs as the same text drawn
+     * in place.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('svgReplayedTextProvider')]
+    public function testSVGReplayedTextMatchesInlineText(string $inline, string $replayed): void
+    {
+        $expected = $this->getSVGTextRuns($inline);
+        $this->assertNotSame([], $expected);
+        $this->assertSame($expected, $this->getSVGTextRuns($replayed));
+    }
+
+    /**
+     * Each use of a symbol draws its text once, and the text that follows is
+     * drawn alone.
+     *
+     * @throws \Throwable
+     */
+    public function testSVGUseOfSymbolTextDoesNotLeakIntoFollowingText(): void
+    {
+        $runs = $this->getSVGTextRuns(
+            '<symbol id="s"><text x="10" y="20" font-family="helvetica" font-size="10">Twice</text></symbol>'
+            . '<use href="#s"/><use href="#s" y="20"/>'
+            . '<text x="10" y="80" font-family="helvetica" font-size="10">After</text>',
+        );
+
+        $this->assertSame(['Twice', 'Twice', 'After'], $runs);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function svgUndrawnTextProvider(): array
+    {
+        $text = '<text x="10" y="40" font-family="helvetica" font-size="10">Hidden</text>';
+
+        return [
+            'defs' => ['<defs>' . $text . '</defs>'],
+            'defs text with id' => ['<defs><text id="t" x="1" y="1" font-family="helvetica">Hidden</text></defs>'],
+            'symbol' => ['<symbol id="s">' . $text . '</symbol>'],
+            'pattern' => ['<defs><pattern id="p" width="9" height="9">' . $text . '</pattern></defs>'],
+            'mask' => ['<defs><mask id="k">' . $text . '</mask></defs>'],
+            'marker' => ['<defs><marker id="m">' . $text . '</marker></defs>'],
+            'referenced clipPath' => [
+                '<defs><clipPath id="c">'
+                    . $text
+                    . '<rect width="50" height="50"/></clipPath></defs>'
+                    . '<rect width="90" height="90" clip-path="url(#c)"/>',
+            ],
+        ];
+    }
+
+    /**
+     * Text that is captured and not referenced, or that is part of a clipping
+     * path, is not drawn by the text that follows it.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('svgUndrawnTextProvider')]
+    public function testSVGCapturedTextIsNotDrawnInPlace(string $body): void
+    {
+        $runs = $this->getSVGTextRuns($body . '<text x="10" y="80" font-family="helvetica" font-size="10">Live</text>');
+
+        $this->assertSame(['Live'], $runs);
+    }
+
+    /**
+     * The defs records of a text element keep the character data between its
+     * children in document order.
+     *
+     * @throws \Throwable
+     */
+    public function testSvgDefsCaptureRecordsTextSegments(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(330);
+        $parser = \xml_parser_create('UTF-8');
+
+        $obj->exposeHandleSVGTagStart($parser, 'symbol', ['id' => 's'], 330);
+        $obj->exposeHandleSVGTagStart($parser, 'text', ['x' => '1', 'y' => '1'], 330);
+        $obj->exposeHandlerSVGCharacter($parser, 'A ');
+        $obj->exposeHandleSVGTagStart($parser, 'tspan', [], 330);
+        $obj->exposeHandlerSVGCharacter($parser, 'B');
+        $obj->exposeHandleSVGTagEnd($parser, 'tspan');
+        $obj->exposeHandlerSVGCharacter($parser, ' C');
+        $obj->exposeHandleSVGTagEnd($parser, 'text');
+        $obj->exposeHandleSVGTagEnd($parser, 'symbol');
+
+        $svgobj = $obj->getSvgObj(330);
+        $this->assertFalse($svgobj['defsmode']);
+        $this->assertSame('', $svgobj['text']);
+
+        $records = [];
+        foreach ($svgobj['defs']['s']['child'] ?? [] as $child) {
+            $records[] = [$child['name'], $child['attr']['content'] ?? null];
+        }
+
+        $this->assertSame(
+            [
+                ['text', null],
+                ['#text', 'A '],
+                ['tspan', null],
+                ['tspan', 'B'],
+                ['text', ' C'],
+            ],
+            $records,
+        );
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function svgNestedDefsContainerProvider(): array
+    {
+        $shape = '<rect width="5" height="5"/>';
+
+        return [
+            'symbol' => ['<symbol id="n">' . $shape . '</symbol>'],
+            'pattern' => ['<pattern id="n" width="5" height="5">' . $shape . '</pattern>'],
+            'mask' => ['<mask id="n">' . $shape . '</mask>'],
+            'marker' => ['<marker id="n">' . $shape . '</marker>'],
+            'filter' => ['<filter id="n"><feGaussianBlur stdDeviation="1"/></filter>'],
+            'defs' => ['<defs>' . $shape . '</defs>'],
+            'clipPath' => ['<clipPath id="n">' . $shape . '</clipPath>'],
+            'linearGradient' => ['<linearGradient id="n"><stop offset="0" stop-color="#000000"/></linearGradient>'],
+        ];
+    }
+
+    /**
+     * A container nested in defs does not end the capture of the defs block
+     * when it is closed.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('svgNestedDefsContainerProvider')]
+    public function testSVGNestedDefsContainerKeepsDefsMode(string $nested): void
+    {
+        $out = $this->renderSVGFragment(
+            '<defs>' . $nested . '<rect id="after" x="50" y="50" width="7" height="7" fill="#ff0000"/></defs>',
+        );
+
+        $this->assertSame(0, \preg_match_all('/^[fFbBsS]\*?$/m', $out));
+        [$open, $close] = $this->countSVGGraphicStates($out);
+        $this->assertSame($open, $close);
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: int}>
+     */
+    public static function svgDefsOwnershipProvider(): array
+    {
+        return [
+            'id child of a symbol' => [
+                '<symbol id="s"><rect id="r" width="5" height="5"/></symbol><use href="#s"/>',
+                1,
+            ],
+            'anonymous child after an id sibling' => [
+                '<symbol id="s"><g id="g1"><rect width="5" height="5"/></g><rect x="20" width="5" height="5"/>'
+                    . '</symbol><use href="#s"/>',
+                2,
+            ],
+            'defs sibling after a group' => [
+                '<defs><g id="a"><rect width="5" height="5"/></g><rect x="20" width="5" height="5"/></defs>'
+                    . '<use href="#a"/>',
+                1,
+            ],
+            'container nested in a symbol' => [
+                '<symbol id="s"><marker id="m"><rect width="5" height="5"/></marker>'
+                    . '<rect x="20" width="5" height="5"/></symbol><use href="#s"/>',
+                1,
+            ],
+            'defs nested in a symbol' => [
+                '<symbol id="s"><defs><rect id="h" width="5" height="5"/></defs>'
+                    . '<rect x="20" width="5" height="5"/></symbol><use href="#s"/>',
+                1,
+            ],
+            'unreferenced symbol' => [
+                '<symbol id="s"><rect width="5" height="5"/></symbol>',
+                0,
+            ],
+        ];
+    }
+
+    /**
+     * A use element draws the elements of its target and nothing else.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('svgDefsOwnershipProvider')]
+    public function testSVGUseDrawsOnlyTheElementsOfItsTarget(string $body, int $paints): void
+    {
+        $out = $this->renderSVGFragment($body);
+
+        $this->assertSame($paints, \preg_match_all('/^[fFbBsS]\*?$/m', $out));
+        [$open, $close] = $this->countSVGGraphicStates($out);
+        $this->assertSame($open, $close);
     }
 }

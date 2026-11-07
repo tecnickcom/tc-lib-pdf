@@ -482,6 +482,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
     {
         $svgobj = [
             'defsmode' => false,
+            'defsdepth' => 0,
             'defsopen' => [],
             'defsstack' => [],
             'clipmode' => false,
