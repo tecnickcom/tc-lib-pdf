@@ -352,6 +352,15 @@ use Com\Tecnick\Unicode\Data\Type as UnicodeType;
  *     valign: string,
  *     src: string
  * }
+ * @phpstan-type THTMLTcpdfObject array{
+ *     tid: string,
+ *     width: float,
+ *     height: float,
+ *     display: string,
+ *     valign: string,
+ *     halign: string,
+ *     alt: string
+ * }
  *
  * @mixin \Com\Tecnick\Pdf\Base
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
@@ -1051,6 +1060,30 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected array $htmlImageIntrinsicSizeCache = [];
 
     /**
+     * Random key of the HMAC that signs the TCPDF tag payloads of this instance.
+     */
+    protected string $htmlTcpdfTagKey = '';
+
+    /**
+     * Objects drawn by TCPDF tags, keyed by the image source that places them.
+     *
+     * @var array<string, THTMLTcpdfObject>
+     */
+    protected array $htmlTcpdfObjects = [];
+
+    /**
+     * Image sources of the TCPDF tag objects, keyed by the tag payload.
+     *
+     * @var array<string, string>
+     */
+    protected array $htmlTcpdfObjectSources = [];
+
+    /**
+     * Number of active HTML render passes whose output is discarded.
+     */
+    protected int $htmlDiscardDepth = 0;
+
+    /**
      * Enable optional raster downscaling during HTML image import.
      */
     protected bool $htmlImageImportResize = false;
@@ -1629,6 +1662,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $elm = \preg_split(self::HTML_TAG_PATTERN, $html, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
             if ($elm === false) {
                 return $dom;
+            }
+
+            if (\stripos($html, '<tcpdf') !== false) {
+                $elm = $this->expandHTMLTcpdfObjectTags($elm);
             }
 
             $maxel = \count($elm);
@@ -2549,6 +2586,46 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Parse the attributes of a tag (the tag text without the angle brackets).
+     *
+     * Values may be quoted or unquoted; valueless boolean attributes (e.g. readonly,
+     * required, disabled) are set to "true". Character references are decoded in
+     * every value except href, which is decoded when the link annotation is written.
+     *
+     * @param string $element Tag text without the angle brackets.
+     * @param string $tagname Lowercase tag name (not parsed as an attribute).
+     *
+     * @return array<string, string>
+     */
+    protected function parseHTMLTagAttributeValues(string $element, string $tagname): array
+    {
+        $attributes = [];
+        $attr_array = [];
+        \preg_match_all(
+            '/([a-zA-Z_:][a-zA-Z0-9_:\-\.]*)\s*(?:=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s"\'`=<>]+)))?/',
+            $element,
+            $attr_array,
+            PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL,
+        );
+        foreach ($attr_array as $attrm) {
+            $name = isset($attrm[1]) ? \strtolower($attrm[1]) : '';
+            if ($name === '' || $tagname !== '' && $name === $tagname) {
+                continue;
+            }
+
+            // An unmatched value group is null, so an empty quoted value stays empty.
+            $value = $attrm[2] ?? $attrm[3] ?? $attrm[4] ?? 'true';
+            if ($name !== 'href') {
+                $value = \html_entity_decode($value, ENT_QUOTES, $this->encoding);
+            }
+
+            $attributes[$name] = $value;
+        }
+
+        return $attributes;
+    }
+
+    /**
      * Process HTML DOM Opening Tag.
      *
      * @param array<int, THTMLDOMNode> $dom
@@ -2588,34 +2665,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $this->inheritHTMLProperties($dom, $key, $parentkey);
         }
 
-        // Parse attributes allowing quoted/unquoted values and valueless boolean attributes.
-        // Boolean attributes (e.g. readonly, required, disabled) are normalized to "true".
         $dom[$key]['attribute'] = [];
         $tagname = $dom[$key]['value'];
-        $attr_array = [];
-        $attrCount = \preg_match_all(
-            '/([a-zA-Z_:][a-zA-Z0-9_:\-\.]*)\s*(?:=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s"\'`=<>]+)))?/',
-            $element,
-            $attr_array,
-            PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL,
-        );
-        if ($attrCount !== false && $attrCount > 0) {
-            foreach ($attr_array as $attrm) {
-                $name = isset($attrm[1]) ? \strtolower($attrm[1]) : '';
-                if ($name === '' || $tagname !== '' && $name === $tagname) {
-                    continue;
-                }
-
-                // An unmatched value group is null, so an empty quoted value stays empty.
-                $value = $attrm[2] ?? $attrm[3] ?? $attrm[4] ?? 'true';
-                if ($name !== 'href') {
-                    // Character references are decoded once; a link target is decoded
-                    // when the link annotation is written.
-                    $value = \html_entity_decode($value, ENT_QUOTES, $this->encoding);
-                }
-
-                $dom[$key]['attribute'][$name] = $value;
-            }
+        foreach ($this->parseHTMLTagAttributeValues($element, $tagname) as $name => $value) {
+            $dom[$key]['attribute'][$name] = $value;
         }
 
         // Keep the author-provided inline style separate from merged CSS so
@@ -8824,11 +8877,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $savedPdfuaMode = $this->suspendPdfUaTagging();
         $savedSinglePage = $this->htmlSinglePage;
         $this->htmlSinglePage = true;
+        ++$this->htmlDiscardDepth;
         try {
             $this->renderHTMLCellFragments($hrc, $tpx, $tpy, $tpw, $tph, static function (string $fragment): void {
                 unset($fragment);
             });
         } finally {
+            --$this->htmlDiscardDepth;
             $this->htmlSinglePage = $savedSinglePage;
             $this->resumePdfUaTagging($savedPdfuaMode);
         }
@@ -15812,6 +15867,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function resolveHTMLImageSource(string $src): string
     {
+        if (\str_starts_with($src, 'tcpdfobj:')) {
+            return $src;
+        }
+
         $datauri = $this->decodeHTMLDataUri($src);
         if ($datauri !== null) {
             return '@' . $datauri['data'];
@@ -15851,6 +15910,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getHTMLImageIntrinsicDimensions(string $src): ?array
     {
+        if (\str_starts_with($src, 'tcpdfobj:')) {
+            $obj = $this->htmlTcpdfObjects[$src] ?? null;
+            return $obj === null ? null : ['width' => $obj['width'], 'height' => $obj['height']];
+        }
+
         $cached = $this->htmlImageIntrinsicSizeCache[$src] ?? null;
         if (\is_array($cached)) {
             return $cached;
@@ -16073,6 +16137,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float $width,
         float $height,
     ): string {
+        if (\str_starts_with($src, 'tcpdfobj:')) {
+            $obj = $this->htmlTcpdfObjects[$src] ?? null;
+            if ($obj === null) {
+                throw new PdfException('Unknown TCPDF tag object');
+            }
+
+            return $this->getXObjectTemplate($obj['tid'], $imagex, $imagey, $width, $height);
+        }
+
         $pageheight = $this->page->getPage()['height'];
         if ($this->isHTMLSvgImageSource($src)) {
             $svgid = $this->addSVG($src, $imagex, $imagey, $width, $height, $pageheight, true);
@@ -23988,10 +24061,45 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Serialize a method call for a TCPDF tag (<tcpdf data="..." />).
+     *
+     * The payload is signed with a random key of this instance: only payloads
+     * created by the same instance are accepted when the HTML is rendered.
+     *
+     * Format: <hlen>+<hmac>+<urlencoded-json>, where the JSON is {'m': method, 'p': params}.
+     *
+     * @param string $method Method name.
+     * @param array<array-key, mixed> $params Method parameters.
+     *
+     * @return string Serialized data, or an empty string if the parameters cannot be encoded.
+     */
+    public function serializeHTMLTcpdfTag(string $method, array $params = []): string
+    {
+        $json = \json_encode(['m' => $method, 'p' => $params]);
+        if ($json === false) {
+            return '';
+        }
+
+        $encoded = \urlencode($json);
+        $hash = $this->getHTMLTcpdfTagHash($encoded);
+
+        return \strlen($hash) . '+' . $hash . '+' . $encoded;
+    }
+
+    /**
+     * Returns the HMAC of an encoded TCPDF tag payload.
+     */
+    protected function getHTMLTcpdfTagHash(string $encoded): string
+    {
+        return \hash_hmac('sha256', $encoded, $this->htmlTcpdfTagKey);
+    }
+
+    /**
      * Parse serialized TCPDF tag data payload.
      *
-     * Supported format: <hlen>+<hash>+<urlencoded-json>
-     * where JSON decodes to: {'m': string, 'p': array}
+     * Supported format: <hlen>+<hmac>+<urlencoded-json>
+     * where JSON decodes to: {'m': string, 'p': array}.
+     * Returns null when the HMAC does not match (see serializeHTMLTcpdfTag()).
      *
      * @return ?array{m: string, p: array<int, mixed>}
      */
@@ -24003,12 +24111,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $hlen = (int) \substr($data, 0, $hpos);
-        if ($hlen <= 0) {
+        if ($hlen <= 0 || ($data[$hpos + 1 + $hlen] ?? '') !== '+') {
             return null;
         }
 
+        $hash = \substr($data, $hpos + 1, $hlen);
         $encoded = \substr($data, $hpos + 2 + $hlen);
-        if ($encoded === '') {
+        if ($encoded === '' || !\hash_equals($this->getHTMLTcpdfTagHash($encoded), $hash)) {
             return null;
         }
 
@@ -24041,6 +24150,167 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         return \in_array(\strtolower($method), ['pagebreak', 'addpage'], true);
+    }
+
+    /**
+     * Returns the object drawn by a TCPDF tag method, or null to run the method
+     * as a call at the tag position (see runHTMLTcpdfTagCall()).
+     *
+     * An object is a form XObject template (see newXObjectTemplate()) laid out
+     * as an image box of the given size. The display is 'block' or 'inline';
+     * valign is 'top', 'middle' or 'bottom' (inline boxes); halign is '', 'L',
+     * 'C' or 'R' (block boxes, '' follows the text alignment).
+     * Called once per payload; the returned object is reused.
+     *
+     * @param string $method Method name.
+     * @param array<int, mixed> $params Method parameters.
+     *
+     * @return ?THTMLTcpdfObject
+     */
+    protected function getHTMLTcpdfTagObject(string $method, array $params): ?array
+    {
+        unset($method, $params);
+        return null;
+    }
+
+    /**
+     * Runs the method of a TCPDF tag that draws no object and returns the PDF
+     * code to add at the tag position.
+     *
+     * Not called by render passes whose output is discarded.
+     *
+     * @param string $method Method name.
+     * @param array<int, mixed> $params Method parameters.
+     * @param float $posx Abscissa of the tag position.
+     * @param float $posy Ordinate of the tag position.
+     *
+     * @return string PDF code.
+     */
+    protected function runHTMLTcpdfTagCall(string $method, array $params, float $posx, float $posy): string
+    {
+        unset($posx, $posy);
+        /** @var callable $callback */
+        $callback = [$this, $method];
+        \call_user_func_array($callback, $params);
+
+        return '';
+    }
+
+    /**
+     * Replace the TCPDF tags that draw an object with the image (and block
+     * container) tokens that lay the object out.
+     *
+     * @param array<int, string> $elm HTML tokens.
+     *
+     * @return array<int, string>
+     */
+    protected function expandHTMLTcpdfObjectTags(array $elm): array
+    {
+        $out = [];
+        foreach ($elm as $token) {
+            $next = $token[6] ?? '';
+            if (\strncasecmp($token, '<tcpdf', 6) !== 0 || !\in_array($next, [' ', "\t", "\n", "\r", '/', '>'], true)) {
+                $out[] = $token;
+                continue;
+            }
+
+            $attr = $this->parseHTMLTagAttributeValues(\substr($token, 1, -1), 'tcpdf');
+            $src = $this->getHTMLTcpdfObjectSource($attr['data'] ?? '');
+            $obj = $this->htmlTcpdfObjects[$src] ?? null;
+            if ($obj === null) {
+                $out[] = $token;
+                continue;
+            }
+
+            $img = \sprintf(
+                '<img src="%s" width="%Fpt" height="%Fpt" alt="%s"',
+                $src,
+                $this->toPoints($obj['width']),
+                $this->toPoints($obj['height']),
+                $this->escapeHTMLTcpdfAttribute($attr['alt'] ?? $obj['alt']),
+            );
+            if ($obj['display'] !== 'block') {
+                $img .= ' align="' . $obj['valign'] . '"';
+            }
+
+            foreach (['class', 'id', 'style'] as $name) {
+                if (!isset($attr[$name])) {
+                    continue;
+                }
+
+                $img .= ' ' . $name . '="' . $this->escapeHTMLTcpdfAttribute($attr[$name]) . '"';
+            }
+
+            $img .= ' />';
+            if ($obj['display'] !== 'block') {
+                $out[] = $img;
+                continue;
+            }
+
+            $align = match ($obj['halign']) {
+                'L' => ' style="text-align:left"',
+                'C' => ' style="text-align:center"',
+                'R' => ' style="text-align:right"',
+                default => '',
+            };
+            $out[] = '<div' . $align . '>';
+            $out[] = $img;
+            $out[] = '</div>';
+        }
+
+        return $out;
+    }
+
+    /**
+     * Escape a value for a double-quoted HTML attribute.
+     */
+    protected function escapeHTMLTcpdfAttribute(string $value): string
+    {
+        return \htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, $this->encoding);
+    }
+
+    /**
+     * Returns the image source of the object drawn by a TCPDF tag payload, or
+     * an empty string when the payload draws no object.
+     *
+     * The source carries an HMAC of this instance, so markup cannot refer to an
+     * object it did not create through a TCPDF tag.
+     */
+    protected function getHTMLTcpdfObjectSource(string $data): string
+    {
+        if ($data === '') {
+            return '';
+        }
+
+        if (isset($this->htmlTcpdfObjectSources[$data])) {
+            return $this->htmlTcpdfObjectSources[$data];
+        }
+
+        $this->htmlTcpdfObjectSources[$data] = '';
+        $tagdata = $this->parseHTMLTcpdfSerializedData($data);
+        if (
+            $tagdata === null
+            || \in_array(\strtolower($tagdata['m']), ['pagebreak', 'addpage'], true)
+            || !$this->isAllowedHTMLTcpdfMethod($tagdata['m'])
+        ) {
+            return '';
+        }
+
+        try {
+            $obj = $this->getHTMLTcpdfTagObject($tagdata['m'], $tagdata['p']);
+        } catch (\Throwable) {
+            return '';
+        }
+
+        if ($obj === null || $obj['tid'] === '' || $obj['width'] <= 0.0 || $obj['height'] <= 0.0) {
+            return '';
+        }
+
+        $src = 'tcpdfobj:' . $this->getHTMLTcpdfTagHash('object:' . \count($this->htmlTcpdfObjects));
+        $this->htmlTcpdfObjects[$src] = $obj;
+        $this->htmlTcpdfObjectSources[$data] = $src;
+
+        return $src;
     }
 
     /**
@@ -24103,10 +24373,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float &$tph,
     ): string {
         $elm = $this->getHTMLDOMNode($hrc['dom'], $key);
-        if ($elm === null) {
+        if ($elm === null || $this->htmlDiscardDepth > 0) {
             return '';
         }
-        unset($tpy, $tph);
+        unset($tph);
 
         // pageBreak and addPage are run before the tag is dispatched (see
         // getHTMLTcpdfPageBreakMode()).
@@ -24126,18 +24396,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        /** @var callable $callback */
-        $callback = [$this, $tagdata['m']];
-
         try {
-            \call_user_func_array($callback, $tagdata['p']);
+            $out = $this->runHTMLTcpdfTagCall($tagdata['m'], $tagdata['p'], $tpx, $tpy);
         } catch (\Throwable) {
             return '';
         }
 
         $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
 
-        return '';
+        return $out;
     }
 
     /**

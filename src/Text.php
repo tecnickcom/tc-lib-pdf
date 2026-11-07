@@ -389,6 +389,12 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     protected bool $textOffsetFromLeft = false;
 
     /**
+     * If true, outTextLines() shortens the first line at its right side by the offset for
+     * any base direction. Set by callers whose offset is a right-to-left cursor position.
+     */
+    protected bool $textOffsetFromRight = false;
+
+    /**
      * Width (internal points) of the content that follows the last line of a centered
      * or right-aligned text with more than one line, on the same line. outTextLines()
      * aligns that last line together with it. Set by callers whose text is followed by
@@ -2482,7 +2488,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         // The offset shortens the first line at the side that line starts from:
         // the right one for an RTL paragraph, where the line box is trimmed
         // instead of being moved, unless the offset is a left-to-right cursor position.
-        $line_posx = $baseRtl && !$this->textOffsetFromLeft ? $posx : $posx + $offset;
+        // A right-to-left cursor position always trims the right side.
+        $trimright = $this->textOffsetFromRight || $baseRtl && !$this->textOffsetFromLeft;
+        $line_posx = $trimright ? $posx : $posx + $offset;
         $line_posy = $posy + $fontascent;
 
         $out = '';

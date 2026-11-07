@@ -3641,6 +3641,31 @@ class TextTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testAddTextCellOffsetFromRightTrimsAnLtrFirstLineAtTheRight(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $page = $obj->addPage();
+        $pid = $this->requirePageId($page);
+
+        $posx = 20.0;
+        $width = 100.0;
+        $offset = 25.0;
+
+        $obj->addTextCell('Hello world', $pid, $posx, 40.0, $width, 0.0, 0.0, 0.0, 'T', 'R');
+        $plain = $obj->getLastTextBBox();
+
+        $this->setObjectProperty($obj, 'textOffsetFromRight', true);
+        $obj->addTextCell('Hello world', $pid, $posx, 60.0, $width, 0.0, $offset, 0.0, 'T', 'R');
+        $trimmed = $obj->getLastTextBBox();
+        $this->setObjectProperty($obj, 'textOffsetFromRight', false);
+
+        // A right-to-left cursor offset moves the right edge of the first line.
+        $this->assertEqualsWithDelta($offset, $plain['x'] + $plain['w'] - ($trimmed['x'] + $trimmed['w']), 0.001);
+        $this->assertEqualsWithDelta($plain['w'], $trimmed['w'], 0.001);
+    }
+
+    /** @throws \Throwable */
     public function testGetLastTextBBoxIgnoresLinesWithoutGlyphs(): void
     {
         $obj = $this->getTestObject();

@@ -16463,9 +16463,7 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
 
         $before = $obj->exposePageBreak();
-        $payload = \urlencode((string) \json_encode(['m' => 'AddPage', 'p' => []]));
-        $hash = \str_repeat('a', 64);
-        $data = '64+' . $hash . '+' . $payload;
+        $data = $obj->serializeHTMLTcpdfTag('AddPage');
         $html = '<tcpdf data="' . $data . '" /><p>AfterBreak</p>';
 
         $out = $obj->getHTMLCell($html, 0, 0, 20, 6);
@@ -16487,12 +16485,8 @@ class HTMLTest extends TestUtil
         /** @var array<string, array<string, int|float>> $beforeDests */
         $beforeDests = $this->getObjectProperty($obj, 'dests');
 
-        $payload = \urlencode((string) \json_encode([
-            'm' => 'setNamedDestination',
-            'p' => ['blocked-dest', -1, 1.0, 1.0],
-        ]));
-        $hash = \str_repeat('a', 64);
-        $data = '64+' . $hash . '+' . $payload;
+        $data = $obj->serializeHTMLTcpdfTag('setNamedDestination', ['blocked-dest', -1, 1.0, 1.0]);
+        $this->assertNotNull($obj->exposeParseHTMLTcpdfSerializedData($data));
         $obj->getHTMLCell('<tcpdf data="' . $data . '" /><p>X</p>', 0, 0, 20, 6);
 
         /** @var array<string, array<string, int|float>> $afterDests */
@@ -20166,8 +20160,7 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
         $obj->exposeInitHTMLCellContext(12.0, 0.0, 80.0, 0.0);
 
-        $payload = \rawurlencode(\json_encode(['m' => 'AddPage', 'p' => [true]], JSON_THROW_ON_ERROR));
-        $data = '64+' . \str_repeat('a', 64) . '+' . $payload;
+        $data = $obj->serializeHTMLTcpdfTag('AddPage', [true]);
 
         $parsed = $obj->exposeParseHTMLTcpdfSerializedData($data);
         $this->assertIsArray($parsed);
@@ -20176,6 +20169,8 @@ class HTMLTest extends TestUtil
 
         $this->assertNull($obj->exposeParseHTMLTcpdfSerializedData('broken'));
         $this->assertNull($obj->exposeParseHTMLTcpdfSerializedData('0+a+payload'));
+        $payload = \urlencode(\json_encode(['m' => 'AddPage', 'p' => [true]], JSON_THROW_ON_ERROR));
+        $this->assertNull($obj->exposeParseHTMLTcpdfSerializedData('64+' . \str_repeat('a', 64) . '+' . $payload));
         $this->assertTrue($obj->exposeIsAllowedHTMLTcpdfMethod('pagebreak'));
         $this->assertTrue($obj->exposeIsAllowedHTMLTcpdfMethod('addpage'));
         $this->assertFalse($obj->exposeIsAllowedHTMLTcpdfMethod('setNamedDestination'));

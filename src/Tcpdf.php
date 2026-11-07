@@ -162,6 +162,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         $this->docmodtime = $this->doctime;
         $seed = new \Com\Tecnick\Pdf\Encrypt\Type\Seed();
         $this->fileid = \md5($seed->encrypt('TCPDF'));
+        $this->htmlTcpdfTagKey = \random_bytes(32);
         if ($objEncrypt instanceof ObjEncrypt) {
             $encData = $objEncrypt->getEncryptionData();
             if ($encData['encrypted'] && $encData['fileid'] !== '') {
