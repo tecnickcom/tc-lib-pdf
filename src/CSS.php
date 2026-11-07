@@ -38,6 +38,12 @@ use Com\Tecnick\Pdf\CSS\Specificity;
  *
  * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TRefUnitValues from \Com\Tecnick\Pdf\Base
+ * @phpstan-type THTMLElementBlock array{
+ *     start: int,
+ *     end: int,
+ *     attr: string,
+ *     body: string,
+ * }
  * @phpstan-type BorderStyle array{
  *     lineWidth: float,
  *     lineCap: string,
@@ -152,12 +158,6 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      * Internal canonical format for CSS spot color tokens.
      */
     protected const CSS_SPOT_PREFIX = 'spot(';
-
-    /**
-     * Pattern of an embedded <style> element: attributes in group 1, content in group 2.
-     * The content runs to the first </style> and may contain '<'.
-     */
-    protected const CSS_STYLE_BLOCK_PATTERN = '/<style([^>]*?)>([^<]*+(?:<(?!\/style\b)[^<]*+)*+)<\/style>/is';
 
     /**
      * Set the default CSS margin in user units.
@@ -1130,6 +1130,152 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     }
 
     /**
+     * Find the embedded <style> elements of an HTML string.
+     *
+     * An element starts at a case-insensitive '<style' and its attributes run to
+     * the next '>'. The content runs to the first '</style' followed by a non-word
+     * character; the element ends there only if a '>' follows, otherwise the next
+     * '<style' is tried.
+     *
+     * @param string $html HTML string to scan.
+     *
+     * @return list<THTMLElementBlock>
+     */
+    protected function getCSSStyleBlocks(string $html): array
+    {
+        $blocks = [];
+        $pos = 0;
+        $gtpos = -1;
+        $closepos = -1;
+        while (($start = \stripos($html, '<style', $pos)) !== false) {
+            if ($gtpos < ($start + 6)) {
+                $gtpos = \strpos($html, '>', $start + 6);
+                if ($gtpos === false) {
+                    break;
+                }
+            }
+
+            if ($closepos <= $gtpos) {
+                $closepos = $this->findCSSStyleClosingTag($html, $gtpos + 1);
+                if ($closepos < 0) {
+                    break;
+                }
+            }
+
+            if (($html[$closepos + 7] ?? '') !== '>') {
+                $pos = $start + 1;
+                continue;
+            }
+
+            $blocks[] = [
+                'start' => $start,
+                'end' => $closepos + 8,
+                'attr' => \substr($html, $start + 6, $gtpos - $start - 6),
+                'body' => \substr($html, $gtpos + 1, $closepos - $gtpos - 1),
+            ];
+            $pos = $closepos + 8;
+        }
+
+        return $blocks;
+    }
+
+    /**
+     * Position of the first case-insensitive '</style' followed by a non-word
+     * character or by the end of the string.
+     *
+     * @param string $html   HTML string to scan.
+     * @param int    $offset Start position.
+     *
+     * @return int Position, or -1 when not found.
+     */
+    protected function findCSSStyleClosingTag(string $html, int $offset): int
+    {
+        $len = \strlen($html);
+        while (($pos = \stripos($html, '</style', $offset)) !== false) {
+            $next = $pos + 7;
+            if ($next >= $len || \preg_match('/\w/', $html[$next]) !== 1) {
+                return $pos;
+            }
+
+            $offset = $pos + 1;
+        }
+
+        return -1;
+    }
+
+    /**
+     * Find the elements of an HTML string that start with $open and end with $close.
+     *
+     * Both delimiters are case-insensitive. When $open does not end with '>', the
+     * attributes run to the next '>'. The content runs to the first $close.
+     *
+     * @param string $html  HTML string to scan.
+     * @param string $open  Opening delimiter, e.g. '<head' or '<cssarray>'.
+     * @param string $close Closing delimiter, e.g. '</head>'.
+     *
+     * @return list<THTMLElementBlock>
+     */
+    protected function getHTMLElementBlocks(string $html, string $open, string $close): array
+    {
+        $blocks = [];
+        $olen = \strlen($open);
+        $clen = \strlen($close);
+        $hasattr = !\str_ends_with($open, '>');
+        $pos = 0;
+        while (($start = \stripos($html, $open, $pos)) !== false) {
+            $gtpos = $hasattr ? \strpos($html, '>', $start + $olen) : $start + $olen - 1;
+            if ($gtpos === false) {
+                break;
+            }
+
+            $closepos = \stripos($html, $close, $gtpos + 1);
+            if ($closepos === false) {
+                break;
+            }
+
+            $attrstart = $start + ($hasattr ? $olen : $olen - 1);
+            $blocks[] = [
+                'start' => $start,
+                'end' => $closepos + $clen,
+                'attr' => \substr($html, $attrstart, $gtpos - $attrstart),
+                'body' => \substr($html, $gtpos + 1, $closepos - $gtpos - 1),
+            ];
+            $pos = $closepos + $clen;
+        }
+
+        return $blocks;
+    }
+
+    /**
+     * Replace the given element blocks of an HTML string.
+     *
+     * @param string                                      $html    HTML string.
+     * @param list<THTMLElementBlock>                     $blocks  Blocks found in $html, in order.
+     * @param (callable(THTMLElementBlock): string)|null $replace Replacement of a block; null removes the blocks.
+     *
+     * @return string
+     */
+    protected function replaceHTMLElementBlocks(string $html, array $blocks, ?callable $replace = null): string
+    {
+        if ($blocks === []) {
+            return $html;
+        }
+
+        $out = '';
+        $pos = 0;
+        foreach ($blocks as $block) {
+            $out .= \substr($html, $pos, $block['start'] - $pos);
+            if ($replace !== null) {
+                $out .= $replace($block);
+            }
+
+            $pos = $block['end'];
+        }
+
+        return $out . \substr($html, $pos);
+    }
+
+    /**
      * Extract CSS styles from an HTML string.
      *
      * @param string $html HTML string to parse.
@@ -1154,7 +1300,11 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
             if (\is_string($cssArrayPayload)) {
                 $css = \array_merge($css, $this->decodeCSSMap($cssArrayPayload));
             }
-            $html = \preg_replace('/<cssarray>(.*?)<\/cssarray>/is', '', $html) ?? '';
+            $html = $this->replaceHTMLElementBlocks($html, $this->getHTMLElementBlocks(
+                $html,
+                '<cssarray>',
+                '</cssarray>',
+            ));
         }
 
         // Inject the user-defined global CSS as the lowest-priority author source so
@@ -1204,25 +1354,21 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         }
 
         // extract style tags
-        $matches = [];
-        $matchCount = \preg_match_all(self::CSS_STYLE_BLOCK_PATTERN, $html, $matches);
-        if ($matchCount !== false && $matchCount > 0) {
+        $styleBlocks = $this->getCSSStyleBlocks($html);
+        if ($styleBlocks !== []) {
             $cascadeCtx->setCurrentSourceType('embedded');
-            $styleMediaDefs = $matches[1] ?? [];
-            // SGML comment delimiters around the content are not part of the CSS
-            $styleBodies = \str_replace(['<!--', '-->'], '', $matches[2] ?? []);
-            foreach ($styleMediaDefs as $key => $media) {
+            foreach ($styleBlocks as $block) {
+                // SGML comment delimiters around the content are not part of the CSS
+                $cssdata = \str_replace(['<!--', '-->'], '', $block['body']);
                 $type = [];
-                if (\preg_match('/media[\s]*=[\s]*"([^"]*)"/', $media, $type) === 1) {
+                if (\preg_match('/media[\s]*=[\s]*"([^"]*)"/', $block['attr'], $type) === 1) {
                     // get 'all' and 'print' media, other media types are discarded
                     // (all, braille, embossed, handheld, print, projection, screen, speech, tty, tv)
                     if (isset($type[1]) && $type[1] !== '' && ($type[1] === 'all' || $type[1] === 'print')) {
-                        $cssdata = $styleBodies[$key] ?? '';
                         $css = \array_merge($css, $this->extractCSSproperties($cssdata, $cascadeCtx));
                     }
                 } else {
                     // no media attribute defaults to "all"
-                    $cssdata = $styleBodies[$key] ?? '';
                     $css = \array_merge($css, $this->extractCSSproperties($cssdata, $cascadeCtx));
                 }
             }
@@ -1264,7 +1410,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
             return $css;
         }
 
-        $pattern = '/@spot\s+("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\'|[a-z0-9_.-]+)\s*\{([^}]*)\}/i';
+        $pattern = '/@spot\s+("(?:[^"\\\\]++|\\\\.)*+"|\'(?:[^\'\\\\]++|\\\\.)*+\'|[a-z0-9_.-]+)\s*\{([^}]*)\}/i';
         $matches = [];
         $matchCount = \preg_match_all($pattern, $css, $matches, \PREG_SET_ORDER);
         if ($matchCount !== false && $matchCount > 0) {
@@ -1373,7 +1519,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
 
         $match = [];
         $ok = \preg_match(
-            '/^spot\(\s*("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\'|[^,\)]+?)\s*(?:,\s*([^\)]+?)\s*)?\)$/i',
+            '/^spot\(\s*("(?:[^"\\\\]++|\\\\.)*+"|\'(?:[^\'\\\\]++|\\\\.)*+\'|[^,\)]+?)\s*(?:,\s*([^\)]+?)\s*)?\)$/i',
             $trimmed,
             $match,
         );

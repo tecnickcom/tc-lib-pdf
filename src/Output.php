@@ -5852,7 +5852,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected function extractPemCertificates(string $content): array
     {
         $matches = [];
-        $pattern = '/-----BEGIN CERTIFICATE-----(?:.|\n|\r)+?-----END CERTIFICATE-----/';
+        $pattern = '/-----BEGIN CERTIFICATE-----.+?-----END CERTIFICATE-----/s';
         $ok = \preg_match_all($pattern, $content, $matches);
         if ($ok === false) {
             throw new PdfException('Unable to parse certificate bundle');

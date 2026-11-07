@@ -2309,7 +2309,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         // Drop comments and CDATA wrappers.
-        $css = (string) \preg_replace('#/\*.*?\*/#s', ' ', $css);
+        $nocomment = '';
+        $pos = 0;
+        while (($start = \strpos($css, '/*', $pos)) !== false && ($end = \strpos($css, '*/', $start + 2)) !== false) {
+            $nocomment .= \substr($css, $pos, $start - $pos) . ' ';
+            $pos = $end + 2;
+        }
+
+        $css = $nocomment . \substr($css, $pos);
         $css = \str_replace(['<![CDATA[', ']]>'], ' ', $css);
 
         $svgobj = &$this->getSVGObjRef($soid);

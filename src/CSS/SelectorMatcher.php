@@ -64,7 +64,7 @@ class SelectorMatcher
      * Matches one compound selector: an optional type followed by any number of
      * id, class, attribute and pseudo-class parts.
      */
-    private const COMPOUND_REGEX = '/^(\*|[A-Za-z][\w-]*)?((?:[.#][\w-]+|\[[^\]]*\]|:[a-z-]+(?:\([^)]*\))?)*)$/';
+    private const COMPOUND_REGEX = '/^(\*|[A-Za-z][\w-]*+)?+((?:[.#][\w-]++|\[[^\]]*+\]|:[a-z-]++(?:\([^)]*+\))?+)*+)$/';
 
     /**
      * Matches a single simple part inside a compound selector.

@@ -19,6 +19,7 @@ namespace Test;
 /**
  * @phpstan-import-type THTMLAttrib from \Com\Tecnick\Pdf\HTML
  * @phpstan-import-type THTMLDOMNode from \Com\Tecnick\Pdf\HTML
+ * @phpstan-import-type THTMLElementBlock from \Com\Tecnick\Pdf\CSS
  * @phpstan-import-type THTMLRenderContext from \Com\Tecnick\Pdf\HTML
  * @phpstan-import-type THTMLTableState from \Com\Tecnick\Pdf\HTML
  * @phpstan-import-type BorderStyle from \Com\Tecnick\Pdf\CSS
@@ -80,6 +81,17 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         // Intentionally kept as a compatibility hook for existing expose* methods.
     }
 
+    /**
+     * Set the DOM of the probe render context and drop the caches built on the previous DOM.
+     *
+     * @phpstan-param array<int, THTMLDOMNode> $dom
+     */
+    private function setExposeDOM(array $dom): void
+    {
+        $this->testhrc['dom'] = $dom;
+        unset($this->testhrc['ancestorcache'], $this->testhrc['labelforcache'], $this->testhrc['inheritcache']);
+    }
+
     /** @phpstan-return THTMLRenderContext */
     public function exposeGetHTMLRenderContext(): array
     {
@@ -120,7 +132,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         float &$tph,
     ): string {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = [$elm];
+        $this->setExposeDOM([$elm]);
 
         $refm = new \ReflectionMethod($this, $method);
         $args = [&$this->testhrc, 0, &$tpx, &$tpy, &$tpw, &$tph];
@@ -309,7 +321,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeParseHTMLText(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = [$elm];
+        $this->setExposeDOM([$elm]);
 
         return $this->parseHTMLText($this->testhrc, 0, $tpx, $tpy, $tpw, $tph);
     }
@@ -327,7 +339,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         float &$tph,
     ): string {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
 
         return $this->parseHTMLText($this->testhrc, $key, $tpx, $tpy, $tpw, $tph);
     }
@@ -348,7 +360,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         float &$tpw,
         float &$tph,
     ): array {
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
         $out = $this->parseHTMLText($this->testhrc, $key, $tpx, $tpy, $tpw, $tph);
 
         return ['out' => $out, 'dom' => $this->testhrc['dom']];
@@ -388,7 +400,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeOpenHTMLBlock(array $elm, float &$tpx, float &$tpy, float &$tpw): string
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = [$elm];
+        $this->setExposeDOM([$elm]);
 
         return $this->openHTMLBlock($this->testhrc, 0, $tpx, $tpy, $tpw);
     }
@@ -400,7 +412,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeCloseHTMLBlock(array $elm, float &$tpx, float &$tpy, float &$tpw): string
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = [$elm];
+        $this->setExposeDOM([$elm]);
 
         return $this->closeHTMLBlock($this->testhrc, 0, $tpx, $tpy, $tpw);
     }
@@ -423,7 +435,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         float &$tph,
     ): string {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
 
         return $this->parseHTMLTagOPENbr($this->testhrc, $key, $tpx, $tpy, $tpw, $tph);
     }
@@ -461,7 +473,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeGetHTMLTableCellBorderStylesWithDom(array $dom, int $key): array
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
 
         return $this->getHTMLTableCellBorderStyles($this->testhrc, $key);
     }
@@ -475,7 +487,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeGetHTMLTableCellFillStyleWithDom(array $dom, int $key): ?array
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
 
         return $this->getHTMLTableCellFillStyle($this->testhrc, $key);
     }
@@ -493,7 +505,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeHasBlockLvBgAncestorWithDom(array $dom, int $key): bool
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
 
         return $this->hasBlockLvBgAncestor($this->testhrc, $key);
     }
@@ -505,7 +517,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeFindHTMLAncestorOpeningTagWithDom(array $dom, int $key, string $tagname): int
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
 
         return $this->findHTMLAncestorOpeningTag($this->testhrc, $key, $tagname);
     }
@@ -520,7 +532,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeGetHTMLInputButtonActionWithDom(array $dom, int $key, string $type, array $attr): string|array
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
 
         return $this->getHTMLInputButtonAction($this->testhrc, $key, $type, $attr);
     }
@@ -595,7 +607,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeGetHTMLListMarkerTypeWithDom(array $dom, int $key, bool $ordered): string
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
 
         return $this->getHTMLListMarkerType($this->testhrc, $key, $ordered);
     }
@@ -607,7 +619,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposePushHTMLListWithDom(array $dom, int $key, bool $ordered): void
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
         $this->pushHTMLList($this->testhrc, $key, $ordered);
     }
 
@@ -625,7 +637,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeGetHTMLListItemCounterWithDom(array $dom, int $key): int
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
 
         return $this->getHTMLListItemCounter($this->testhrc, $key);
     }
@@ -678,7 +690,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeEstimateHTMLTableRowHeightWithDom(array $dom, int $trkey): float
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
 
         return $this->estimateHTMLTableRowHeight($this->testhrc, $trkey);
     }
@@ -696,7 +708,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeEstimateHTMLTextHeightWithDom(array $dom, int $key, string $text, float $width): float
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
 
         return $this->estimateHTMLTextHeight($this->testhrc, $key, $text, $width);
     }
@@ -708,7 +720,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeEstimateHTMLNobrHeightWithDom(array $dom, int $startkey, float $width): float
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
 
         return $this->estimateHTMLNobrHeight($this->testhrc, $startkey, $width);
     }
@@ -727,7 +739,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeSetHTMLDom(array $dom): void
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
     }
 
     /** @throws \Throwable */
@@ -866,6 +878,64 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         return $this->isHTMLSvgImageData($data);
     }
 
+    /**
+     * @return list<THTMLElementBlock>
+     */
+    public function exposeGetCSSStyleBlocks(string $html): array
+    {
+        return $this->getCSSStyleBlocks($html);
+    }
+
+    /**
+     * @return list<THTMLElementBlock>
+     */
+    public function exposeGetHTMLElementBlocks(string $html, string $open, string $close): array
+    {
+        return $this->getHTMLElementBlocks($html, $open, $close);
+    }
+
+    /**
+     * @return list<array{0: string, 1: string, 2: string}>
+     */
+    public function exposeGetHTMLSelectTokens(string $inner): array
+    {
+        return self::getHTMLSelectTokens($inner);
+    }
+
+    public function exposeGetHTMLTagAttributeValue(string $attrs, string $name): ?string
+    {
+        return self::getHTMLTagAttributeValue($attrs, $name);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function exposeGetHTMLStyleValueTokens(string $value): array
+    {
+        return $this->getHTMLStyleValueTokens($value);
+    }
+
+    /**
+     * @phpstan-param array<int, THTMLDOMNode> $dom
+     * @throws \Throwable
+     */
+    public function exposeGetHTMLLabelTextForControlWithDom(array $dom, int $key): string
+    {
+        $this->setExposeDOM($dom);
+
+        return $this->getHTMLLabelTextForControl($this->testhrc, $key);
+    }
+
+    /**
+     * @phpstan-param array<int, THTMLDOMNode> $dom
+     */
+    public function exposeGetHTMLInheritedTextPropertyWithDom(array $dom, int $key, string $prop): string
+    {
+        $this->setExposeDOM($dom);
+
+        return $this->getHTMLInheritedTextProperty($this->testhrc, $key, $prop);
+    }
+
     public function exposeIsHTMLSvgImageSource(string $src): bool
     {
         return $this->isHTMLSvgImageSource($src);
@@ -912,7 +982,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeGetHTMLFontMetricWithDom(array $dom, int $key): array
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
 
         return $this->getHTMLFontMetric($this->testhrc, $key);
     }
@@ -924,7 +994,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeGetHTMLTextPrefixWithDom(array $dom, int $key): string
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
 
         return $this->getHTMLTextPrefix($this->testhrc, $key);
     }
@@ -936,7 +1006,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeGetHTMLLineAdvanceWithDom(array $dom, int $key): float
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
 
         return $this->getHTMLLineAdvance($this->testhrc, $key);
     }
@@ -948,7 +1018,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeGetCurrentHTMLLineAdvanceWithDom(array $dom, int $key): float
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
 
         return $this->getCurrentHTMLLineAdvance($this->testhrc, $key);
     }
@@ -990,7 +1060,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         float $wordspacing = 0.0,
     ): array {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
 
         return $this->measureHTMLInlineLineMetrics($this->testhrc, $startkey, $maxwidth, $wordspacing);
     }
@@ -1012,7 +1082,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
 
         $root = $this->getHTMLRootProperties();
         $root['white-space'] = $mode;
-        $this->testhrc['dom'] = [$root];
+        $this->setExposeDOM([$root]);
 
         return $this->getHTMLTextFirstLineSpaces($text, $forcedir, $maxwidth);
     }
@@ -1033,7 +1103,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeMeasureHTMLInlineRunMaxAscentWithDom(array $dom, int $startkey): float
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
 
         return $this->measureHTMLInlineRunMaxAscent($this->testhrc, $startkey);
     }
@@ -1052,7 +1122,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
 
         $root = $this->getHTMLRootProperties();
         $root['white-space'] = $mode;
-        $this->testhrc['dom'] = [$root];
+        $this->setExposeDOM([$root]);
 
         return $this->hasHTMLTextBreakOpportunity($this->testhrc, 0, $text);
     }
@@ -1064,7 +1134,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
 
         $root = $this->getHTMLRootProperties();
         $root['white-space'] = $mode;
-        $this->testhrc['dom'] = [$root];
+        $this->setExposeDOM([$root]);
 
         return $this->normalizeHTMLText($this->testhrc, $text, 0);
     }
@@ -1076,7 +1146,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeApplyHTMLFontVariantWithDom(array $dom, int $key, string $text): string
     {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
 
         return $this->applyHTMLFontVariant($this->testhrc, $text, $key);
     }
@@ -1092,7 +1162,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         int $quotelevel = 0,
     ): string {
         $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
+        $this->setExposeDOM($dom);
         $this->testhrc['quotelevel'] = $quotelevel;
 
         return $this->getHTMLPseudoTextContent($this->testhrc, $key, $style);

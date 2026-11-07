@@ -42,6 +42,7 @@ If you receive no response, reply to the same email thread.
 - **Validate and sanitise all user-supplied HTML/CSS** before rendering. Use a dedicated HTML sanitiser (for example [HTML Purifier](http://htmlpurifier.org/)) for content from end users.
 - **Restrict external asset loading.** Use `fileOptions['allowedHosts']` to allow only trusted remote domains, and set `fileOptions['allowedPaths']` when you need to narrow local file reads to specific asset directories. If you override `allowedPaths`, include every required local root because it replaces the defaults.
 - **Limit file-system access.** Run the PDF-generation process with the minimum required filesystem permissions. Never pass raw user input as a file path.
+- **Bound the work per document.** Rendering time grows with the size of the HTML, CSS and SVG input and with the number of pages it produces. Limit the size of untrusted input and the run time of PDF-generation workers.
 - **Keep dependencies up to date.** Run `composer update` regularly and monitor advisories via [Packagist Security Advisories](https://packagist.org/packages/tecnickcom/tc-lib-pdf) or tools such as `composer audit`.
 - **Pin versions in production.** Use `composer.lock` and review changes on every update.
 
