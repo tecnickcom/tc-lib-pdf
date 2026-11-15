@@ -15322,7 +15322,6 @@ class HTMLTest extends TestUtil
         $this->assertSame('true', $this->getHtmlNodeAttrString($this->htmlNode($dom, 1), 'nobr'));
         $this->assertSame('left', $this->getHtmlNodeAttrString($this->htmlNode($dom, 1), 'pagebreak'));
         $this->assertSame('right', $this->getHtmlNodeAttrString($this->htmlNode($dom, 1), 'pagebreakafter'));
-        /** @var array{H: float, V: float} $borderSpacing */
         $borderSpacing = \array_replace(['H' => 0.0, 'V' => 0.0], $dom[1]['border-spacing'] ?? []);
         $this->assertGreaterThan(0.0, $borderSpacing['H']);
         $this->assertSame($borderSpacing['H'], $borderSpacing['V']);
@@ -15349,7 +15348,6 @@ class HTMLTest extends TestUtil
 
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
-        /** @var array{H: float, V: float} $borderSpacing */
         $borderSpacing = \array_replace(['H' => 0.0, 'V' => 0.0], $dom[1]['border-spacing'] ?? []);
 
         $this->assertGreaterThan(0.0, $borderSpacing['H']);
@@ -15379,9 +15377,7 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
         $obj->parseHTMLStyleAttributes($dom, 2, 1);
 
-        /** @var array{H: float, V: float} $parentSpacing */
         $parentSpacing = \array_replace(['H' => 0.0, 'V' => 0.0], $dom[1]['border-spacing'] ?? []);
-        /** @var array{H: float, V: float} $childSpacing */
         $childSpacing = \array_replace(['H' => 0.0, 'V' => 0.0], $dom[2]['border-spacing'] ?? []);
 
         $this->assertSame($parentSpacing, $childSpacing);
@@ -15930,10 +15926,11 @@ class HTMLTest extends TestUtil
         $gap = $obj->toPoints($obj->exposeGetStringWidth(' '));
         $slotRight = $obj->toPoints($posx) - $gap;
 
-        $ranges = [];
-        foreach (['disc', 'circle', 'square'] as $type) {
-            $ranges[$type] = $this->getMarkerXRange($obj->exposeGetHTMLliBullet(1, 1, $posx, 50.0, $type));
-        }
+        $ranges = [
+            'disc' => $this->getMarkerXRange($obj->exposeGetHTMLliBullet(1, 1, $posx, 50.0, 'disc')),
+            'circle' => $this->getMarkerXRange($obj->exposeGetHTMLliBullet(1, 1, $posx, 50.0, 'circle')),
+            'square' => $this->getMarkerXRange($obj->exposeGetHTMLliBullet(1, 1, $posx, 50.0, 'square')),
+        ];
 
         foreach ($ranges as $type => $range) {
             $this->assertEqualsWithDelta($slotRight, $range[1], 0.01, $type . ' right edge');
@@ -15954,10 +15951,11 @@ class HTMLTest extends TestUtil
         $gap = $obj->toPoints($obj->exposeGetStringWidth(' '));
         $slotLeft = $obj->toPoints($posx) + $gap;
 
-        $ranges = [];
-        foreach (['disc', 'circle', 'square'] as $type) {
-            $ranges[$type] = $this->getMarkerXRange($obj->exposeGetHTMLliBullet(1, 1, $posx, 50.0, $type));
-        }
+        $ranges = [
+            'disc' => $this->getMarkerXRange($obj->exposeGetHTMLliBullet(1, 1, $posx, 50.0, 'disc')),
+            'circle' => $this->getMarkerXRange($obj->exposeGetHTMLliBullet(1, 1, $posx, 50.0, 'circle')),
+            'square' => $this->getMarkerXRange($obj->exposeGetHTMLliBullet(1, 1, $posx, 50.0, 'square')),
+        ];
 
         foreach ($ranges as $type => $range) {
             $this->assertEqualsWithDelta($slotLeft, $range[0], 0.01, $type . ' left edge');
@@ -16195,9 +16193,9 @@ class HTMLTest extends TestUtil
             $marker[$position] = $this->getListMarkerRects($out);
         }
 
-        $this->assertCount(2, $lines['outside']);
-        $this->assertCount(2, $lines['inside']);
-        $this->assertCount(1, $marker['inside']);
+        $this->assertCount(2, $lines['outside'] ?? []);
+        $this->assertCount(2, $lines['inside'] ?? []);
+        $this->assertCount(1, $marker['inside'] ?? []);
 
         $markerX = $marker['inside'][0][0] ?? 0.0;
         // An inside marker ends on the item content edge, which is where an RTL line
@@ -22452,12 +22450,14 @@ class HTMLTest extends TestUtil
         }
 
         // 100px = 75pt and 30mm = 85.04pt replace the content height of the row
-        $none = $tops['none'];
-        $this->assertGreaterThan($none + 40.0, $tops['attr']);
-        $this->assertEqualsWithDelta($tops['attr'], $tops['px'], 0.001);
-        $this->assertEqualsWithDelta($tops['px'] + (85.0394 - 75.0), $tops['mm'], 0.01);
+        $none = $tops['none'] ?? 0.0;
+        $attr = $tops['attr'] ?? 0.0;
+        $pxTop = $tops['px'] ?? 0.0;
+        $this->assertGreaterThan($none + 40.0, $attr);
+        $this->assertEqualsWithDelta($attr, $pxTop, 0.001);
+        $this->assertEqualsWithDelta($pxTop + (85.0394 - 75.0), $tops['mm'] ?? 0.0, 0.01);
         // a height lower than the content keeps the content height
-        $this->assertEqualsWithDelta($none, $tops['short'], 0.001);
+        $this->assertEqualsWithDelta($none, $tops['short'] ?? 0.0, 0.001);
     }
 
     /**
@@ -23477,10 +23477,12 @@ class HTMLTest extends TestUtil
             $lines[$align] = $this->getPageGlyphTokens($obj, (int) $obj->page->getPageId());
         }
 
-        $this->assertGreaterThan(2, \count($lines['left']));
-        $this->assertCount(\count($lines['left']), $lines['justify']);
+        $left = $lines['left'] ?? [];
+        $justify = $lines['justify'] ?? [];
+        $this->assertGreaterThan(2, \count($left));
+        $this->assertCount(\count($left), $justify);
         // The last line is not justified, so it matches the left aligned one.
-        $this->assertSame(\array_slice($lines['left'], -2), \array_slice($lines['justify'], -2));
+        $this->assertSame(\array_slice($left, -2), \array_slice($justify, -2));
     }
 
     /**

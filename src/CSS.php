@@ -311,7 +311,6 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      */
     protected function applyCSSBorderStyleKeyword(array $border, string $style): array
     {
-        /** @var BorderStyle $border */
         $border = \array_replace($this->getCSSDefaultBorderStyle(), $border);
         $style = \strtolower(\trim($style));
         $border['lineCap'] = 'square';

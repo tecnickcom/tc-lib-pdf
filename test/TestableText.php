@@ -366,7 +366,6 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         if ($txt === '' || $dim === []) {
             return '';
         }
-        /** @var TTextDims $lineDim */
         $lineDim = \array_replace(self::DIM_DEFAULT, $dim);
         return $this->getOutTextLine(
             $txt,
@@ -417,7 +416,6 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         if ($txt === '' || $dim === []) {
             return '';
         }
-        /** @var TTextDims $lineDim */
         $lineDim = \array_replace(self::DIM_DEFAULT, $dim);
         return $this->getOutTextLine(
             $txt,
@@ -466,7 +464,6 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         if ($txt === '' || $dim === []) {
             return '';
         }
-        /** @var TTextDims $lineDim */
         $lineDim = \array_replace(self::DIM_DEFAULT, $dim);
         return $this->outTextLine(
             $txt,
@@ -514,7 +511,6 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         if ($txt === '' || $dim === []) {
             return '';
         }
-        /** @var TTextDims $lineDim */
         $lineDim = \array_replace(self::DIM_DEFAULT, $dim);
         return $this->outTextLine(
             $txt,

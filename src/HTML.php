@@ -3973,7 +3973,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleDirectionProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (!isset($dom[$key]['style']['direction']) || $dom[$key]['style']['direction'] === '') {
+        if (
+            !\is_array($dom[$key] ?? null)
+            || !isset($dom[$key]['style']['direction'])
+            || $dom[$key]['style']['direction'] === ''
+        ) {
             return;
         }
 
@@ -3996,7 +4000,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleDisplayProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (!isset($dom[$key]['style']['display']) || $dom[$key]['style']['display'] === '') {
+        if (
+            !\is_array($dom[$key] ?? null)
+            || !isset($dom[$key]['style']['display'])
+            || $dom[$key]['style']['display'] === ''
+        ) {
             return;
         }
 
@@ -4343,7 +4351,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleFontFamilyProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (!isset($dom[$key]['style']['font-family']) || $dom[$key]['style']['font-family'] === '') {
+        if (
+            !\is_array($dom[$key] ?? null)
+            || !isset($dom[$key]['style']['font-family'])
+            || $dom[$key]['style']['font-family'] === ''
+        ) {
             return;
         }
 
@@ -4941,7 +4953,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleLineHeightProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (!isset($dom[$key]['style']['line-height']) || $dom[$key]['style']['line-height'] === '') {
+        if (
+            !\is_array($dom[$key] ?? null)
+            || !isset($dom[$key]['style']['line-height'])
+            || $dom[$key]['style']['line-height'] === ''
+        ) {
             return;
         }
 
@@ -5788,7 +5804,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         string $prop,
         string $side,
     ): void {
-        if (!isset($dom[$key]['style'][$prop]) || $dom[$key]['style'][$prop] === '') {
+        if (!\is_array($dom[$key] ?? null) || !isset($dom[$key]['style'][$prop]) || $dom[$key]['style'][$prop] === '') {
             return;
         }
 
@@ -7340,12 +7356,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
             $parent = $node['parent'];
             // font size
-            if (
-                isset($node['attribute']['size'])
-                && \is_string($node['attribute']['size'])
-                && $node['attribute']['size'] !== ''
-            ) {
-                $size = $node['attribute']['size'];
+            $size = $node['attribute']['size'] ?? null;
+            if (\is_string($size) && $size !== '') {
                 if ($key > 0 && isset($dom[$parent]['fontsize'])) {
                     $node['fontsize'] = match ($size[0]) {
                         '+' => $dom[$parent]['fontsize'] + \floatval(\substr($size, 1)),
@@ -7737,6 +7749,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             } else {
                 $parent = $node['parent'];
                 while (
+                    // @mago-expect analysis:redundant-isset-check
                     isset($dom[$parent]['value'])
                     && !\in_array($dom[$parent]['value'], ['table', 'tablehead'], true)
                     && isset($dom[$parent]['parent'])
@@ -7827,6 +7840,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ) {
                 $tableParent = $parent;
                 while (
+                    // @mago-expect analysis:redundant-isset-check
                     isset($dom[$tableParent]['value'])
                     && !\in_array($dom[$tableParent]['value'], ['table', 'tablehead'], true)
                     && isset($dom[$tableParent]['parent'])
@@ -8598,7 +8612,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
             if (isset($attr['cellspacing']) && \is_numeric($attr['cellspacing']) && $attr['cellspacing'] > 0) {
                 $tablecellspacingv = $this->toUnit($this->getUnitValuePoints($attr['cellspacing']));
-            } elseif (isset($elm['border-spacing']) && $elm['border-spacing'] !== []) {
+            } elseif (isset($elm['border-spacing'])) {
                 $tablecellspacingv = $elm['border-spacing']['V'];
             }
             if ($elm['border-collapse'] === 'collapse') {
@@ -19186,7 +19200,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                         if ($cellspacingAttr !== '' && \is_numeric($cellspacingAttr)) {
                             $elm['pendingcellspacingh'] = $this->toUnit($this->getUnitValuePoints($cellspacingAttr));
-                        } elseif (isset($elm['border-spacing']) && $elm['border-spacing'] !== []) {
+                        } elseif (isset($elm['border-spacing'])) {
                             $elm['pendingcellspacingh'] = $elm['border-spacing']['H'];
                         } else {
                             $elm['pendingcellspacingh'] = 0.0;
@@ -19194,7 +19208,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                         if ($cellspacingAttr !== '' && \is_numeric($cellspacingAttr)) {
                             $elm['pendingcellspacingv'] = $this->toUnit($this->getUnitValuePoints($cellspacingAttr));
-                        } elseif (isset($elm['border-spacing']) && $elm['border-spacing'] !== []) {
+                        } elseif (isset($elm['border-spacing'])) {
                             $elm['pendingcellspacingv'] = $elm['border-spacing']['V'];
                         } else {
                             $elm['pendingcellspacingv'] = 0.0;
@@ -20592,17 +20606,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         if ($parentElm['border'] !== []) {
                             $bLTRB = $parentElm['border']['LTRB'] ?? null;
                             $bL = $parentElm['border']['L'] ?? null;
-                            if ($bL !== null && $bL !== []) {
-                                $borderLeft = isset($bL['lineWidth']) ? $bL['lineWidth'] : 0.0;
+                            if ($bL !== null) {
+                                $borderLeft = $bL['lineWidth'];
                             } elseif ($bLTRB !== null) {
-                                $borderLeft = isset($bLTRB['lineWidth']) ? $bLTRB['lineWidth'] : 0.0;
+                                $borderLeft = $bLTRB['lineWidth'];
                             }
 
                             $bR = $parentElm['border']['R'] ?? null;
-                            if ($bR !== null && $bR !== []) {
-                                $borderRight = isset($bR['lineWidth']) ? $bR['lineWidth'] : 0.0;
+                            if ($bR !== null) {
+                                $borderRight = $bR['lineWidth'];
                             } elseif ($bLTRB !== null) {
-                                $borderRight = isset($bLTRB['lineWidth']) ? $bLTRB['lineWidth'] : 0.0;
+                                $borderRight = $bLTRB['lineWidth'];
                             }
                         }
 

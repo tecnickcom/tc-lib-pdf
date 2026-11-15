@@ -2834,6 +2834,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         $out = '';
 
+        // @mago-expect analysis:redundant-comparison
+        // @mago-expect analysis:redundant-logical-operation
         if ($shadow !== null && $shadow !== []) {
             if ($shadow['xoffset'] < 0) {
                 $posx += $shadow['xoffset'];

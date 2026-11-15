@@ -1247,8 +1247,8 @@ class JavaScriptTest extends TestUtil
         $radioGroups = $this->getObjectProperty($obj, 'radiobuttons');
         $this->assertArrayHasKey('radioGroup', $radioGroups);
         $radioGroup = $radioGroups['radioGroup'] ?? ['#readonly#' => true, 'kids' => []];
-        $this->assertFalse($radioGroup['#readonly#'] ?? true);
-        $kids = \is_array($radioGroup['kids'] ?? null) ? $radioGroup['kids'] : [];
+        $this->assertFalse($radioGroup['#readonly#']);
+        $kids = $radioGroup['kids'];
         $this->assertSame('Off', $kids[0]['def'] ?? null);
         $this->assertSame('On', $kids[1]['def'] ?? null);
     }

@@ -76,7 +76,7 @@ use TSVGStyle;
  * }
  *
  * @phpstan-type TSVGGradient array{
- *    'xref': string,
+ *    'xref'?: string,
  *    'type': int,
  *    'gradientUnits': string,
  *    'mode': string,
@@ -87,7 +87,7 @@ use TSVGStyle;
  *            'opacity'?: float,
  *            'offset'?: float,
  *        }>,
- *    'gradientTransform': array<float>,
+ *    'gradientTransform'?: array<float>,
  * }
  *
  * @phpstan-import-type TSelNode from \Com\Tecnick\Pdf\CSS\SelectorMatcher
@@ -981,7 +981,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected function svgUnitToPoints(string|float|int $val, int $soid = -1, ?array $ref = null): float
     {
         if ($ref === null) {
-            if ($soid > 0 && isset($this->svgobjs[$soid]['refunitval']) && $this->svgobjs[$soid]['refunitval'] !== []) {
+            if ($soid > 0 && isset($this->svgobjs[$soid]['refunitval'])) {
                 $ref = $this->svgobjs[$soid]['refunitval'];
             } else {
                 $ref = self::REFUNITVAL;
@@ -3017,7 +3017,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $newgradient = $gradients[$gradientXref];
             $newgradient['coords'] = $gradient['coords'];
             $newgradient['mode'] = $gradient['mode'];
-            $newgradient['type'] = $gradient['type'] ?? 2;
+            $newgradient['type'] = $gradient['type'];
             $newgradient['gradientUnits'] = $gradient['gradientUnits'];
             if (isset($gradient['gradientTransform'])) {
                 $newgradient['gradientTransform'] = $gradient['gradientTransform'];
@@ -3032,7 +3032,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             3 => $gradient['coords'][3] ?? 0.0,
             4 => $gradient['coords'][4] ?? 0.0,
         ];
-        $gradientType = (int) ($gradient['type'] ?? 2);
+        $gradientType = $gradient['type'];
 
         $out = '';
         $out .= $this->graph->getStartTransform();
@@ -3380,7 +3380,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
             $parentAttr = $parent['attr'];
             $resolvedAttr = \array_replace($parentAttr, $resolvedAttr);
-            /** @var TSVGAttributes $resolvedAttr */
 
             if ($resolvedChild === [] && isset($parent['child']) && $parent['child'] !== []) {
                 $resolvedChild = $parent['child'];
@@ -3898,7 +3897,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             }
 
             $filldef = $this->svgobjs[$soid]['defs'][$fillRef] ?? null;
-            if ($filldef !== null && $filldef !== []) {
+            if ($filldef !== null) {
                 if ($filldef['name'] === 'pattern') {
                     try {
                         $patternOut = $this->parseSVGStylePattern(
@@ -4240,7 +4239,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 return '';
             }
 
-            $gradients = $svgobj['gradients'] ?? [];
+            $gradients = $svgobj['gradients'];
 
             $svgstyle['opacity'] = $this->normalizeSVGAlphaValue($svgstyle['opacity']);
             if ($svgstyle['opacity'] <= 0.0) {
@@ -8370,8 +8369,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         for ($idx = 1; $idx < \count($points); ++$idx) {
             $pt0 = $points[$idx - 1] ?? [0.0, 0.0];
             $pt1 = $points[$idx] ?? [0.0, 0.0];
-            $deltaX = ($pt1[0] ?? 0.0) - ($pt0[0] ?? 0.0);
-            $deltaY = ($pt1[1] ?? 0.0) - ($pt0[1] ?? 0.0);
+            $deltaX = $pt1[0] - $pt0[0];
+            $deltaY = $pt1[1] - $pt0[1];
             $length += \sqrt(($deltaX * $deltaX) + ($deltaY * $deltaY));
         }
         return $length;
@@ -8398,10 +8397,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         for ($idx = 1; $idx < \count($points); ++$idx) {
             $pt0 = $points[$idx - 1] ?? [0.0, 0.0];
             $pt1 = $points[$idx] ?? [0.0, 0.0];
-            $startX = $pt0[0] ?? 0.0;
-            $startY = $pt0[1] ?? 0.0;
-            $endX = $pt1[0] ?? 0.0;
-            $endY = $pt1[1] ?? 0.0;
+            $startX = $pt0[0];
+            $startY = $pt0[1];
+            $endX = $pt1[0];
+            $endY = $pt1[1];
             $deltaX = $endX - $startX;
             $deltaY = $endY - $startY;
             $segLength = \sqrt(($deltaX * $deltaX) + ($deltaY * $deltaY));
@@ -8420,8 +8419,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         $last = $points[\count($points) - 1] ?? [0.0, 0.0];
         $prev = $points[\count($points) - 2] ?? [0.0, 0.0];
-        $angle = \rad2deg(\atan2(($last[1] ?? 0.0) - ($prev[1] ?? 0.0), ($last[0] ?? 0.0) - ($prev[0] ?? 0.0)));
-        return [$last[0] ?? 0.0, $last[1] ?? 0.0, $angle];
+        $angle = \rad2deg(\atan2($last[1] - $prev[1], $last[0] - $prev[0]));
+        return [$last[0], $last[1], $angle];
     }
 
     /**
@@ -8580,12 +8579,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         foreach ($chars as $charIndex => $charGlyph) {
             $pathPoint = $this->getTextPathPointAtOffset($textPathPoints, $pathOffset);
-            if ($pathPoint === []) {
+            if ($pathPoint === null) {
                 break;
             }
-            $xcoords[] = $pathPoint[0] ?? $pathOffset;
-            $ycoords[] = $pathPoint[1] ?? 0.0;
-            $angles[] = $pathPoint[2] ?? 0.0;
+            $xcoords[] = $pathPoint[0];
+            $ycoords[] = $pathPoint[1];
+            $angles[] = $pathPoint[2];
             $pathOffset += $advances[$charIndex] ?? $this->getStringWidth($charGlyph);
             if ($charIndex < ($charCount - 1)) {
                 $pathOffset += $gapAdjust;
@@ -8599,7 +8598,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
             $svgobj['textmode']['rotlist'] = $angles;
 
-            $svgobj['x'] = $xcoords[0] ?? $svgobj['x'];
+            $svgobj['x'] = $xcoords[0];
 
             $svgobj['y'] = $ycoords[0];
             if ((!isset($svgobj['textmode']['rotate']) || $svgobj['textmode']['rotate'] === 0.0) && isset($angles[0])) {

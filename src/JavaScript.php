@@ -334,18 +334,17 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      *
      * @param array<string, mixed> $prp javascript field properties (see: Javascript for Acrobat API reference).
      *
-     * @return TAnnotOpts Annotation properties.
+     * @return array<string, mixed> Annotation properties.
      */
     protected function getAnnotOptFromJSProp(array $prp): array
     {
-        /** @var TAnnotOpts $opt */
         $opt = [];
         if ($prp === []) {
             return $opt;
         }
         if (isset($prp['aopt']) && \is_array($prp['aopt'])) {
             // the annotation options are already defined
-            /** @var TAnnotOpts */
+            /** @var array<string, mixed> */
             return \array_merge($opt, $prp['aopt']);
         }
         // alignment: Controls how the text is laid out within the text field.
@@ -1556,7 +1555,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             2 => $defbstyle, // BOTTOM
             3 => $defbstyle, // LEFT
         ];
-        if (!isset($jsp['strokeColor']) || \trim($jsp['strokeColor']) === '') {
+        if (!isset($jsp['strokeColor']) || !\is_string($jsp['strokeColor']) || \trim($jsp['strokeColor']) === '') {
             $bstyle[0]['lineColor'] = '#e7e7e7';
             $bstyle[3]['lineColor'] = '#e7e7e7';
         }
