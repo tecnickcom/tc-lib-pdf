@@ -20,6 +20,7 @@ namespace Com\Tecnick\Pdf;
 
 use Com\Tecnick\Color\Exception as ColorException;
 use Com\Tecnick\File\Exception as FileException;
+use Com\Tecnick\File\File as ObjFile;
 use Com\Tecnick\Pdf\Encrypt\Exception as EncryptException;
 use Com\Tecnick\Pdf\Exception as PdfException;
 use Com\Tecnick\Pdf\Font\Exception as FontException;
@@ -715,6 +716,9 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the PDF object to include a standard sRGB_IEC61966-2.1 blackscaled ICC colour profile.
      *
+     * The bundled profile is read through a file helper whose allowlist is the profile file
+     * itself, so it does not depend on the 'allowedPaths' file option.
+     *
      * @return string ICC profile PDF object or empty string.
      *
      * @throws PdfException
@@ -730,8 +734,9 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         $oid = ++$this->pon;
         $this->objid['srgbicc'] = $oid;
+        $iccfile = __DIR__ . '/include/sRGB.icc.z';
         try {
-            $icc = $this->file->getLocalFileData(__DIR__ . '/include/sRGB.icc.z');
+            $icc = (new ObjFile(allowedPaths: [$iccfile]))->getLocalFileData($iccfile);
         } catch (FileException $e) {
             throw new PdfException('Unable to read sRGB.icc.z file', 0, $e);
         }

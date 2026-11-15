@@ -131,7 +131,9 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      *                                       - allowedPaths (string[]): Trusted local path
      *                                         prefixes for file:// reads. Defaults are
      *                                         automatically computed from the package location
-     *                                         to cover bundled example assets.
+     *                                         to cover bundled example assets. The bundled sRGB
+     *                                         profile and the tc-lib-pdf-font package fonts are
+     *                                         read without this list.
      * @param ?ObjExtCache $cache Optional external cache reused by every cacheable sub-library
      *                            (font subsets, images, ...). Implement
      *                            Com\Tecnick\Pdf\Cache\CacheInterface to bridge your own backend

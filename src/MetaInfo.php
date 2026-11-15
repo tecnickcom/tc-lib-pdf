@@ -415,10 +415,10 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
      * @param string $iccfile    Path of the ICC profile to embed as /DestOutputProfile.
      *                           Subject to the same allowlist as every other local file
      *                           read: the path must be covered by the 'allowedPaths'
-     *                           entry of the constructor fileOptions. Note that setting
-     *                           'allowedPaths' replaces the package defaults, so the
-     *                           bundled font directory has to be listed again alongside
-     *                           the profile location.
+     *                           entry of the constructor fileOptions. Setting
+     *                           'allowedPaths' replaces the package defaults; the bundled
+     *                           sRGB profile and the tc-lib-pdf-font package fonts are
+     *                           read without it.
      * @param string $info       Human readable value of /Info. Defaults to $identifier.
      * @param string $registry   Value of /RegistryName.
      * @param string $condition  Human readable value of /OutputCondition.

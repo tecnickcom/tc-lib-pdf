@@ -36,17 +36,17 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
         'allowedPaths' => [
             (string) realpath(sys_get_temp_dir()),
             (string) realpath(__DIR__ . '/../storage/pdf-assets'),
-            (string) realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'),
         ],
         'markupAllowedPaths' => [
             (string) realpath(__DIR__ . '/../storage/pdf-assets'),
-            (string) realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'),
         ],
     ],
 );
 ```
 
 Supplying `allowedPaths` replaces the internal-file defaults instead of merging with them. List every local directory the run reads for internal operations, such as image fixtures, custom font directories, or cache-backed assets.
+
+Files the libraries ship with are read without `allowedPaths`: the sRGB ICC profile used for PDF/A and `setSRGB(true)` output is read through a file helper whose allowlist is that file, and the font files in the tc-lib-pdf-font package directories (`fonts/` and `target/fonts/`) through a file helper whose allowlist is those directories. Neither helper is used for any other read or for writes, so they do not widen `allowedPaths` or `markupAllowedPaths`. A custom `K_PATH_FONTS` directory must still be listed.
 
 Supplying `markupAllowedPaths` replaces the stricter markup defaults instead of merging with them. List only directories that should be reachable from rendered markup.
 
@@ -55,7 +55,7 @@ Supplying `markupAllowedPaths` replaces the stricter markup defaults instead of 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `allowedHosts` | `string[]` | `[]` (none) | Host names the library may fetch over HTTP/HTTPS. Remote loading is disabled when this list is empty. |
-| `allowedPaths` | `string[]` | Computed internal trusted roots | Local path prefixes permitted for internal file reads. Passing this key replaces the defaults, so include all required temp/cache/font directories. |
+| `allowedPaths` | `string[]` | Computed internal trusted roots | Local path prefixes permitted for internal file reads. Passing this key replaces the defaults, so include all required temp/cache/custom font directories. |
 | `markupAllowedPaths` | `string[]` | Explicit `allowedPaths` value, else stricter computed roots | Local path prefixes permitted for file reads triggered by rendered HTML, CSS, or SVG markup. Passing this key replaces the markup defaults. |
 | `maxRemoteSize` | `int` | `52428800` (50 MiB) | Maximum bytes accepted for a single remote download. Requests exceeding this limit are aborted. |
 | `curlopts` | `array<int, bool\|int\|string>` | `[]` | Per-request cURL options (keyed by `CURLOPT_*` constants) merged on top of the built-in defaults. |
