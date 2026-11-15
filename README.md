@@ -116,7 +116,7 @@ The runnable examples in [examples/index.md](examples/index.md) cover the equiva
 - Extended image format handling via GD (`GD`, `GD2`, `GD2PART`, `GIF`, `JPEG`, `PNG`, `BMP`, `XBM`, `XPM`, `WBMP`, `TIFF`, `ICO`, `PSD`, `IFF`, `SWC`)
 - Geometric graphics and 2D transformations
 - Linear and radial gradients, Coons patch mesh gradients, crop marks, and registration bars
-- **JPEG and PNG ICC profiles**, grayscale/RGB/CMYK/spot colors, transparencies, and overprint control
+- **JPEG and PNG ICC profiles**, grayscale/RGB/CMYK/spot colors, transparencies, and overprint control (`/OP`, `/op` and `/OPM` through `$pdf->graph->getOverprint()`, see [E053_spot_overprint_proof.php](examples/E053_spot_overprint_proof.php))
 
 ### Security & Standards
 - Password and certificate-based document encryption (RC4 and AES, up to 256-bit)

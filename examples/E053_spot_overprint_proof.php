@@ -5,19 +5,19 @@ declare(strict_types=1);
 /**
  * E053_spot_overprint_proof.php
  *
- * Demonstrates spot color registration, tint ramp generation, and
- * overprint simulation using tc-lib-color and tc-lib-pdf-graph.
+ * Demonstrates spot color registration, tint ramp generation, a transparency
+ * soft-proof of stacked inks, and native overprint using tc-lib-color and
+ * tc-lib-pdf-graph.
  *
  * What this demonstrates:
  * - color->addSpotColor(): register named spot colors with CMYK equivalents.
  * - color->getPdfColor($name, $stroke, $tint): apply spot ink at any tint level.
  * - Tint ramps: a sequence of filled rectangles stepping from 0% to 100% tint.
- * - Layered spot rectangles: simulate overprint by stacking semi-transparent shapes.
- * - Companion lib: tc-lib-color (spot/Lab color model), tc-lib-pdf-graph (rects).
- *
- * Note: tc-lib-pdf does not expose a native /OP (overprint) ExtGState toggle.
- * Overprint simulation here uses stacked shapes with varying tints to give a
- * visual impression of ink mixing, which is representative for screen proofing.
+ * - Layered spot rectangles: approximate ink mixing on screen with semi-transparent shapes.
+ * - graph->getOverprint($stroking, $nonstroking, $mode): set the /OP, /op and /OPM
+ *   ExtGState entries, e.g. to print 100K black over a colored background without
+ *   knocking it out.
+ * - Companion lib: tc-lib-color (spot/Lab color model), tc-lib-pdf-graph (rects, ExtGState).
  *
  * @since       2026-05-01
  * @category    Library
@@ -208,17 +208,17 @@ $footNote = '<p style="font-family: helvetica; font-size: 8pt; color: #555555; m
 </p>';
 $pdf->addHTMLCell(html: $footNote, posx: 15, posy: 170, width: 175);
 
-// ===| Page 2 – Stacked Spot Layers (Overprint Simulation) |=================
+// ===| Page 2 – Stacked Spot Layers (Transparency Soft-Proof) |=============
 
 $pdf->addPage(['format' => 'A4']);
 $pdf->page->addContent($labelFont['out']);
 
-$overHtml = '<h1 style="font-family: helvetica;">Overprint Simulation — Stacked Spot Layers</h1>
+$overHtml = '<h1 style="font-family: helvetica;">Transparency Soft-Proof: Stacked Spot Layers</h1>
 <p style="font-family: helvetica; font-size: 9pt;">
-    Two spot inks are drawn in overlapping rectangles at varying tints to simulate
-    the visual effect of overprinting. In a real press workflow the RIP controls overprint
-    behaviour via the <em>/OP</em> and <em>/op</em> ExtGState flags.
-    This page shows the CMYK-alternate screen rendering of the overlap.
+    Two spot inks are drawn in overlapping rectangles at varying tints, with the top layer
+    semi-transparent, to approximate the look of two overlapping inks on screen.
+    This uses transparency, not overprint: see the next page for native overprint
+    with <code>graph-&gt;getOverprint()</code>.
 </p>';
 $pdf->addHTMLCell(html: $overHtml, posx: 15, posy: 20, width: 175);
 
@@ -226,14 +226,19 @@ $pdf->addHTMLCell(html: $overHtml, posx: 15, posy: 20, width: 175);
 $ox = 25.0;
 $oy = 55.0;
 $cellSize = 22.0;
-$tints = [0.25, 0.5, 0.75, 1.0];
-$labelNames = ['25%', '50%', '75%', '100%'];
+/** @var array<int, array{label: string, tint: float}> $tints */
+$tints = [
+    ['label' => '25%', 'tint' => 0.25],
+    ['label' => '50%', 'tint' => 0.5],
+    ['label' => '75%', 'tint' => 0.75],
+    ['label' => '100%', 'tint' => 1.0],
+];
 
 // Column headers (Cyan tint)
 $pdf->page->addContent($labelFont['out']);
-foreach ($labelNames as $ci => $clab) {
+foreach ($tints as $ci => $col) {
     $pdf->page->addContent($pdf->getTextCell(
-        txt: 'C ' . $clab,
+        txt: 'C ' . $col['label'],
         posx: $ox + 12 + ($ci * $cellSize),
         posy: $oy - 7,
         width: $cellSize,
@@ -245,10 +250,11 @@ foreach ($labelNames as $ci => $clab) {
     ));
 }
 
-foreach ($tints as $mi => $mTint) {
+foreach ($tints as $mi => $row) {
     // Row header (Magenta tint)
+    $pdf->page->addContent($pdf->color->getPdfColor('black', false, 1.0));
     $pdf->page->addContent($pdf->getTextCell(
-        txt: 'M ' . $labelNames[$mi],
+        txt: 'M ' . $row['label'],
         posx: $ox,
         posy: $oy + ($mi * $cellSize) + 5,
         width: 12,
@@ -259,15 +265,15 @@ foreach ($tints as $mi => $mTint) {
         halign: \Com\Tecnick\Pdf\TextHAlign::Left,
     ));
 
-    foreach ($tints as $ci => $cTint) {
+    foreach ($tints as $ci => $col) {
         $cx = $ox + 12 + ($ci * $cellSize);
         $cy = $oy + ($mi * $cellSize);
 
         // Draw Cyan layer first, then Magenta layer on top
-        $pdf->page->addContent($pdf->color->getPdfColor('PROOF Cyan', false, $cTint));
+        $pdf->page->addContent($pdf->color->getPdfColor('PROOF Cyan', false, $col['tint']));
         $pdf->page->addContent($pdf->graph->getRect($cx, $cy, $cellSize, $cellSize, 'F'));
 
-        $pdf->page->addContent($pdf->color->getPdfColor('PROOF Magenta', false, $mTint));
+        $pdf->page->addContent($pdf->color->getPdfColor('PROOF Magenta', false, $row['tint']));
         $pdf->page->addContent($pdf->graph->getAlpha(0.6)); // partial alpha to show both layers
         $pdf->page->addContent($pdf->graph->getRect($cx, $cy, $cellSize, $cellSize, 'F'));
         $pdf->page->addContent($pdf->graph->getAlpha(1.0)); // restore
@@ -279,10 +285,108 @@ $pdf->page->addContent($pdf->color->getPdfColor('black', true, 1.0));
 $pdf->page->addContent($pdf->color->getPdfColor('black', false, 1.0));
 
 $overNote = '<p style="font-family: helvetica; font-size: 8pt; color: #555555; margin-top: 4mm;">
-    Each cell renders Cyan at the column tint, then Magenta at the row tint with 60% opacity —
-    approximating a soft-proof of two overprinted inks on a white substrate.
+    Each cell renders Cyan at the column tint, then Magenta at the row tint with 60% opacity,
+    approximating a soft-proof of two overlapping inks on a white substrate.
 </p>';
 $pdf->addHTMLCell(html: $overNote, posx: 15, posy: 165, width: 175);
+
+// ===| Page 3 – Native Overprint (/OP, /op, /OPM) |==========================
+
+$pdf->addPage(['format' => 'A4']);
+
+$opHtml = '<h1 style="font-family: helvetica;">Native Overprint: 100K Black on a Colored Background</h1>
+<p style="font-family: helvetica; font-size: 9pt;">
+    By default each painted object knocks out the inks below it.
+    <code>graph-&gt;getOverprint($stroking, $nonstroking, $mode)</code> adds an ExtGState with the
+    <em>/OP</em> (stroking), <em>/op</em> (non-stroking) and <em>/OPM</em> (overprint mode) entries.
+    With <em>/OPM</em> 1, a DeviceCMYK component with a tint of 0 leaves the ink below unchanged,
+    so 100K black prints on top of the background and leaves no white gaps when plates are misregistered.
+    <code>getOverprint(false, false, 0)</code> restores the default knockout behavior.
+</p>';
+$pdf->addHTMLCell(html: $opHtml, posx: 15, posy: 20, width: 175);
+
+$panelW = 85.0;
+$panelH = 60.0;
+$panelY = 75.0;
+
+/** @var array<int, array{x: float, title: string, overprint: bool}> $opPanels */
+$opPanels = [
+    ['x' => 15.0, 'title' => 'Knockout (default)', 'overprint' => false],
+    ['x' => 110.0, 'title' => 'getOverprint(true, true, 1)', 'overprint' => true],
+];
+
+foreach ($opPanels as $panel) {
+    $px = $panel['x'];
+
+    // Panel title
+    $pdf->page->addContent($labelFont['out']);
+    $pdf->page->addContent($pdf->color->getPdfColor('black', false, 1.0));
+    $pdf->page->addContent($pdf->getTextCell(
+        txt: $panel['title'],
+        posx: $px,
+        posy: $panelY - 6,
+        width: $panelW,
+        height: 0,
+        offset: 0,
+        linespace: 1,
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
+    ));
+
+    // Background: process CMYK on the top half, spot ink on the bottom half
+    $pdf->page->addContent($pdf->color->getPdfColor('cmyk(0%,85%,90%,0%)', false, 1.0));
+    $pdf->page->addContent($pdf->graph->getRect($px, $panelY, $panelW, $panelH / 2, 'F'));
+    $pdf->page->addContent($pdf->color->getPdfColor('PROOF Reflex Blue', false, 1.0));
+    $pdf->page->addContent($pdf->graph->getRect($px, $panelY + ($panelH / 2), $panelW, $panelH / 2, 'F'));
+
+    if ($panel['overprint']) {
+        // Overprint for stroking and non-stroking operations, nonzero overprint mode
+        $pdf->page->addContent($pdf->graph->getOverprint(true, true, 1));
+    }
+
+    // 100K black (DeviceCMYK) text, fill and stroke across both backgrounds
+    $pdf->page->addContent($pdf->color->getPdfColor('cmyk(0%,0%,0%,100%)', false, 1.0));
+    $pdf->page->addContent($pdf->color->getPdfColor('cmyk(0%,0%,0%,100%)', true, 1.0));
+    $bigFont = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 28);
+    $pdf->page->addContent($bigFont['out']);
+    $pdf->page->addContent($pdf->getTextCell(
+        txt: '100K',
+        posx: $px,
+        posy: $panelY + 4,
+        width: $panelW,
+        height: 0,
+        offset: 0,
+        linespace: 1,
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Center,
+    ));
+    $pdf->font->popLastFont();
+    $pdf->page->addContent($pdf->font->getOutCurrentFont());
+    $pdf->page->addContent($pdf->graph->getRect($px + 10, $panelY + 22, $panelW - 20, 16, 'F'));
+    $pdf->page->addContent($pdf->graph->getLine($px + 5, $panelY + 46, $px + $panelW - 5, $panelY + 46, [
+        'lineWidth' => 1.5,
+        'lineCap' => 'butt',
+    ]));
+
+    if ($panel['overprint']) {
+        // Restore knockout
+        $pdf->page->addContent($pdf->graph->getOverprint(false, false, 0));
+    }
+}
+
+$pdf->page->addContent($pdf->color->getPdfColor('black', true, 1.0));
+$pdf->page->addContent($pdf->color->getPdfColor('black', false, 1.0));
+
+$pdf->page->addContent($noteFont['out']);
+$opNote = '<p style="font-family: helvetica; font-size: 8pt; color: #555555;">
+    Most screen viewers ignore overprint, so both panels look the same.
+    Enable <em>Overprint Preview</em> or <em>Output Preview</em> in Acrobat, or render the
+    separations with Ghostscript (<code>-sDEVICE=tiffsep</code>), to see the difference:
+    in the left panel the background inks are removed under the black objects,
+    in the right panel they are kept and the black prints on top.
+    Overprint is a print-production feature and does not use transparency.
+</p>';
+$pdf->addHTMLCell(html: $opNote, posx: 15, posy: 145, width: 175);
 
 // ----------
 
