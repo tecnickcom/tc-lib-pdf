@@ -857,31 +857,24 @@ class JavaScriptTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        \set_error_handler(
-            static fn(int $errno, string $errstr): bool => $errno === E_WARNING
-            && \str_contains($errstr, 'Undefined array key "num"'),
-        );
-
-        try {
-            $obj->addJSButton('btn', 1, 2, 10, 5, 'Go', 'app.alert(1);');
-            $obj->addJSCheckBox('chk', 2, 3, 4);
-            $obj->addJSComboBox('cmb', 3, 4, 20, 6, ['A', 'B']);
-            $obj->addJSListBox('lst', 4, 5, 20, 6, ['X', 'Y']);
-            $obj->addJSRadioButton('rad', 5, 6, 4);
-            $obj->addJSText('txt', 6, 7, 20, 6);
-        } finally {
-            \restore_error_handler();
-        }
+        $obj->addJSButton('btn', 1, 2, 10, 5, 'Go', 'app.alert(1);');
+        $obj->addJSCheckBox('chk', 2, 3, 4);
+        $obj->addJSComboBox('cmb', 3, 4, 20, 6, ['A', 'B']);
+        $obj->addJSListBox('lst', 4, 5, 20, 6, ['X', 'Y']);
+        $obj->addJSRadioButton('rad', 5, 6, 4);
+        $obj->addJSText('txt', 6, 7, 20, 6);
 
         /** @var string $jsScript */
         $jsScript = $this->getObjectProperty($obj, 'javascript');
-        $this->assertStringContainsString("fbtn.buttonSetCaption('Go');", $jsScript);
-        $this->assertStringContainsString("fbtn.setAction('MouseUp'", $jsScript);
-        $this->assertStringContainsString("fchk=this.addField('chk','checkbox'", $jsScript);
-        $this->assertStringContainsString('fcmb.setItems(', $jsScript);
-        $this->assertStringContainsString('flst.setItems(', $jsScript);
-        $this->assertStringContainsString("frad=this.addField('rad','radiobutton'", $jsScript);
-        $this->assertStringContainsString("ftxt=this.addField('txt','text'", $jsScript);
+        $this->assertStringContainsString('tcf1=this.addField("btn",\'button\',0,', $jsScript);
+        $this->assertStringContainsString("tcf1.buttonSetCaption(\"Go\");\n", $jsScript);
+        $this->assertStringContainsString("tcf1.setAction('MouseUp',\"app.alert(1);\");\n", $jsScript);
+        $this->assertStringContainsString("tcf1.print=false;\n}\n", $jsScript);
+        $this->assertStringContainsString('tcf2=this.addField("chk",\'checkbox\',0,', $jsScript);
+        $this->assertStringContainsString("tcf3.setItems([[\"A\",\"A\"],[\"B\",\"B\"]]);\n}\n", $jsScript);
+        $this->assertStringContainsString("tcf4.setItems([[\"X\",\"X\"],[\"Y\",\"Y\"]]);\n}\n", $jsScript);
+        $this->assertStringContainsString('tcf5=this.addField("rad",\'radiobutton\',0,', $jsScript);
+        $this->assertStringContainsString('tcf6=this.addField("txt",\'text\',0,', $jsScript);
     }
 
     /**
@@ -892,22 +885,120 @@ class JavaScriptTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        \set_error_handler(
-            static fn(int $errno, string $errstr): bool => $errno === E_WARNING
-            && \str_contains($errstr, 'Undefined array key "num"'),
-        );
-
-        try {
-            $obj->addJSComboBox('cmb2', 1, 2, 20, 6, [['A', 'Alpha'], ['B', 'Beta']]);
-            $obj->addJSListBox('lst2', 1, 2, 20, 6, [['X', 'Ex'], ['Y', 'Why']]);
-        } finally {
-            \restore_error_handler();
-        }
+        $obj->addJSComboBox('cmb2', 1, 2, 20, 6, [['A', 'Alpha'], ['B', 'Beta']]);
+        $obj->addJSListBox('lst2', 1, 2, 20, 6, [['X', 'Ex'], ['Y', 'Why']]);
 
         /** @var string $jsScript */
         $jsScript = $this->getObjectProperty($obj, 'javascript');
-        $this->assertStringContainsString("fcmb2.setItems(['Alpha','A'],['Beta','B']);", $jsScript);
-        $this->assertStringContainsString("flst2.setItems(['Ex','X'],['Why','Y']);", $jsScript);
+        $this->assertStringContainsString('tcf1.setItems([["Alpha","A"],["Beta","B"]]);', $jsScript);
+        $this->assertStringContainsString('tcf2.setItems([["Ex","X"],["Why","Y"]]);', $jsScript);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAddJSFieldWritesNameAndValuesAsStringLiterals(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->addJSText('x=0;MARK();//', 1, 2, 20, 6, ['value' => "x';MARK();var z='", 'userName' => 'a"b\\c']);
+        $obj->addJSComboBox('c=0;MARK();//', 1, 2, 20, 6, ["a'],MARK(),['b"]);
+        $obj->addJSButton('btn', 1, 2, 10, 5, "line1\nline2\u{2028}</script>\xFF", "app.alert('a');");
+
+        /** @var string $jsScript */
+        $jsScript = $this->getObjectProperty($obj, 'javascript');
+        $this->assertStringNotContainsString('fx=0', $jsScript);
+        $this->assertStringContainsString('tcf1=this.addField("x=0;MARK();\\/\\/",\'text\',', $jsScript);
+        $this->assertStringContainsString('tcf1.value="x\\u0027;MARK();var z=\\u0027";', $jsScript);
+        $this->assertStringContainsString('tcf1.userName="a\\u0022b\\\\c";', $jsScript);
+        $this->assertStringContainsString('tcf2=this.addField("c=0;MARK();\\/\\/",\'combobox\',', $jsScript);
+        $this->assertStringContainsString(
+            'tcf2.setItems([["a\\u0027],MARK(),[\\u0027b","a\\u0027],MARK(),[\\u0027b"]]);',
+            $jsScript,
+        );
+        $this->assertStringContainsString(
+            'tcf3.buttonSetCaption("line1\\nline2\\u2028\\u003C\\/script\\u003E\\ufffd");',
+            $jsScript,
+        );
+        $this->assertStringContainsString("tcf3.setAction('MouseUp',\"app.alert(\\u0027a\\u0027);\");", $jsScript);
+        $this->assertSame(1, \preg_match('/^[\x09\x0A\x0D\x20-\x7E]*$/D', $jsScript));
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAddJSFieldSkipsInvalidPropertyNamesAndValues(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->addJSText('fld', 1, 2, 20, 6, [
+            'value=1;MARK();var q' => 'a',
+            'fillColor' => 'not-a-color',
+            'charLimit' => 5,
+            'readonly' => true,
+            'lineWidth' => 1.5,
+            'textColor' => 'red',
+        ]);
+
+        /** @var string $jsScript */
+        $jsScript = $this->getObjectProperty($obj, 'javascript');
+        $this->assertStringNotContainsString('MARK', $jsScript);
+        $this->assertStringNotContainsString('fillColor', $jsScript);
+        $this->assertStringContainsString("tcf1.charLimit=5;\n", $jsScript);
+        $this->assertStringContainsString("tcf1.readonly=true;\n", $jsScript);
+        $this->assertStringContainsString("tcf1.lineWidth=1.500000;\n", $jsScript);
+        $this->assertStringContainsString('tcf1.textColor=["RGB",1.000000,0.000000,0.000000];', $jsScript);
+
+        $warnings = $obj->getWarnings();
+        $this->assertContains('JavaScript field "fld": invalid property name skipped', $warnings);
+        $this->assertContains('JavaScript field "fld": invalid value of property fillColor skipped', $warnings);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAddJSFieldUsesZeroBasedPageIndex(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $obj->addJSText('first', 1, 2, 20, 6);
+        $obj->addPage();
+        $obj->addJSText('second', 1, 2, 20, 6);
+
+        /** @var string $jsScript */
+        $jsScript = $this->getObjectProperty($obj, 'javascript');
+        $this->assertStringContainsString('tcf1=this.addField("first",\'text\',0,[', $jsScript);
+        $this->assertStringContainsString('tcf2=this.addField("second",\'text\',1,[', $jsScript);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAddJSFieldRejectsEmptyName(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $this->expectException(\Com\Tecnick\Pdf\Exception::class);
+        $obj->addJSText('', 1, 2, 20, 6);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAddFFRadioButtonEncodesOnValueName(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $oid = $obj->addFFRadioButton('rad', 3, 4, 6, 'On /AA << >>', true);
+
+        /** @var array<int, array{opt:array<string, mixed>}> $ann */
+        $ann = $this->getObjectProperty($obj, 'annotation');
+        $opt = $this->getAnnotationOpt($ann, $oid);
+        $this->assertSame(['/On#20#2FAA#20#3C#3C#20#3E#3E'], $opt['v'] ?? null);
+        $this->assertSame('On /AA << >>', $opt['as'] ?? null);
     }
 
     /**
@@ -1095,21 +1186,12 @@ class JavaScriptTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        \set_error_handler(
-            static fn(int $errno, string $errstr): bool => $errno === E_WARNING
-            && \str_contains($errstr, 'Undefined array key "num"'),
-        );
-
-        try {
-            $obj->addJSText('txtProps', 1, 2, 20, 6, ['strokeColor' => 'red', 'value' => 'abc']);
-        } finally {
-            \restore_error_handler();
-        }
+        $obj->addJSText('txtProps', 1, 2, 20, 6, ['strokeColor' => 'red', 'value' => 'abc']);
 
         /** @var string $jsScript */
         $jsScript = $this->getObjectProperty($obj, 'javascript');
-        $this->assertStringContainsString('ftxtProps.strokeColor=', $jsScript);
-        $this->assertStringContainsString("ftxtProps.value='abc';", $jsScript);
+        $this->assertStringContainsString('tcf1.strokeColor=', $jsScript);
+        $this->assertStringContainsString('tcf1.value="abc";', $jsScript);
 
         if (!\function_exists('imagecreatetruecolor') || !\function_exists('imagepng')) {
             $this->markTestSkipped('GD image functions are required for icon annotation coverage test.');

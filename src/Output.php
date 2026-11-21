@@ -118,6 +118,13 @@ use OpenSSLAsymmetricKey;
 abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 {
     /**
+     * Appearance dictionary keys: normal, rollover, down.
+     *
+     * @var array<int, string>
+     */
+    protected const AP_MODES = ['N', 'R', 'D'];
+
+    /**
      * Object to export font data.
      *
      * @var OutFont
@@ -2395,7 +2402,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                         continue;
                     }
 
-                    $attrPairs .= ' /' . $akey . ' /' . $aval;
+                    $attrPairs .=
+                        ' /' . $this->encrypt->encodeNameObject($akey) . ' /' . $this->encrypt->encodeNameObject($aval);
                 }
             }
 
@@ -2892,7 +2900,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         $out .= ' ]';
         if ($defval !== '') {
-            $out .= ' /V /' . $defval;
+            $out .= ' /V /' . $this->encrypt->encodeNameObject($defval);
         }
 
         $out .= ' >>' . "\n" . 'endobj' . "\n";
@@ -2917,7 +2925,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     {
         $out = '';
         if (isset($annot['opt']['as']) && \is_string($annot['opt']['as']) && $annot['opt']['as'] !== '') {
-            $out .= ' /AS /' . $annot['opt']['as'];
+            $out .= ' /AS /' . $this->encrypt->encodeNameObject($annot['opt']['as']);
         }
 
         if (!$this->hasAnnotationAppearance($annot['opt']) || !isset($annot['opt']['ap'])) {
@@ -2930,25 +2938,20 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= (string) $annot['opt']['ap'];
         } else {
             foreach (\array_keys($annot['opt']['ap']) as $mode) {
-                if (!\is_string($mode)) {
+                // $mode can be: n = normal; r = rollover; d = down;
+                if (!\is_string($mode) || !\in_array(\strtoupper($mode), self::AP_MODES, true)) {
                     continue;
                 }
 
-                // $mode can be: n = normal; r = rollover; d = down;
-                $out .= ' /' . \strtoupper($mode);
                 if (\is_array($annot['opt']['ap'][$mode] ?? null)) {
-                    $out .= ' <<';
+                    $out .= ' /' . \strtoupper($mode) . ' <<';
                     foreach (\array_keys($annot['opt']['ap'][$mode]) as $apstate) {
-                        if (!\is_string($apstate)) {
-                            continue;
-                        }
-
                         if (!\is_string($annot['opt']['ap'][$mode][$apstate] ?? null)) {
                             continue;
                         }
                         // reference to XObject that define the appearance for this mode-state
                         $apxout .= $this->getOutAPXObjects($width, $height, $annot['opt']['ap'][$mode][$apstate]);
-                        $out .= ' /' . $apstate . ' ' . $this->pon . ' 0 R';
+                        $out .= ' /' . $this->encrypt->encodeNameObject((string) $apstate) . ' ' . $this->pon . ' 0 R';
                     }
 
                     $out .= ' >>';
@@ -2959,7 +2962,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
                     // reference to XObject that define the appearance for this mode
                     $apxout .= $this->getOutAPXObjects($width, $height, $annot['opt']['ap'][$mode]);
-                    $out .= ' ' . $this->pon . ' 0 R';
+                    $out .= ' /' . \strtoupper($mode) . ' ' . $this->pon . ' 0 R';
                 }
             }
         }
@@ -3542,8 +3545,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     break;
                 case '%': // embedded PDF file
                     if (!$this->pdfx) {
-                        $filename = \basename(\substr($annot['txt'], 1));
-                        $embeddedAction = $this->embeddedfiles[$filename]['a'] ?? null;
+                        $filename = $this->getEmbeddedFileKey(\substr($annot['txt'], 1));
+                        $embeddedAction = $filename === null ? null : $this->embeddedfiles[$filename]['a'] ?? null;
                         if (!\is_numeric($embeddedAction)) {
                             break;
                         }
@@ -3557,15 +3560,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     }
                     break;
                 case '*': // embedded generic file
-                    $filename = \basename(\substr($annot['txt'], 1));
-                    $jsa =
-                        'var D=event.target.doc;var MyData=D.dataObjects;for (var i in MyData) if (MyData[i].path=="'
-                        . $filename
-                        . '")'
-                        . ' D.exportDataObject( { cName : MyData[i].name, nLaunch : 2});';
+                    $filename = $this->getEmbeddedFileKey(\substr($annot['txt'], 1));
                     // ISO 19005 permits no JavaScript action: PDF/A-1 and PDF/A-2 refuse
                     // embedded files altogether, PDF/A-3 accepts them but not this action.
-                    if (!$this->pdfx && $this->pdfa === 0 && $this->pdfuaMode === '') {
+                    if ($filename !== null && !$this->pdfx && $this->pdfa === 0 && $this->pdfuaMode === '') {
+                        $jsa = $this->getEmbeddedFileLaunchJs($filename);
                         $out .= ' /A << /S /JavaScript /JS ' . $this->getOutTextString($jsa, $oid, true) . ' >>';
                     }
                     break;
@@ -3580,7 +3579,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                         if (isset($parsedUrl['fragment'])) {
                             // check for named destination
                             $tmp = \explode('=', $parsedUrl['fragment']);
-                            $dest = '(' . (\count($tmp) === 2 ? $tmp[1] ?? '' : $tmp[0]) . ')';
+                            $dest = $this->encrypt->escapeDataString(
+                                \count($tmp) === 2 ? $tmp[1] ?? '' : $tmp[0],
+                                $oid,
+                            );
                         }
 
                         if (!$this->pdfx) {
@@ -3889,11 +3891,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $measure = '';
             $measureOpt = $annot['opt']['measure'];
             if (isset($measureOpt['type']) && $measureOpt['type'] !== '') {
-                $measure .= ' /Type /' . $measureOpt['type'];
+                $measure .= ' /Type /' . $this->encrypt->encodeNameObject($measureOpt['type']);
             }
 
             if (isset($measureOpt['subtype']) && $measureOpt['subtype'] !== '') {
-                $measure .= ' /Subtype /' . $measureOpt['subtype'];
+                $measure .= ' /Subtype /' . $this->encrypt->encodeNameObject($measureOpt['subtype']);
             }
 
             if ($measure !== '') {
@@ -3957,11 +3959,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $measure = '';
             $measureOpt = $annot['opt']['measure'];
             if (isset($measureOpt['type']) && $measureOpt['type'] !== '') {
-                $measure .= ' /Type /' . $measureOpt['type'];
+                $measure .= ' /Type /' . $this->encrypt->encodeNameObject($measureOpt['type']);
             }
 
             if (isset($measureOpt['subtype']) && $measureOpt['subtype'] !== '') {
-                $measure .= ' /Subtype /' . $measureOpt['subtype'];
+                $measure .= ' /Subtype /' . $this->encrypt->encodeNameObject($measureOpt['subtype']);
             }
 
             if ($measure !== '') {
@@ -5004,8 +5006,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     case '%':
                         // embedded PDF file
                         if (!$this->pdfx) {
-                            $filename = \basename(\substr($outline['u'], 1));
-                            $embeddedAction = $this->embeddedfiles[$filename]['a'] ?? null;
+                            $filename = $this->getEmbeddedFileKey(\substr($outline['u'], 1));
+                            $embeddedAction = $filename === null ? null : $this->embeddedfiles[$filename]['a'] ?? null;
                             if (!\is_numeric($embeddedAction)) {
                                 break;
                             }
@@ -5020,14 +5022,9 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                         break;
                     case '*':
                         // embedded generic file
-                        $filename = \basename(\substr($outline['u'], 1));
-                        $jsa =
-                            'var D=event.target.doc;var MyData=D.dataObjects;'
-                            . 'for (var i in MyData) if (MyData[i].path=="'
-                            . $filename
-                            . '")'
-                            . ' D.exportDataObject( { cName : MyData[i].name, nLaunch : 2});';
-                        if (!$this->pdfx && $this->pdfuaMode === '') {
+                        $filename = $this->getEmbeddedFileKey(\substr($outline['u'], 1));
+                        if ($filename !== null && !$this->pdfx && $this->pdfa === 0 && $this->pdfuaMode === '') {
+                            $jsa = $this->getEmbeddedFileLaunchJs($filename);
                             $out .= ' /A <</S /JavaScript /JS ' . $this->getOutTextString($jsa, $oid, true) . '>>';
                         }
                         break;
@@ -6194,7 +6191,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         $out = '';
         if (isset($appearance['as']) && $appearance['as'] !== '') {
-            $out .= ' /AS /' . $appearance['as'];
+            $out .= ' /AS /' . $this->encrypt->encodeNameObject($appearance['as']);
         }
 
         if (!$this->hasAnnotationAppearance($appearance) && isset($appearance['xobj']) && $appearance['xobj'] !== '') {
@@ -6229,12 +6226,16 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         foreach ($apValue as $mode => $def) {
+            if (!\in_array(\strtoupper($mode), self::AP_MODES, true)) {
+                continue;
+            }
+
             $out .= ' /' . \strtoupper($mode);
             if (\is_array($def)) {
                 $out .= ' <<';
                 foreach ($def as $apstate => $stream) {
                     $apxout .= $this->getOutAPXObjects($width, $height, $stream);
-                    $out .= ' /' . $apstate . ' ' . $this->pon . ' 0 R';
+                    $out .= ' /' . $this->encrypt->encodeNameObject(\strval($apstate)) . ' ' . $this->pon . ' 0 R';
                 }
 
                 $out .= ' >>';

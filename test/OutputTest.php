@@ -3669,6 +3669,120 @@ class OutputTest extends TestUtil
     }
 
     /**
+     * Returns the text as it appears inside an escaped UTF-16BE PDF literal string.
+     */
+    private function getPdfUtf16Fragment(string $str): string
+    {
+        return \strtr((string) \mb_convert_encoding($str, 'UTF-16BE', 'UTF-8'), [
+            '\\' => '\\\\',
+            '(' => '\\(',
+            ')' => '\\)',
+            "\r" => '\\r',
+        ]);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetOutAnnotationOptSubtypeLinkEmbeddedFileRequiresEmbeddedFile(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'embeddedfiles', [
+            'x") MARK(); if ("' => ['a' => 2],
+            'dir/a.txt' => ['a' => 3],
+        ]);
+
+        $missing = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => '*missing.bin', 'opt' => []], 1, 12);
+        $this->assertStringNotContainsString(' /A <<', $missing);
+        $this->assertStringContainsString(' /H /I', $missing);
+
+        $quoted = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => '*x") MARK(); if ("', 'opt' => []], 1, 13);
+        $this->assertStringContainsString(' /S /JavaScript /JS ', $quoted);
+        $this->assertStringContainsString(
+            $this->getPdfUtf16Fragment('MyData[i].path=="x\\u0022) MARK(); if (\\u0022")'),
+            $quoted,
+        );
+
+        $nested = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => '*dir/a.txt', 'opt' => []], 1, 14);
+        $this->assertStringContainsString($this->getPdfUtf16Fragment('MyData[i].path=="dir\\/a.txt"'), $nested);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetJsStringReturnsAsciiLiteral(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $method = new \ReflectionMethod($obj, 'getJsString');
+
+        $this->assertSame('"a\\u0027b\\u0022c\\\\d\\ne\\u2028f\\u003C\\/g\\u003E\\u0026\\ufffd"', $method->invoke(
+            $obj,
+            "a'b\"c\\d\ne\u{2028}f</g>&\xFF",
+        ));
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetAnnotationRadioButtonsEncodesValueName(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'radiobuttons', [
+            'rb' => [
+                'n' => 20,
+                '#readonly#' => false,
+                'kids' => [['n' => 21, 'def' => 'On /AA << >>'], ['n' => 22, 'def' => 'Off']],
+            ],
+        ]);
+
+        $out = $obj->exposeGetAnnotationRadioButtons(['txt' => 'rb', 'opt' => []]);
+
+        $this->assertStringContainsString(' /V /On#20#2FAA#20#3C#3C#20#3E#3E >>', $out);
+        $this->assertStringNotContainsString('/AA', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetAnnotationAppearanceStreamEncodesStateNames(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        [$aas] = $obj->exposeGetAnnotationAppearanceStream(
+            [
+                'opt' => [
+                    'as' => 'Option 1',
+                    'ap' => ['n' => ['Option 1' => 'q Q', 'Off' => 'q Q', 7 => 'q Q'], 'x /AA' => 'q Q'],
+                ],
+            ],
+            8.0,
+            4.0,
+        );
+
+        $this->assertStringContainsString(' /AS /Option#201', $aas);
+        $this->assertMatchesRegularExpression('#/N << /Option\#201 \d+ 0 R /Off \d+ 0 R /7 \d+ 0 R >>#', $aas);
+        $this->assertStringNotContainsString('/AA', $aas);
+        $this->assertStringNotContainsString('/X', $aas);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetSignatureAppearanceStreamEncodesStateNames(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->setSignatureAppearanceStream('q 0 g Q', 'N', 'On /AA << >>');
+        $method = new \ReflectionMethod($obj, 'getSignatureAppearanceStream');
+
+        /** @var array{string, string} $res */
+        $res = $method->invoke($obj, 10.0, 5.0);
+
+        $this->assertStringContainsString(' /AS /On#20#2FAA#20#3C#3C#20#3E#3E', $res[0]);
+        $this->assertMatchesRegularExpression('#/N << /On\#20\#2FAA\#20\#3C\#3C\#20\#3E\#3E \d+ 0 R >>#', $res[0]);
+        $this->assertStringNotContainsString('/AA', $res[0]);
+    }
+
+    /**
      * @param array<string, mixed> $opt
      * @param list<string>         $expectedFragments
      * @throws \Throwable
@@ -3740,6 +3854,24 @@ class OutputTest extends TestUtil
                 1,
                 22,
                 [' /S /GoToR', ' /D (Section2)', ' /F ', ' /NewWindow true', ' /H /I'],
+            ],
+            'relative_pdf_gotor_escapes_fragment' => [
+                ['txt' => 'manual.pdf#a)/S /JavaScript /JS (MARK(x', 'opt' => []],
+                1,
+                23,
+                [' /A << /S /GoToR /D (a\\)/S /JavaScript /JS \\(MARK\\(x) /F (manual.pdf)'],
+            ],
+            'relative_pdf_gotor_escapes_named_fragment' => [
+                ['txt' => 'manual.pdf#nameddest=a)/MARK(x', 'opt' => []],
+                1,
+                24,
+                [' /A << /S /GoToR /D (a\\)/MARK\\(x) /F (manual.pdf)'],
+            ],
+            'external_uri_escaped' => [
+                ['txt' => 'http://example.com/a)/MARK(x', 'opt' => []],
+                1,
+                25,
+                [' /A << /S /URI /URI (http://example.com/a\\)/MARK\\(x) >>'],
             ],
         ];
     }
@@ -4835,6 +4967,44 @@ class OutputTest extends TestUtil
         $out = $obj->exposeGetOutBookmarks();
 
         $this->assertStringContainsString('/S /JavaScript', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetOutBookmarksWithStarEmbeddedFileLinkOmitsJavascriptInPdfaMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfa', 3);
+        $page = $this->addRawPageWithObjectNumber($obj, 5);
+        $this->setObjectProperty($obj, 'embeddedfiles', ['report.bin' => ['a' => 2, 'f' => 3]]);
+        $obj->setBookmark('Embedded File', '*report.bin', 0, $page['pid']);
+
+        $out = $obj->exposeGetOutBookmarks();
+
+        $this->assertStringNotContainsString('/S /JavaScript', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetOutBookmarksWithStarLinkEncodesNameAndRequiresEmbeddedFile(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $page = $this->addRawPageWithObjectNumber($obj, 5);
+        $this->setObjectProperty($obj, 'embeddedfiles', ['x") MARK(); if ("' => ['a' => 2, 'f' => 3]]);
+        $obj->setBookmark('Missing', '*missing.bin', 0, $page['pid']);
+        $obj->setBookmark('Quoted', '*x") MARK(); if ("', 0, $page['pid']);
+
+        $out = $obj->exposeGetOutBookmarks();
+
+        $this->assertSame(1, \substr_count($out, '/S /JavaScript'));
+        $this->assertStringContainsString(
+            $this->getPdfUtf16Fragment('MyData[i].path=="x\\u0022) MARK(); if (\\u0022")'),
+            $out,
+        );
     }
 
     /**

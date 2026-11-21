@@ -172,6 +172,11 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     protected string $javascript = '';
 
     /**
+     * Number of JavaScript form fields, used to name their script variables.
+     */
+    protected int $jsFieldCount = 0;
+
+    /**
      * Javascript objects.
      *
      * @var array<int, array{
@@ -211,6 +216,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
 
     /**
      * Append raw javascript string to the global one.
+     * The script is written as-is: pass only trusted code.
      *
      * @param string $script Raw Javascript string.
      *
@@ -227,6 +233,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
 
     /**
      * Add a raw javascript string as new object.
+     * The script is written as-is: pass only trusted code.
      *
      * @param string $script Raw Javascript string.
      * @param bool $onload Set to true to execute the script when opening the document.
@@ -248,8 +255,63 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     }
 
     /**
+     * Returns the string as a JavaScript string literal.
+     * The literal is ASCII only: quotes, backslash, control and non-ASCII characters are escaped,
+     * and invalid UTF-8 sequences are replaced by U+FFFD.
+     *
+     * @param string $str String to encode.
+     */
+    protected function getJsString(string $str): string
+    {
+        $out = \json_encode(
+            $str,
+            \JSON_INVALID_UTF8_SUBSTITUTE | \JSON_HEX_TAG | \JSON_HEX_APOS | \JSON_HEX_QUOT | \JSON_HEX_AMP,
+        );
+
+        return \is_string($out) ? $out : '""';
+    }
+
+    /**
+     * Returns the JavaScript literal of a form field property value,
+     * or an empty string when the value cannot be represented.
+     *
+     * @param string $key Property name.
+     * @param mixed $val Property value.
+     */
+    protected function getJsFieldPropValue(string $key, mixed $val): string
+    {
+        if (\str_ends_with($key, 'Color')) {
+            if (!\is_string($val)) {
+                return '';
+            }
+
+            $color = $this->color->tryGetColorObj($val);
+            return $color === null ? '' : $color->getJsPdfColor();
+        }
+
+        if (\is_string($val)) {
+            return $this->getJsString($val);
+        }
+
+        if (\is_bool($val)) {
+            return $val ? 'true' : 'false';
+        }
+
+        if (\is_int($val)) {
+            return (string) $val;
+        }
+
+        if (\is_float($val) && \is_finite($val)) {
+            return \sprintf('%F', $val);
+        }
+
+        return '';
+    }
+
+    /**
      * Adds a JavaScript field.
      * Requires Acrobat Writer or an alternative PDF reader with Javascript support.
+     * The statements are skipped once the document has been saved by the viewer.
      *
      * @param string $type field type: button, checkbox, combobox, listbox, radiobutton, text.
      * @param string $name field name.
@@ -257,8 +319,12 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param float $posy vertical position in user units (LTR).
      * @param float $width width in user units.
      * @param float $height height in user units.
-     * @param array<string, string> $prop javascript field properties (see: Javascript for Acrobat API reference).
+     * @param array<string, mixed> $prop javascript field properties (see: Javascript for Acrobat API reference).
+     *                                   Entries whose name does not match [A-Za-z][A-Za-z0-9_]* or whose value
+     *                                   cannot be written are skipped with a warning.
+     * @param array<int, string> $extra Trusted statement suffixes applied to the field variable (e.g. ".print=false").
      *
+     * @throws PdfException in case of error.
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      */
@@ -270,38 +336,57 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         float $width,
         float $height,
         array $prop,
+        array $extra = [],
     ): void {
+        if (!\in_array($type, ['button', 'checkbox', 'combobox', 'listbox', 'radiobutton', 'text'], true)) {
+            throw new PdfException('Invalid JavaScript field type: ' . $type);
+        }
+
+        if ($name === '') {
+            throw new PdfException('Empty JavaScript field name');
+        }
+
         $page = $this->page->getPage();
-        /** @var array{num: int, pheight: float} $page */
         $curfont = $this->font->getCurrentFont();
         /** @var array{size: float} $curfont */
-        $pageNum = $page['num'];
         $pageHeight = $page['pheight'];
         $fontSize = $curfont['size'];
+        $var = 'tcf' . ++$this->jsFieldCount;
         // avoid fields duplication after saving the document
-        $this->javascript .= \sprintf(
-            "if (getField('tcpdfdocsaved').value != 'saved') {f%s=this.addField('%s','%s',%u,[%F,%F,%F,%F]);\nf%s.textSize=%s;\n",
-            $name,
-            $name,
+        $out = \sprintf(
+            "if (getField('tcpdfdocsaved').value != 'saved') {%s=this.addField(%s,'%s',%d,[%F,%F,%F,%F]);\n%s.textSize=%F;\n",
+            $var,
+            $this->getJsString($name),
             $type,
-            $pageNum - 1,
+            $page['pid'],
             $this->toPoints($posx),
             $this->toYPoints($posy, $pageHeight) + 1.0,
             $this->toPoints($posx + $width),
             $this->toYPoints($posy + $height, $pageHeight) + 1.0,
-            $name,
+            $var,
             $fontSize,
         );
-        foreach ($prop as $key => $val) {
-            if (\strcmp(\substr($key, -5), 'Color') === 0) {
-                $color = $this->color->tryGetColorObj($val);
-                $val = $color === null ? '' : $color->getJsPdfColor();
-            } else {
-                $val = "'" . $val . "'";
+        foreach (\array_keys($prop) as $pkey) {
+            $key = \strval($pkey);
+            if (\preg_match('/^[A-Za-z][A-Za-z0-9_]*$/D', $key) !== 1) {
+                $this->addWarning('JavaScript field "' . $name . '": invalid property name skipped');
+                continue;
             }
-            $this->javascript .= 'f' . $name . '.' . $key . '=' . $val . ";\n";
+
+            $jsval = $this->getJsFieldPropValue($key, $prop[$pkey] ?? null);
+            if ($jsval === '') {
+                $this->addWarning('JavaScript field "' . $name . '": invalid value of property ' . $key . ' skipped');
+                continue;
+            }
+
+            $out .= $var . '.' . $key . '=' . $jsval . ";\n";
         }
-        $this->javascript .= '}';
+
+        foreach ($extra as $stm) {
+            $out .= $var . $stm . ";\n";
+        }
+
+        $this->javascript .= $out . "}\n";
     }
 
     /**
@@ -799,6 +884,40 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
                 'modDate' => \time(),
             ];
         }
+    }
+
+    /**
+     * Returns the key of an embedded file, matching the full name first and then its base name,
+     * or null when no such file is embedded.
+     *
+     * @param string $name File name.
+     */
+    protected function getEmbeddedFileKey(string $name): ?string
+    {
+        if ($name === '') {
+            return null;
+        }
+
+        if (isset($this->embeddedfiles[$name])) {
+            return $name;
+        }
+
+        $base = \basename($name);
+        return isset($this->embeddedfiles[$base]) ? $base : null;
+    }
+
+    /**
+     * Returns the JavaScript action code that opens an embedded file.
+     *
+     * @param string $filename Embedded file name.
+     */
+    protected function getEmbeddedFileLaunchJs(string $filename): string
+    {
+        return (
+            'var D=event.target.doc;var MyData=D.dataObjects;for (var i in MyData) if (MyData[i].path=='
+            . $this->getJsString($filename)
+            . ') D.exportDataObject( { cName : MyData[i].name, nLaunch : 2});'
+        );
     }
 
     /**
@@ -1945,7 +2064,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $opt['Subtype'] = 'Widget';
         $opt['ft'] = 'Btn';
         if ($checked) {
-            $opt['v'] = ['/' . $onvalue];
+            $opt['v'] = ['/' . $this->encrypt->encodeNameObject($onvalue)];
             $opt['as'] = $onvalue;
         } else {
             $opt['as'] = 'Off';
@@ -2049,6 +2168,26 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     // ==| JS Fields |==
 
     /**
+     * Returns the setItems() arguments of a JavaScript list field.
+     * An [export, display] pair is written as [display, export]; a string is used for both.
+     *
+     * @param array<array{string,string}>|array<string> $values List of selection values.
+     */
+    protected function getJsItems(array $values): string
+    {
+        $itm = [];
+        foreach ($values as $value) {
+            if (\is_array($value)) {
+                $itm[] = '[' . $this->getJsString($value[1]) . ',' . $this->getJsString($value[0]) . ']';
+            } else {
+                $itm[] = '[' . $this->getJsString($value) . ',' . $this->getJsString($value) . ']';
+            }
+        }
+
+        return '[' . \implode(',', $itm) . ']';
+    }
+
+    /**
      * Adds a JavaScript button form field.
      *
      * @param string $name field name.
@@ -2058,8 +2197,8 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param float $height height in user units.
      * @param string $caption caption.
      * @param string $action action triggered by pressing the button.
-     *                      A string specifying the JavaScript action to run.
-     * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     *                      A string specifying the JavaScript action to run (trusted code).
+     * @param array<string, bool|float|int|string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      * @throws PdfException in case of error.
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
@@ -2074,11 +2213,12 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         string $action,
         array $jsp = [],
     ): void {
-        $this->addJavaScriptField('button', $name, $posx, $posy, $width, $height, $jsp);
-        $this->javascript .= 'f' . $name . ".buttonSetCaption('" . \addslashes($caption) . "');\n";
-        $this->javascript .= 'f' . $name . ".setAction('MouseUp','" . \addslashes($action) . "');\n";
-        $this->javascript .= 'f' . $name . ".highlight='push';\n";
-        $this->javascript .= 'f' . $name . ".print=false;\n";
+        $this->addJavaScriptField('button', $name, $posx, $posy, $width, $height, $jsp, [
+            '.buttonSetCaption(' . $this->getJsString($caption) . ')',
+            ".setAction('MouseUp'," . $this->getJsString($action) . ')',
+            ".highlight='push'",
+            '.print=false',
+        ]);
     }
 
     /**
@@ -2088,7 +2228,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param float $posx horizontal position in user units (LTR).
      * @param float $posy vertical position in user units (LTR).
      * @param float $width width in user units.
-     * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     * @param array<string, bool|float|int|string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      * @throws PdfException in case of error.
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
@@ -2107,7 +2247,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param float $width width in user units.
      * @param float $height height in user units.
      * @param array<array{string,string}>|array<string> $values List of selection values.
-     * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     * @param array<string, bool|float|int|string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      * @throws PdfException in case of error.
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
@@ -2121,16 +2261,9 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         array $values,
         array $jsp = [],
     ): void {
-        $this->addJavaScriptField('combobox', $name, $posx, $posy, $width, $height, $jsp);
-        $itm = '';
-        foreach ($values as $value) {
-            if (is_array($value)) {
-                $itm .= ',[\'' . \addslashes($value[1]) . '\',\'' . \addslashes($value[0]) . '\']';
-            } else {
-                $itm .= ',[\'' . \addslashes($value) . '\',\'' . \addslashes($value) . '\']';
-            }
-        }
-        $this->javascript .= 'f' . $name . '.setItems(' . \substr($itm, 1) . ');' . "\n";
+        $this->addJavaScriptField('combobox', $name, $posx, $posy, $width, $height, $jsp, [
+            '.setItems(' . $this->getJsItems($values) . ')',
+        ]);
     }
 
     /**
@@ -2142,7 +2275,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param float $width width in user units.
      * @param float $height height in user units.
      * @param array<array{string,string}>|array<string> $values List of selection values.
-     * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     * @param array<string, bool|float|int|string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      * @throws PdfException in case of error.
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
@@ -2156,16 +2289,9 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         array $values,
         array $jsp = [],
     ): void {
-        $this->addJavaScriptField('listbox', $name, $posx, $posy, $width, $height, $jsp);
-        $itm = '';
-        foreach ($values as $value) {
-            if (\is_array($value)) {
-                $itm .= ',[\'' . \addslashes($value[1]) . '\',\'' . \addslashes($value[0]) . '\']';
-            } else {
-                $itm .= ',[\'' . \addslashes($value) . '\',\'' . \addslashes($value) . '\']';
-            }
-        }
-        $this->javascript .= 'f' . $name . '.setItems(' . \substr($itm, 1) . ');' . "\n";
+        $this->addJavaScriptField('listbox', $name, $posx, $posy, $width, $height, $jsp, [
+            '.setItems(' . $this->getJsItems($values) . ')',
+        ]);
     }
 
     /**
@@ -2175,7 +2301,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param float $posx horizontal position in user units (LTR).
      * @param float $posy vertical position in user units (LTR).
      * @param float $width width in user units.
-     * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     * @param array<string, bool|float|int|string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      * @throws PdfException in case of error.
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
@@ -2193,7 +2319,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param float $posy vertical position in user units (LTR).
      * @param float $width width in user units.
      * @param float $height height in user units.
-     * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     * @param array<string, bool|float|int|string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      * @throws PdfException in case of error.
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
