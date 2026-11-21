@@ -26,29 +26,29 @@ Requires:  php-pcre
 Requires:  php-xml
 Requires:  php-zlib
 Requires:  php-composer(%{c_vendor}/tc-lib-barcode) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-barcode) >= 2.17.4
+Requires:  php-composer(%{c_vendor}/tc-lib-barcode) >= 2.17.6
 Requires:  php-composer(%{c_vendor}/tc-lib-color) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-color) >= 3.0.15
+Requires:  php-composer(%{c_vendor}/tc-lib-color) >= 3.1.1
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) >= 3.15.4
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) >= 3.15.5
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) >= 4.9.1
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) >= 4.9.3
 Requires:  php-composer(%{c_vendor}/tc-lib-file) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-file) >= 3.9.11
+Requires:  php-composer(%{c_vendor}/tc-lib-file) >= 3.9.13
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) >= 2.12.3
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) >= 2.12.4
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-sign) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-sign) >= 2.0.11
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-sign) >= 2.0.13
 Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) >= 3.1.4
+Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) >= 3.1.5
 Requires:  php-composer(%{c_vendor}/tc-lib-unicode) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-unicode) >= 3.2.4
+Requires:  php-composer(%{c_vendor}/tc-lib-unicode) >= 3.3.1
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) < 5.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) >= 4.18.2
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) >= 4.18.3
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) >= 2.18.8
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) >= 2.18.9
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-parser) < 4.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-parser) >= 3.16.8
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-parser) >= 3.16.10
 
 Recommends: php-curl
 Recommends: php-intl

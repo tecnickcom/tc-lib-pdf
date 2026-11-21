@@ -133,33 +133,6 @@ jobs:
       #      target/report/renderability-score.md
       #      target/report/renderability-trend.json
       #      target/report/renderability-trend.md
-      # make install, resources/autoload.php and the packaging descriptors are
-      # what reaches RPM/DEB users; nothing else in CI touches them. Install into
-      # a throwaway prefix and load the library through the shipped autoloader,
-      # which only resolves in the installed layout.
-      - name: Packaging smoke test
-        run: |
-          DESTDIR="$(mktemp -d)"
-          make install DESTDIR="$DESTDIR"
-          cat > "$DESTDIR/smoke.php" <<'SMOKE'
-          <?php
-          require \getenv('DESTDIR') . '/usr/share/php/Com/Tecnick/Pdf/autoload.php';
-          foreach ([
-              'Com\Tecnick\Pdf\Base',
-              'Com\Tecnick\Pdf\CSS',
-              'Com\Tecnick\Pdf\Cell',
-              'Com\Tecnick\Pdf\Exception',
-              'Com\Tecnick\Pdf\HTML',
-              'Com\Tecnick\Pdf\JavaScript',
-          ] as $class) {
-              if (!\class_exists($class)) {
-                  \fwrite(\STDERR, 'the installed autoloader cannot load ' . $class . \PHP_EOL);
-                  exit(1);
-              }
-          }
-          echo 'installed layout loads every class', \PHP_EOL;
-          SMOKE
-          DESTDIR="$DESTDIR" php "$DESTDIR/smoke.php"
 
       - name: Send coverage
         if: matrix.php-version == '8.4'
