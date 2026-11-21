@@ -672,6 +672,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected const HTML_COLLAPSIBLE_SPACE = '[^\S' . self::NO_BREAK_SPACE_CLASS . ']';
 
     /**
+     * PCRE fragment matching a whole run of collapsible whitespace characters.
+     */
+    protected const HTML_COLLAPSIBLE_SPACE_RUN =
+        '(?<!' . self::HTML_COLLAPSIBLE_SPACE . ')' . self::HTML_COLLAPSIBLE_SPACE . '+';
+
+    /**
      * Inline tags rendered as atomic boxes: they end a sequence of collapsible spaces.
      *
      * @var array<string>
@@ -727,7 +733,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Pseudo-classes that depend on the content after an element: a stylesheet using
      * one of them needs the final-tree CSS pass of getHTMLDOM().
      */
-    protected const HTML_FINAL_TREE_PSEUDO_PATTERN = '/:(?:last-child|nth-last-child|only-child|last-of-type|nth-last-of-type|only-of-type|empty)(?![a-z-])/i';
+    protected const HTML_FINAL_TREE_PSEUDO_PATTERN = '/:(?:last-child|nth-last-child|only-child|last-of-type|nth-last-of-type|only-of-type|empty)(?![a-z-])/';
 
     /**
      * Line-height keys that a slim DOM node takes from its style source when set.
@@ -1125,12 +1131,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // get the CSS part
         $headnode = \tidy_get_head($tidy);
         $css = $headnode->value ?? '';
-        $css = \preg_replace('/<style([^>]+)>/ims', '<style>', $css) ?? '';
-        $css = \preg_replace('/<\/style>(.*)<style>/ims', "\n", $css) ?? '';
+        $css = AsciiPattern::replaceFolded('/<style([^>]+)>/ms', static fn(): string => '<style>', $css) ?? '';
+        $css = AsciiPattern::replaceFolded('/<\/style>(.*)<style>/ms', static fn(): string => "\n", $css) ?? '';
         $css = \str_replace('/*<![CDATA[*/', '', $css);
         $css = \str_replace('/*]]>*/', '', $css);
         $matches = [];
-        if (\preg_match('/<style>(.*)<\/style>/ims', $css, $matches) === 1) {
+        if (AsciiPattern::matchFolded('/<style>(.*)<\/style>/ms', $css, $matches) === 1) {
             $css = !isset($matches[1]) || $matches[1] === '' ? '' : \strtolower($matches[1]);
         } else {
             $css = '';
@@ -1199,11 +1205,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function addHTMLImplicitBody(string $html): string
     {
-        if (\preg_match('/<body[\s>\/]/i', $html) !== 1) {
+        if (AsciiPattern::matchFolded('/<body[\t\n\x0B\f\r >\/]/', $html) !== 1) {
             $html = '<body>' . $html . '</body>';
         }
 
-        if (\preg_match('/<html[\s>\/]/i', $html) !== 1) {
+        if (AsciiPattern::matchFolded('/<html[\t\n\x0B\f\r >\/]/', $html) !== 1) {
             $html = '<html>' . $html . '</html>';
         }
 
@@ -1317,15 +1323,38 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected static function getHTMLTagAttributeValue(string $attrs, string $name): ?string
     {
-        $qname = \preg_quote($name, '/');
-        foreach (['"([^"]*)"', '\'([^\']*)\'', '([^\s>]+)'] as $valpattern) {
+        $qname = \preg_quote(\strtolower($name), '/');
+        foreach (['"([^"]*)"', '\'([^\']*)\'', '([^\t\n\x0B\f\r >]+)'] as $valpattern) {
             $match = [];
-            if (\preg_match('/(?<!\s)\s+' . $qname . '\s*=\s*' . $valpattern . '/si', $attrs, $match) === 1) {
+            $pattern =
+                '/(?<![\t\n\x0B\f\r ])[\t\n\x0B\f\r ]+'
+                . $qname
+                . '[\t\n\x0B\f\r ]*=[\t\n\x0B\f\r ]*'
+                . $valpattern
+                . '/s';
+            if (AsciiPattern::matchFolded($pattern, $attrs, $match) === 1) {
                 return $match[1] ?? '';
             }
         }
 
         return null;
+    }
+
+    /**
+     * Return the regex result, or the previous string and a warning when the regex failed.
+     *
+     * @param ?string $result Result of a preg_* replacement.
+     * @param string $previous Input of the replacement.
+     */
+    protected function getHTMLRegexResult(?string $result, string $previous): string
+    {
+        if ($result !== null) {
+            return $result;
+        }
+
+        $this->addWarning('HTML: regular expression error: ' . \preg_last_error_msg());
+
+        return $previous;
     }
 
     /**
@@ -1337,20 +1366,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function sanitizeHTML(string $html): string
     {
+        $html = $this->getValidUtf8($html);
         // remove head and style blocks
         $html = $this->replaceHTMLElementBlocks($html, $this->getHTMLElementBlocks($html, '<head', '</head>'));
         $html = $this->replaceHTMLElementBlocks($html, $this->getCSSStyleBlocks($html));
         // a word break opportunity is a zero width space
-        $html = \preg_replace('/<wbr\b[^>]*>/i', "\u{200B}", $html) ?? '';
+        $html = $this->getHTMLRegexResult(
+            AsciiPattern::replaceFolded('/<wbr(?![0-9a-z_])[^>]*>/', static fn(): string => "\u{200B}", $html),
+            $html,
+        );
         // remove all unsupported
         $html = \strip_tags($html, self::HTML_VALID_TAGS);
         // preserve pre tag
-        $html = \preg_replace('/<pre/', '<xre', $html) ?? '';
+        $html = $this->getHTMLRegexResult(\preg_replace('/<pre/', '<xre', $html), $html);
         //replace some blank characters
         $regexp_block_tags = \implode('|', self::HTML_BLOCK_TAGS);
-        $html = \preg_replace('/<(' . $regexp_block_tags . ')([^\>]*)>[\n\r\t]+/', '<\\1\\2>', $html) ?? '';
+        $html = $this->getHTMLRegexResult(
+            \preg_replace('/<(' . $regexp_block_tags . ')([^\>]*)>[\n\r\t]+/', '<\\1\\2>', $html),
+            $html,
+        );
         // newlines
-        $html = \preg_replace('@(\r\n|\r)@', "\n", $html) ?? '';
+        $html = $this->getHTMLRegexResult(\preg_replace('@(\r\n|\r)@', "\n", $html), $html);
         // special chars
         $html = \strtr($html, self::HTML_REPLACEMENT_CHARS);
 
@@ -1391,8 +1427,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     }
 
                     $value = self::getHTMLTagAttributeValue($tokattrs, 'value') ?? '';
-                    $selPattern = '/(^|[\s])selected([\s]*=[\s]*("[^"]*"|\'[^\']*\'|[^\s>]+))?([\s]|$)/si';
-                    $selected = \preg_match($selPattern, $tokattrs) === 1;
+                    $selPattern = '/(^|[\t\n\x0B\f\r ])selected([\t\n\x0B\f\r ]*=[\t\n\x0B\f\r ]*("[^"]*"|\'[^\']*\'|[^\t\n\x0B\f\r >]+))?([\t\n\x0B\f\r ]|$)/s';
+                    $selected = AsciiPattern::matchFolded($selPattern, $tokattrs) === 1;
                     $prefix = $selected ? '#!SeL!#' : '';
 
                     if ($value !== '') {
@@ -1424,9 +1460,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                 // Keep all original attributes except type/value, then inject normalized ones.
                 $btnattrs =
-                    \preg_replace(
-                        '/(?<!\s)[\s]+(?:type|value)[\s]*=[\s]*(?:"[^"]*"|\'[^\']*\'|[^\s>]+)/si',
-                        '',
+                    AsciiPattern::replaceFolded(
+                        '/(?<![\t\n\x0B\f\r ])[\t\n\x0B\f\r ]+(?:type|value)[\t\n\x0B\f\r ]*=[\t\n\x0B\f\r ]*(?:"[^"]*"|\'[^\']*\'|[^\t\n\x0B\f\r >]+)/s',
+                        static fn(): string => '',
                         $block['attr'],
                     ) ?? $block['attr'];
 
@@ -1441,46 +1477,95 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $html = \str_replace('<TBR>', "\n", $html);
 
         // remove extra spaces
-        $spacerun = '(?<!' . self::HTML_COLLAPSIBLE_SPACE . ')' . self::HTML_COLLAPSIBLE_SPACE . '+';
-        $html = \preg_replace('/(?<!\s)[\s]+<\/(table|tr|ul|ol|dl)>/', '</\\1>', $html) ?? '';
-        $html = \preg_replace('/' . $spacerun . '<\/(td|th|li|dt|dd)>/u', '</\\1>', $html) ?? '';
-        $html = \preg_replace('/(?<!\s)[\s]+<(tr|td|th|li|dt|dd)/', '<\\1', $html) ?? '';
-        $html = \preg_replace('/' . $spacerun . '<(ul|ol|dl|br)/u', '<\\1', $html) ?? '';
-        $html =
+        $html = $this->getHTMLRegexResult(
+            \preg_replace('/(?<![\t\n\x0B\f\r ])[\t\n\x0B\f\r ]+<\/(table|tr|ul|ol|dl)>/', '</\\1>', $html),
+            $html,
+        );
+        $html = $this->getHTMLRegexResult(
+            \preg_replace('/' . self::HTML_COLLAPSIBLE_SPACE_RUN . '<\/(td|th|li|dt|dd)>/u', '</\\1>', $html),
+            $html,
+        );
+        $html = $this->getHTMLRegexResult(
+            \preg_replace('/(?<![\t\n\x0B\f\r ])[\t\n\x0B\f\r ]+<(tr|td|th|li|dt|dd)/', '<\\1', $html),
+            $html,
+        );
+        $html = $this->getHTMLRegexResult(
+            \preg_replace('/' . self::HTML_COLLAPSIBLE_SPACE_RUN . '<(ul|ol|dl|br)/u', '<\\1', $html),
+            $html,
+        );
+        $html = $this->getHTMLRegexResult(
             \preg_replace(
-                '/<\/(table|tr|td|th|blockquote|dd|dt|dl|div|h1|h2|h3|h4|h5|h6|hr|li|ol|ul|p)>[\s]+</',
+                '/<\/(table|tr|td|th|blockquote|dd|dt|dl|div|h1|h2|h3|h4|h5|h6|hr|li|ol|ul|p)>[\t\n\x0B\f\r ]+</',
                 '</\\1><',
                 $html,
-            ) ?? '';
-        $html = \preg_replace('/' . $spacerun . '<img/u', chr(32) . '<img', $html) ?? '';
-        $html = \preg_replace('/<img([^\>]*)>[\s]+([^\<])/xi', '<img\\1>' . self::HTML_KEPT_SPACE . '\\2', $html) ?? '';
+            ),
+            $html,
+        );
+        $html = $this->getHTMLRegexResult(
+            \preg_replace('/' . self::HTML_COLLAPSIBLE_SPACE_RUN . '<img/u', chr(32) . '<img', $html),
+            $html,
+        );
+        $html = $this->getHTMLRegexResult(
+            AsciiPattern::replaceFolded(
+                '/<img([^\>]*)>[\t\n\x0B\f\r ]+([^\<])/x',
+                static fn(array $mtc): string => (
+                    '<img' . ($mtc[1] ?? '') . '>' . self::HTML_KEPT_SPACE . ($mtc[2] ?? '')
+                ),
+                $html,
+            ),
+            $html,
+        );
         // restore pre tag
-        $html = \preg_replace('/<xre/', '<pre', $html) ?? '';
-        $html = \preg_replace('/<textarea([^\>]*)>([^\<]*)<\/textarea>/xi', '<textarea\\1 value="\\2" />', $html) ?? '';
-        $html = \preg_replace('/<li([^\>]*)><\/li>/', '<li\\1>' . self::HTML_KEPT_SPACE . '</li>', $html) ?? '';
-        $html =
+        $html = $this->getHTMLRegexResult(\preg_replace('/<xre/', '<pre', $html), $html);
+        $html = $this->getHTMLRegexResult(
+            AsciiPattern::replaceFolded(
+                '/<textarea([^\>]*)>([^\<]*)<\/textarea>/x',
+                static fn(array $mtc): string => '<textarea' . ($mtc[1] ?? '') . ' value="' . ($mtc[2] ?? '') . '" />',
+                $html,
+            ),
+            $html,
+        );
+        $html = $this->getHTMLRegexResult(
+            \preg_replace('/<li([^\>]*)><\/li>/', '<li\\1>' . self::HTML_KEPT_SPACE . '</li>', $html),
+            $html,
+        );
+        $html = $this->getHTMLRegexResult(
             \preg_replace(
                 '/<li([^\>]*)>' . self::HTML_COLLAPSIBLE_SPACE . '*<img/u',
                 '<li\\1><font size="1">' . self::HTML_KEPT_SPACE . '</font><img',
                 $html,
-            ) ?? '';
+            ),
+            $html,
+        );
         // preserve some spaces
-        $html = \preg_replace('/<([^\>\/]*)>[\s]/', '<\\1>' . self::HTML_KEPT_SPACE, $html) ?? '';
-        $html = \preg_replace('/[\s]<\/([^\>]*)>/', self::HTML_KEPT_SPACE . '</\\1>', $html) ?? '';
+        $html = $this->getHTMLRegexResult(
+            \preg_replace('/<([^\>\/]*)>[\t\n\x0B\f\r ]/', '<\\1>' . self::HTML_KEPT_SPACE, $html),
+            $html,
+        );
+        $html = $this->getHTMLRegexResult(
+            \preg_replace('/[\t\n\x0B\f\r ]<\/([^\>]*)>/', self::HTML_KEPT_SPACE . '</\\1>', $html),
+            $html,
+        );
         // fix sub/sup alignment
-        $html = \preg_replace('/<su([bp])/', '<zws/><su\\1', $html) ?? '';
-        $html = \preg_replace('/<\/su([bp])>/', '</su\\1><zws/>', $html) ?? '';
+        $html = $this->getHTMLRegexResult(\preg_replace('/<su([bp])/', '<zws/><su\\1', $html), $html);
+        $html = $this->getHTMLRegexResult(\preg_replace('/<\/su([bp])>/', '</su\\1><zws/>', $html), $html);
         // replace multiple spaces with a single space
-        $html = \preg_replace('/' . self::HTML_COLLAPSIBLE_SPACE . '+/u', chr(32), $html) ?? '';
+        $html = $this->getHTMLRegexResult(
+            \preg_replace('/' . self::HTML_COLLAPSIBLE_SPACE . '+/u', chr(32), $html),
+            $html,
+        );
 
         // trim string
         $html = $this->strTrim($html);
 
         // fix br tag after li
-        $html = \preg_replace('/<li><br([^\>]*)>/', '<li> <br\\1>', $html) ?? '';
+        $html = $this->getHTMLRegexResult(\preg_replace('/<li><br([^\>]*)>/', '<li> <br\\1>', $html), $html);
 
         // fix first image tag alignment
-        return \preg_replace('/^<img/', '<span style="font-size:0"><br /></span> <img', $html, 1) ?? '';
+        return $this->getHTMLRegexResult(
+            \preg_replace('/^<img/', '<span style="font-size:0"><br /></span> <img', $html, 1),
+            $html,
+        );
     }
 
     /**
@@ -1995,7 +2080,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function hasHTMLFinalTreeSelectors(array $css): bool
     {
         foreach (\array_keys($css) as $selector) {
-            if (\preg_match(self::HTML_FINAL_TREE_PSEUDO_PATTERN, $selector) === 1) {
+            if (AsciiPattern::matchFolded(self::HTML_FINAL_TREE_PSEUDO_PATTERN, $selector) === 1) {
                 return true;
             }
         }
@@ -2266,7 +2351,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if ($transformMode !== null) {
                 $element = \mb_convert_case($element, $transformMode, $encoding);
             }
-            $element = \preg_replace('/&NBSP;/i', '&nbsp;', $element) ?? '';
+            $element = \str_ireplace('&nbsp;', '&nbsp;', $element);
         }
 
         $decoded = \html_entity_decode($element, ENT_QUOTES, $encoding);
@@ -2602,7 +2687,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $attributes = [];
         $attr_array = [];
         \preg_match_all(
-            '/([a-zA-Z_:][a-zA-Z0-9_:\-\.]*)\s*(?:=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s"\'`=<>]+)))?/',
+            '/([a-zA-Z_:][a-zA-Z0-9_:\-\.]*)[\t\n\x0B\f\r ]*(?:=[\t\n\x0B\f\r ]*(?:"([^"]*)"|\'([^\']*)\'|([^\t\n\x0B\f\r "\'`=<>]+)))?/',
             $element,
             $attr_array,
             PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL,
@@ -2866,7 +2951,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $match = $selector;
             $pseudo = '';
             $pseudomatch = [];
-            if (\preg_match('/^(.*)::(before|after|marker)\s*$/i', $selector, $pseudomatch) === 1) {
+            if (
+                AsciiPattern::matchFolded('/^(.*)::(before|after|marker)[\t\n\x0B\f\r ]*$/', $selector, $pseudomatch)
+                === 1
+            ) {
                 $match = isset($pseudomatch[1]) ? \trim($pseudomatch[1]) : '';
                 $pseudo = isset($pseudomatch[2]) ? \strtolower($pseudomatch[2]) : '';
                 if ($match === '') {
@@ -2981,14 +3069,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if ($sel !== '') {
             $sel = \preg_replace('/\\\\(?:\r\n|\r|\n|\f)/', '', $sel) ?? $sel;
             $sel = $this->escapeHTMLSelectorFunctionalOperators($sel);
-            $sel = \preg_replace('/\s*([>+~])\s*/', '\\1', $sel) ?? '';
+            $sel = \preg_replace('/[\t\n\x0B\f\r ]*([>+~])[\t\n\x0B\f\r ]*/', '\\1', $sel) ?? '';
             $sel = ' ' . \ltrim($sel);
-            $sel = \preg_replace('/([\>\+\~\s]{1})([\.]{1})([^\>\+\~\s]*)/si', '\\1*.\\3', $sel) ?? '';
-            $sel = \preg_replace('/([\>\+\~\s]{1})([\#]{1})([^\>\+\~\s]*)/si', '\\1*#\\3', $sel) ?? '';
-            $sel = \preg_replace('/([\>\+\~\s]{1})(\[)/si', '\\1*\\2', $sel) ?? '';
+            $sel =
+                \preg_replace('/([\>\+\~\t\n\x0B\f\r ]{1})([\.]{1})([^\>\+\~\t\n\x0B\f\r ]*)/s', '\\1*.\\3', $sel)
+                ?? '';
+            $sel =
+                \preg_replace('/([\>\+\~\t\n\x0B\f\r ]{1})([\#]{1})([^\>\+\~\t\n\x0B\f\r ]*)/s', '\\1*#\\3', $sel)
+                ?? '';
+            $sel = \preg_replace('/([\>\+\~\t\n\x0B\f\r ]{1})(\[)/s', '\\1*\\2', $sel) ?? '';
             $matches = [];
             $count = \preg_match_all(
-                '/([\>\+\~\s]{1})(\*|(?:\\\\.|[\p{L}\p{N}_-])+)([^\>\+\~\s]*)/siu',
+                '/([\>\+\~\s]{1})(\*|(?:\\\\.|[\p{L}\p{N}_-])+)([^\>\+\~\s]*)/su',
                 $sel,
                 $matches,
                 PREG_PATTERN_ORDER,
@@ -3198,7 +3290,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $attrmatch = [];
         if (
             \preg_match(
-                '/\[([^\s\~\^\$\*\|\]=]+)[\s]*([\~\^\$\*\|\=]*)[\s]*(?:"([^"]*)"|\'([^\']*)\'|([^\]]*))?\]/i',
+                '/\[([^\t\n\x0B\f\r \~\^\$\*\|\]=]+)[\t\n\x0B\f\r ]*([\~\^\$\*\|\=]*)[\t\n\x0B\f\r ]*(?:"([^"]*)"|\'([^\']*)\'|([^\]]*))?\]/',
                 $token,
                 $attrmatch,
             ) === 0
@@ -3226,8 +3318,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return false;
         }
 
-        $qval = \preg_quote($val, '/');
-        $dashPrefixed = \preg_match('/^' . $qval . '-/i', $current);
+        $qval = \preg_quote(\strtolower($val), '/');
+        $dashPrefixed = AsciiPattern::matchFolded('/^' . $qval . '-/', $current) === 1;
         $operator = isset($attrmatch[2]) ? $attrmatch[2] : '';
 
         return match ($operator) {
@@ -3236,7 +3328,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             '^=' => $val === \substr($current, 0, \strlen($val)),
             '$=' => $val === \substr($current, -\strlen($val)),
             '*=' => \str_contains($current, $val),
-            '|=' => $current === $val || $dashPrefixed !== false && $dashPrefixed > 0,
+            '|=' => $current === $val || $dashPrefixed,
             default => true,
         };
     }
@@ -3256,7 +3348,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             '/\\\\([0-9a-fA-F]{1,6}\s?|.)/u',
             static function (array $match): string {
                 $esc = $match[1] ?? '';
-                if (\preg_match('/^[0-9a-fA-F]{1,6}\s?$/', $esc) === 1) {
+                if (\preg_match('/^[0-9a-fA-F]{1,6}[\t\n\x0B\f\r ]?$/', $esc) === 1) {
                     $hex = \trim($esc);
                     $codepoint = (int) \hexdec($hex);
                     if ($codepoint <= 0 || $codepoint > 0x10_FFFF) {
@@ -3285,7 +3377,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $pseudo = [];
-        if (!\preg_match('/^:([a-z-]+)(?:\(([^\)]*)\))?$/i', $token, $pseudo)) {
+        if (!\preg_match('/^:([A-Za-z-]+)(?:\(([^\)]*)\))?$/', $token, $pseudo)) {
             return false;
         }
 
@@ -4267,11 +4359,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $matches = [];
         $pattern =
-            '/^(.+?\s)?'
+            '/^(.+?[\t\n\x0B\f\r ])?'
             . '(xx-small|x-small|small|medium|large|x-large|xx-large|smaller|larger|'
             . '(?:[0-9]*+\.)?[0-9]++(?:px|pt|pc|mm|cm|in|em|rem|ex|%))'
-            . '(?:\s*\/\s*([^\s]+))?\s+(.+)$/i';
-        if (\preg_match($pattern, $font, $matches) !== 1) {
+            . '(?:[\t\n\x0B\f\r ]*\/[\t\n\x0B\f\r ]*([^\t\n\x0B\f\r ]+))?[\t\n\x0B\f\r ]+(.+)$/';
+        if (AsciiPattern::matchFolded($pattern, $font, $matches) !== 1) {
             return;
         }
 
@@ -4300,7 +4392,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return;
         }
 
-        $prefixTokens = \preg_split('/\s+/', \strtolower($prefix));
+        $prefixTokens = \preg_split('/[\t\n\x0B\f\r ]+/', \strtolower($prefix));
         if ($prefixTokens === false) {
             return;
         }
@@ -4588,7 +4680,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         $length = '';
         $eachLine = false;
-        $tokens = \preg_split('/\s+/', $value);
+        $tokens = \preg_split('/[\t\n\x0B\f\r ]+/', $value);
         foreach ($tokens === false ? [] : $tokens as $token) {
             if ($token === 'each-line' && !$eachLine) {
                 $eachLine = true;
@@ -5010,7 +5102,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 } elseif (\substr($lineheight, -1) === '%') {
                     // Percentage: store as a dimensionless ratio (150% -> 1.5).
                     $pctMatch = [];
-                    if (\preg_match('/^([0-9.+\-]+)\s*%$/', $lineheight, $pctMatch) === 1 && isset($pctMatch[1])) {
+                    if (
+                        \preg_match('/^([0-9.+\-]+)[\t\n\x0B\f\r ]*%$/', $lineheight, $pctMatch) === 1
+                        && isset($pctMatch[1])
+                    ) {
                         $node['line-height'] = \floatval($pctMatch[1]) / 100.0;
                         $node['line-height-font-size-basis'] = true;
                     }
@@ -5291,7 +5386,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $quoted[] = \preg_quote(\strtolower($property), '/');
         }
 
-        $pattern = '/(?:^|;)\s*(' . \implode('|', $quoted) . ')\s*:/i';
+        $pattern = '/(?:^|;)[\t\n\x0B\f\r ]*(' . \implode('|', $quoted) . ')[\t\n\x0B\f\r ]*:/';
         $matches = [];
         \preg_match_all($pattern, \strtolower($dom[$key]['attribute']['style']), $matches, PREG_OFFSET_CAPTURE);
 
@@ -5731,7 +5826,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $padding = \trim($dom[$key]['style']['padding']);
             if (\strtolower($padding) === 'inherit') {
                 $dom[$key]['padding'] = \is_array($parentNode) ? $parentNode['padding'] : self::ZEROCELLBOUND;
-            } elseif (\preg_match('/^0(?:[a-z%]+)?$/i', $padding) === 1) {
+            } elseif (\preg_match('/^0(?:[A-Za-z%]+)?$/', $padding) === 1) {
                 $dom[$key]['padding'] = self::ZEROCELLBOUND;
             } else {
                 $dom[$key]['padding'] = $this->getCSSPadding($padding, 0.0, $this->getHTMLNodeUnitRef($dom, $key));
@@ -5832,7 +5927,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return;
         }
 
-        if (\preg_match('/^0(?:[a-z%]+)?$/i', $pvalue) === 1) {
+        if (\preg_match('/^0(?:[A-Za-z%]+)?$/', $pvalue) === 1) {
             $nodeBox[$side] = 0.0;
             $node[$box] = $nodeBox;
             return;
@@ -5857,7 +5952,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $margin = \trim($dom[$key]['style']['margin']);
             if (\strtolower($margin) === 'inherit') {
                 $dom[$key]['margin'] = \is_array($parentNode) ? $parentNode['margin'] : self::ZEROCELLBOUND;
-            } elseif (\preg_match('/^0(?:[a-z%]+)?$/i', $margin) === 1) {
+            } elseif (\preg_match('/^0(?:[A-Za-z%]+)?$/', $margin) === 1) {
                 $dom[$key]['margin'] = self::ZEROCELLBOUND;
             } else {
                 $dom[$key]['margin'] = $this->getCSSMargin($margin, 0.0, $this->getHTMLNodeUnitRef($dom, $key));
@@ -6090,7 +6185,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function expandHTMLBorderQuadValues(string $value): array
     {
-        $tokens = \preg_split('/[\s]+/', \trim($value));
+        $tokens = \preg_split('/[\t\n\x0B\f\r ]+/', \trim($value));
         if ($tokens === false || $tokens === []) {
             return [];
         }
@@ -6829,7 +6924,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $borderSpacing = \trim($dom[$key]['style']['border-spacing']);
-        if (\preg_match('/^0(?:[a-z%]+)?$/i', $borderSpacing) === 1) {
+        if (\preg_match('/^0(?:[A-Za-z%]+)?$/', $borderSpacing) === 1) {
             $dom[$key]['border-spacing'] = ['H' => 0.0, 'V' => 0.0];
             return;
         }
@@ -6960,7 +7055,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return;
         }
 
-        if ($page === 'auto' || \preg_match('/^[-_a-z][-_a-z0-9]*$/i', $page) === 1) {
+        if ($page === 'auto' || \preg_match('/^[-_A-Za-z][-_A-Za-z0-9]*$/', $page) === 1) {
             $dom[$key]['page'] = $page;
         }
     }
@@ -6990,7 +7085,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return;
         }
 
-        if (\preg_match('/^(?:"[^"]*"|\'[^\']*\')(?:\s+(?:"[^"]*"|\'[^\']*\'))*$/', $quotes) === 1) {
+        if (\preg_match('/^(?:"[^"]*"|\'[^\']*\')(?:[\t\n\x0B\f\r ]+(?:"[^"]*"|\'[^\']*\'))*$/', $quotes) === 1) {
             $dom[$key]['quotes'] = $quotes;
         }
     }
@@ -7229,7 +7324,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $value = \trim(\substr($decl, $split + 1));
         // Keep the declaration value content while dropping CSS priority marker.
         // Priority is handled by the cascade layer before inline declaration parsing.
-        $value = \trim(\preg_replace('/\s*!important\s*$/i', '', $value) ?? $value);
+        $value = \trim(
+            AsciiPattern::replaceFolded(
+                '/[\t\n\x0B\f\r ]*!important[\t\n\x0B\f\r ]*$/',
+                static fn(): string => '',
+                $value,
+            ) ?? $value,
+        );
         $out[$name] = $value;
     }
 
@@ -11545,7 +11646,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $match = [];
-        if (!\preg_match('/^url\((.*)\)$/i', \trim($listImage), $match)) {
+        if (AsciiPattern::matchFolded('/^url\((.*)\)$/', \trim($listImage), $match) !== 1) {
             return '';
         }
 
@@ -11572,11 +11673,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         if ($imgtype === '') {
-            if (\preg_match('/\.svg([?#].*)?$/i', $source)) {
+            if (AsciiPattern::matchFolded('/\.svg([?#].*)?$/', $source) === 1) {
                 $imgtype = 'svg';
             } else {
                 $extMatch = [];
-                if (\preg_match('/\.([a-z0-9]+)([?#].*)?$/i', $source, $extMatch)) {
+                if (\preg_match('/\.([A-Za-z0-9]+)([?#].*)?$/', $source, $extMatch)) {
                     $extTypeMatch = $extMatch[1] ?? '';
                     $imgtype = \strtolower($extTypeMatch);
                 }
@@ -15827,7 +15928,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function decodeHTMLDataUri(string $src): ?array
     {
         $matches = [];
-        if (\preg_match('/^data:([^,]*),(.*)$/is', \trim($src), $matches) !== 1) {
+        if (AsciiPattern::matchFolded('/^data:([^,]*),(.*)$/s', \trim($src), $matches) !== 1) {
             return null;
         }
 
@@ -15866,11 +15967,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         // the prolog is read from the head of the document only
         return (
-            \preg_match('/^(?:\s++|<\?.*?\?>|<!--.*?-->|<!DOCTYPE[^>\[]*(?:\[.*?\])?\s*>)*<(?:[A-Za-z_][\w.\-]*:)?svg[\s\/>]/is', \substr(
-                $data,
-                0,
-                65_536,
-            )) === 1
+            AsciiPattern::matchFolded(
+                '/^(?:[\t\n\x0B\f\r ]++|<\?.*?\?>|<!--.*?-->|<!doctype[^>\[]*(?:\[.*?\])?[\t\n\x0B\f\r ]*>)*<(?:[a-z_][0-9a-z_.\-]*:)?svg[\t\n\x0B\f\r \/>]/s',
+                \substr($data, 0, 65_536),
+            ) === 1
         );
     }
 
@@ -15914,7 +16014,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return $this->isHTMLSvgImageData(\substr($src, 1));
         }
 
-        return \preg_match('/\.svg(?:[?#].*)?$/i', $src) === 1;
+        return AsciiPattern::matchFolded('/\.svg(?:[?#].*)?$/', $src) === 1;
     }
 
     /**
@@ -17445,7 +17545,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $match = [];
-        if ($rawValue !== '' && \preg_match('/^([0-9.+\-]+)\s*%$/', $rawValue, $match) === 1) {
+        if ($rawValue !== '' && \preg_match('/^([0-9.+\-]+)[\t\n\x0B\f\r ]*%$/', $rawValue, $match) === 1) {
             $percent = $match[1] ?? null;
             if (\is_numeric($percent)) {
                 return \floatval($percent) / 100.0;
@@ -17519,7 +17619,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $rawMargin = \trim($elm['style'][$styleKey]);
         $match = [];
-        if (\preg_match('/^([0-9.+\-]+)\s*%$/', $rawMargin, $match) === 1) {
+        if (\preg_match('/^([0-9.+\-]+)[\t\n\x0B\f\r ]*%$/', $rawMargin, $match) === 1) {
             $marginPercent = $match[1] ?? null;
             if (\is_numeric($marginPercent)) {
                 return \max(0.0, ($availableWidth * \floatval($marginPercent)) / 100.0);
@@ -18525,7 +18625,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             static function (array $match): string {
                 $escaped = $match[1] ?? '';
 
-                $hex = \preg_replace('/\s+$/', '', $escaped) ?? '';
+                $hex = \preg_replace('/[\t\n\x0B\f\r ]+$/', '', $escaped) ?? '';
                 if ($hex !== '' && \preg_match('/^[0-9A-Fa-f]{1,6}$/', $hex) === 1) {
                     $codepoint = (int) \hexdec($hex);
                     if ($codepoint > 0 && $codepoint <= 0x10_FFFF) {
@@ -18557,7 +18657,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function getHTMLPseudoContentTokens(string $style): array
     {
         $match = [];
-        if (\preg_match('/(?:^|;)\\s*content\\s*:\\s*([^;]+?)\\s*(?:;|$)/i', $style, $match) !== 1) {
+        if (
+            AsciiPattern::matchFolded(
+                '/(?:^|;)[\t\n\x0B\f\r ]*content[\t\n\x0B\f\r ]*:[\t\n\x0B\f\r ]*([^;]+?)[\t\n\x0B\f\r ]*(?:;|$)/',
+                $style,
+                $match,
+            ) !== 1
+        ) {
             return [];
         }
 
@@ -18570,8 +18676,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tokens = [];
         $parts = [];
         if (
-            \preg_match_all(
-                '/"(?:[^"\\\\]++|\\\\.)*+"|\'(?:[^\'\\\\]++|\\\\.)*+\'|\\b(?:open-quote|close-quote|no-open-quote|no-close-quote)\\b/i',
+            AsciiPattern::matchAllFolded(
+                '/"(?:[^"\\\\]++|\\\\.)*+"|\'(?:[^\'\\\\]++|\\\\.)*+\'|(?<![0-9A-Za-z_])(?:open-quote|close-quote|no-open-quote|no-close-quote)(?![0-9A-Za-z_])/',
                 $value,
                 $parts,
             ) === false
@@ -18747,7 +18853,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function stripHTMLPseudoContentDeclaration(string $style): string
     {
-        $withoutContent = \preg_replace('/(?:^|;)\\s*content\\s*:\\s*[^;]+\\s*(?:;|$)/i', ';', $style) ?? '';
+        $withoutContent =
+            AsciiPattern::replaceFolded(
+                '/(?:^|;)[\t\n\x0B\f\r ]*content[\t\n\x0B\f\r ]*:[\t\n\x0B\f\r ]*[^;]+[\t\n\x0B\f\r ]*(?:;|$)/',
+                static fn(): string => ';',
+                $style,
+            ) ?? '';
 
         $withoutContent = \preg_replace('/;+/', ';', $withoutContent) ?? '';
         return \trim($withoutContent, " \t\n\r\0\x0B;");
@@ -19188,7 +19299,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         }
                         if ($rawTblWidth !== '') {
                             $pctM = [];
-                            if (\preg_match('/^([0-9.+\-]+)\s*%$/', $rawTblWidth, $pctM)) {
+                            if (\preg_match('/^([0-9.+\-]+)[\t\n\x0B\f\r ]*%$/', $rawTblWidth, $pctM)) {
                                 $pct = $pctM[1] ?? null;
                                 if (\is_numeric($pct)) {
                                     $tableWidth = \min($tableWidth, ($tableWidth * (float) $pct) / 100.0);
@@ -23918,7 +24029,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $pctMatch = [];
-        if ($rawTableWidth !== '' && \preg_match('/^([0-9.+\-]+)\s*%$/', $rawTableWidth, $pctMatch) === 1) {
+        if (
+            $rawTableWidth !== ''
+            && \preg_match('/^([0-9.+\-]+)[\t\n\x0B\f\r ]*%$/', $rawTableWidth, $pctMatch) === 1
+        ) {
             $ctxWidth = $width;
             if (isset($elm['ctxmaxwidth']) && $elm['ctxmaxwidth'] > 0.0) {
                 $ctxWidth = $elm['ctxmaxwidth'];
@@ -23949,7 +24063,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         // Compute actual table width from column widths + cellspacing gutters.
         $contentWidth = ($cellspacingh * ($cols + 1)) + (float) \array_sum($colwidths);
-        if ($rawTableWidth !== '' && \preg_match('/^([0-9.+\-]+)\s*%$/', $rawTableWidth) === 1) {
+        if ($rawTableWidth !== '' && \preg_match('/^([0-9.+\-]+)[\t\n\x0B\f\r ]*%$/', $rawTableWidth) === 1) {
             // Percentage widths are already resolved against the available box;
             // keep the computed content width to avoid collapsing to tiny values.
             $width = $contentWidth;
@@ -23995,7 +24109,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $heightPctMatch = [];
-        if ($rawTableHeight !== '' && \preg_match('/^([0-9.+\-]+)\s*%$/', $rawTableHeight, $heightPctMatch) === 1) {
+        if (
+            $rawTableHeight !== ''
+            && \preg_match('/^([0-9.+\-]+)[\t\n\x0B\f\r ]*%$/', $rawTableHeight, $heightPctMatch) === 1
+        ) {
             $parentKey = $elm['parent'];
             $parentHeight = 0.0;
             $parentNode = $parentKey >= 0 ? $this->getHTMLDOMNode($hrc['dom'], $parentKey) : null;

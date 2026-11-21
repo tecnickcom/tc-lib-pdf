@@ -717,7 +717,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.84.3';
+    protected string $version = '8.85.0';
 
     /**
      * Encrypt object.
@@ -1882,6 +1882,23 @@ abstract class Base
         }
 
         $this->warnings[] = $message;
+    }
+
+    /**
+     * Return the string with each invalid UTF-8 sequence replaced by U+FFFD.
+     */
+    protected function getValidUtf8(string $str): string
+    {
+        if (\mb_check_encoding($str, 'UTF-8')) {
+            return $str;
+        }
+
+        $substitute = \mb_substitute_character();
+        \mb_substitute_character(0xfffd);
+        $converted = \mb_convert_encoding($str, 'UTF-8', 'UTF-8');
+        \mb_substitute_character($substitute);
+
+        return \is_string($converted) ? $converted : '';
     }
 
     /**

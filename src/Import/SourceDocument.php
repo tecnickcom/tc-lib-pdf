@@ -296,7 +296,10 @@ class SourceDocument
     {
         $refStr = \trim($refStr);
         $mtch = [];
-        if (\preg_match('/^(\d+)\s+(\d+)\s+R$/', $refStr, $mtch) === 1 && isset($mtch[1], $mtch[2])) {
+        if (
+            \preg_match('/^(\d+)[\t\n\x0B\f\r ]+(\d+)[\t\n\x0B\f\r ]+R$/', $refStr, $mtch) === 1
+            && isset($mtch[1], $mtch[2])
+        ) {
             return $mtch[1] . '_' . $mtch[2];
         }
 

@@ -88,13 +88,13 @@ class Specificity
         // Count pseudo-classes (:pseudo) - not pseudo-elements (::pseudo)
         $classCount += (int) \preg_match_all(
             '/(?<!:):(?!:)(link|visited|hover|active|focus|target|lang|enabled|disabled'
-            . '|checked|indeterminate|root|nth|first|last|only|empty|contains|not)/i',
-            $selector,
+            . '|checked|indeterminate|root|nth|first|last|only|empty|contains|not)/',
+            \strtolower($selector),
             $matches,
         );
 
         // Count type selectors (element names)
-        $typeCount = (int) \preg_match_all('/[\>\+\~\s]{1}[a-zA-Z0-9]+/', " {$selector}", $matches);
+        $typeCount = (int) \preg_match_all('/[\>\+\~\t\n\x0B\f\r ]{1}[a-zA-Z0-9]+/', " {$selector}", $matches);
 
         // Count pseudo-elements (::before, ::after)
         $typeCount += (int) \preg_match_all('/::/', $selector, $matches);

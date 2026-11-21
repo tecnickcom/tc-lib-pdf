@@ -441,7 +441,7 @@ class ResourceCloner
             // Stream object: the source filter is preserved unless the destination mode forbids it.
             $parms = $streamDict['DecodeParms'] ?? $streamDict['DP'] ?? '';
             $matches = [];
-            \preg_match('/\/EarlyChange\s+(\d+)/', $parms, $matches);
+            \preg_match('/\/EarlyChange[\t\n\x0B\f\r ]+(\d+)/', $parms, $matches);
             $earlyChange = isset($matches[1]) && \is_numeric($matches[1]) ? (int) $matches[1] : 1;
             $normalized = $this->normalizeStreamFilter(
                 $streamBytes,
@@ -1235,7 +1235,7 @@ class ResourceCloner
     {
         $val = \trim($val);
         // Standard PDF ref form: "5 0 R"
-        if (\preg_match('/^\d+\s+\d+\s+R$/', $val)) {
+        if (\preg_match('/^\d+[\t\n\x0B\f\r ]+\d+[\t\n\x0B\f\r ]+R$/', $val)) {
             return true;
         }
 

@@ -606,18 +606,18 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected const SVGARCREGEX =
         '/('
             . self::SVGNUMPATTERN
-            . ')[\s,]*'
+            . ')[\t\n\x0B\f\r ,]*'
             . '('
             . self::SVGNUMPATTERN
-            . ')[\s,]*'
+            . ')[\t\n\x0B\f\r ,]*'
             . '('
             . self::SVGNUMPATTERN
-            . ')[\s,]*'
-            . '([01])[\s,]*'
-            . '([01])[\s,]*'
+            . ')[\t\n\x0B\f\r ,]*'
+            . '([01])[\t\n\x0B\f\r ,]*'
+            . '([01])[\t\n\x0B\f\r ,]*'
             . '('
             . self::SVGNUMPATTERN
-            . ')[\s,]*'
+            . ')[\t\n\x0B\f\r ,]*'
             . '('
             . self::SVGNUMPATTERN
             . ')/';
@@ -710,7 +710,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @var string
      */
-    protected const SVGLENGTHREGEX = '/^[+-]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[a-z]{1,4}|%)?$/i';
+    protected const SVGLENGTHREGEX = '/^[+-]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[A-Za-z]{1,4}|%)?$/';
 
     /**
      * SVG style properties holding a length, which may carry a unit suffix.
@@ -1049,12 +1049,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $tmb = $this->graph::IDMATRIX;
         $regs = [];
         if (\preg_match(
-            '/([a-z0-9\-\.]+)[\,\s]+'
-            . '([a-z0-9\-\.]+)[\,\s]+'
-            . '([a-z0-9\-\.]+)[\,\s]+'
-            . '([a-z0-9\-\.]+)[\,\s]+'
-            . '([a-z0-9\-\.]+)[\,\s]+'
-            . '([a-z0-9\-\.]+)/si',
+            '/([A-Za-z0-9\-\.]+)[\,\t\n\x0B\f\r ]+'
+            . '([A-Za-z0-9\-\.]+)[\,\t\n\x0B\f\r ]+'
+            . '([A-Za-z0-9\-\.]+)[\,\t\n\x0B\f\r ]+'
+            . '([A-Za-z0-9\-\.]+)[\,\t\n\x0B\f\r ]+'
+            . '([A-Za-z0-9\-\.]+)[\,\t\n\x0B\f\r ]+'
+            . '([A-Za-z0-9\-\.]+)/s',
             $val,
             $regs,
         )) {
@@ -1079,12 +1079,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     {
         $tmb = $this->graph::IDMATRIX;
         $regs = [];
-        if (\preg_match('/([a-z0-9\-\.]+)[\,\s]+([a-z0-9\-\.]+)/si', $val, $regs)) {
+        if (\preg_match('/([A-Za-z0-9\-\.]+)[\,\t\n\x0B\f\r ]+([A-Za-z0-9\-\.]+)/s', $val, $regs)) {
             $tmb[4] = \floatval($regs[1] ?? 0);
             $tmb[5] = \floatval($regs[2] ?? 0);
             return $tmb;
         }
-        if (\preg_match('/([a-z0-9\-\.]+)/si', $val, $regs)) {
+        if (\preg_match('/([A-Za-z0-9\-\.]+)/s', $val, $regs)) {
             $tmb[4] = \floatval($regs[1] ?? 0);
         }
         return $tmb;
@@ -1101,12 +1101,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     {
         $tmb = $this->graph::IDMATRIX;
         $regs = [];
-        if (\preg_match('/([a-z0-9\-\.]+)[\,\s]+([a-z0-9\-\.]+)/si', $val, $regs)) {
+        if (\preg_match('/([A-Za-z0-9\-\.]+)[\,\t\n\x0B\f\r ]+([A-Za-z0-9\-\.]+)/s', $val, $regs)) {
             $tmb[0] = \floatval($regs[1] ?? 0);
             $tmb[3] = \floatval($regs[2] ?? 0);
             return $tmb;
         }
-        if (\preg_match('/([a-z0-9\-\.]+)/si', $val, $regs)) {
+        if (\preg_match('/([A-Za-z0-9\-\.]+)/s', $val, $regs)) {
             $tmb[0] = \floatval($regs[1] ?? 0);
             $tmb[3] = $tmb[0];
         }
@@ -1124,7 +1124,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     {
         $tmb = $this->graph::IDMATRIX;
         $regs = [];
-        if (\preg_match('/([0-9\-\.]+)[\,\s]+([a-z0-9\-\.]+)[\,\s]+([a-z0-9\-\.]+)/si', $val, $regs)) {
+        if (\preg_match(
+            '/([0-9\-\.]+)[\,\t\n\x0B\f\r ]+([A-Za-z0-9\-\.]+)[\,\t\n\x0B\f\r ]+([A-Za-z0-9\-\.]+)/s',
+            $val,
+            $regs,
+        )) {
             $ang = \deg2rad(\floatval($regs[1] ?? 0));
             $trx = \floatval($regs[2] ?? 0);
             $try = \floatval($regs[3] ?? 0);
@@ -1140,7 +1144,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $tmb[5] = ($try * (1 - $tm3)) - ($trx * $tm1);
             return $tmb;
         }
-        if (\preg_match('/([0-9\-\.]+)/si', $val, $regs)) {
+        if (\preg_match('/([0-9\-\.]+)/s', $val, $regs)) {
             $ang = \deg2rad(\floatval($regs[1] ?? 0));
             $tmb[0] = \cos($ang);
             $tmb[1] = \sin($ang);
@@ -1163,7 +1167,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     {
         $tmb = $this->graph::IDMATRIX;
         $regs = [];
-        if (\preg_match('/([0-9\-\.]+)/si', $val, $regs)) {
+        if (\preg_match('/([0-9\-\.]+)/s', $val, $regs)) {
             $tmb[2] = \tan(\deg2rad(\floatval($regs[1] ?? 0)));
         }
         return $tmb;
@@ -1180,7 +1184,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     {
         $tmb = $this->graph::IDMATRIX;
         $regs = [];
-        if (\preg_match('/([0-9\-\.]+)/si', $val, $regs)) {
+        if (\preg_match('/([0-9\-\.]+)/s', $val, $regs)) {
             $tmb[1] = \tan(\deg2rad(\floatval($regs[1] ?? 0)));
         }
         return $tmb;
@@ -1199,7 +1203,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $tma = $this->graph::IDMATRIX;
 
         $matchCount = \preg_match_all(
-            '/(matrix|translate|scale|rotate|skewX|skewY)[\s]*+\(([^\)]+)\)/si',
+            '/(matrix|translate|scale|rotate|skewX|skewY)[\t\n\x0B\f\r ]*+\(([^\)]+)\)/s',
             $attr,
             $transform,
             PREG_SET_ORDER,
@@ -1343,7 +1347,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         $paths = [];
-        \preg_match_all('/([ACHLMQSTVZ])[\s]*+([^ACHLMQSTVZ\"]*+)/si', $attrd, $paths, PREG_SET_ORDER);
+        \preg_match_all(
+            '/([ACHLMQSTVZachlmqstvz])[\t\n\x0B\f\r ]*+([^ACHLMQSTVZachlmqstvz\"]*+)/s',
+            $attrd,
+            $paths,
+            PREG_SET_ORDER,
+        );
 
         // initialize variables
         $out = '';
@@ -2296,7 +2305,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected function parseCSSAttrib(string $tag, string $attr, string $default = ''): string
     {
         $regs = [];
-        if (\preg_match('/' . $attr . '[\s]*+:[\s]*+([^\;\"]*+)/si', $tag, $regs)) {
+        if (
+            AsciiPattern::matchFolded(
+                '/' . \strtolower($attr) . '[\t\n\x0B\f\r ]*+:[\t\n\x0B\f\r ]*+([^\;\"]*+)/s',
+                $tag,
+                $regs,
+            ) === 1
+        ) {
             return \trim($regs[1] ?? '');
         }
         return $default;
@@ -2342,7 +2357,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             }
 
             foreach (\explode(',', $parts[0]) as $selector) {
-                $selector = \trim(\preg_replace('/\s+/', ' ', $selector) ?? '');
+                $selector = \trim(\preg_replace('/[\t\n\x0B\f\r ]+/', ' ', $selector) ?? '');
                 if ($selector === '' || $selector[0] === '@') {
                     // An at-rule prelude is not a selector.
                     continue;
@@ -2378,7 +2393,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     {
         $svgobj = &$this->getSVGObjRef($soid);
 
-        $classes = \preg_split('/\s+/', \trim($attr['class'] ?? ''), -1, \PREG_SPLIT_NO_EMPTY);
+        $classes = \preg_split('/[\t\n\x0B\f\r ]+/', \trim($attr['class'] ?? ''), -1, \PREG_SPLIT_NO_EMPTY);
         $level = \max(0, $depth - 1);
 
         foreach (\array_keys($svgobj['selchain']) as $deeper) {
@@ -2626,7 +2641,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 // Normalise each dash/gap token to user units so that values with
                 // unit suffixes (px, pt, mm, %, …) produce correct dash lengths.
                 $dashArray = [];
-                $dashTokens = \preg_split('/[\s,]+/', \trim($svgstyle['stroke-dasharray']), 100, \PREG_SPLIT_NO_EMPTY);
+                $dashTokens = \preg_split(
+                    '/[\t\n\x0B\f\r ,]+/',
+                    \trim($svgstyle['stroke-dasharray']),
+                    100,
+                    \PREG_SPLIT_NO_EMPTY,
+                );
                 foreach (\is_array($dashTokens) ? $dashTokens : [] as $tok) {
                     $dashArray[] = $this->svgStrokeUnitToUnit($tok, $soid);
                 }
@@ -2726,7 +2746,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         $regs = [];
-        if (!\preg_match('/url\(\s*#([^)]+)\s*\)/i', $maskRef, $regs)) {
+        if (AsciiPattern::matchFolded('/url\([\t\n\x0B\f\r ]*#([^)]+)[\t\n\x0B\f\r ]*\)/', $maskRef, $regs) !== 1) {
             return '';
         }
 
@@ -2946,11 +2966,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         float $height,
     ): string {
         $regs = [];
-        if (!\preg_match(
-            '/rect\(([a-z0-9\-\.]*)[\s]*([a-z0-9\-\.]*)[\s]*([a-z0-9\-\.]*)[\s]*([a-z0-9\-\.]*)\)/si',
-            $svgstyle['clip'],
-            $regs,
-        )) {
+        if (
+            AsciiPattern::matchFolded(
+                '/rect\(([a-z0-9\-\.]*)[\t\n\x0B\f\r ]*([a-z0-9\-\.]*)[\t\n\x0B\f\r ]*([a-z0-9\-\.]*)[\t\n\x0B\f\r ]*([a-z0-9\-\.]*)\)/s',
+                $svgstyle['clip'],
+                $regs,
+            ) !== 1
+        ) {
             return '';
         }
 
@@ -3441,7 +3463,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $viewBoxTm = self::TMXID;
             $hasViewBox = false;
             if (isset($attr['viewBox']) && $attr['viewBox'] !== '') {
-                $vals = \preg_split('/[\s,]+/', \trim($attr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
+                $vals = \preg_split('/[\t\n\x0B\f\r ,]+/', \trim($attr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
                 if (\is_array($vals) && isset($vals[0], $vals[1], $vals[2], $vals[3])) {
                     $vbx = $this->svgUnitToUnit($vals[0], $soid);
                     $vby = $this->svgUnitToUnit($vals[1], $soid);
@@ -3703,7 +3725,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $viewBoxTm = self::TMXID;
             $hasViewBox = false;
             if (isset($attr['viewBox']) && $attr['viewBox'] !== '') {
-                $vals = \preg_split('/[\s,]+/', \trim($attr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
+                $vals = \preg_split('/[\t\n\x0B\f\r ,]+/', \trim($attr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
                 if (\is_array($vals) && isset($vals[0], $vals[1], $vals[2], $vals[3])) {
                     $vbx = $this->svgUnitToUnit($vals[0], $soid);
                     $vby = $this->svgUnitToUnit($vals[1], $soid);
@@ -3886,7 +3908,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $fillAlpha = $baseOpacity * $fillOpacity;
 
         $regs = [];
-        if (\preg_match('/url\([\s]*\#([^\)]*)\)/si', $svgstyle['fill'], $regs)) {
+        if (AsciiPattern::matchFolded('/url\([\t\n\x0B\f\r ]*\#([^\)]*)\)/s', $svgstyle['fill'], $regs) === 1) {
             $fillRef = $regs[1] ?? null;
             if (!\is_string($fillRef) || $fillRef === '') {
                 return $out;
@@ -3982,7 +4004,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected function getSVGClipPathRef(string $value): string
     {
         $match = [];
-        if (\preg_match('/^url\([\s]*[\'"]?#([^\s\'")]+)[\'"]?[\s]*\)$/i', \trim($value), $match) !== 1) {
+        if (
+            AsciiPattern::matchFolded(
+                '/^url\([\t\n\x0B\f\r ]*[\'"]?#([^\t\n\x0B\f\r \'")]+)[\'"]?[\t\n\x0B\f\r ]*\)$/',
+                \trim($value),
+                $match,
+            ) !== 1
+        ) {
             return '';
         }
 
@@ -4747,7 +4775,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         // The stream carries the PDF resource names, while the font dictionary is
         // built from the font stack keys, so the names are mapped back.
-        \preg_match_all('/\/F([0-9]+)\s+[0-9\.\-]+\s+Tf\b/', $stream, $match);
+        \preg_match_all('/\/F([0-9]+)[\t\n\x0B\f\r ]+[0-9\.\-]+[\t\n\x0B\f\r ]+Tf(?![0-9A-Za-z_])/', $stream, $match);
         $fontIndexes = \array_flip(\array_map('intval', $match[1] ?? []));
         $font = [];
         foreach ($this->font->getFonts() as $fontkey => $fontdata) {
@@ -4758,12 +4786,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $font[] = $fontkey;
         }
 
-        \preg_match_all('/\/GS([0-9]+)\s+gs\b/', $stream, $match);
+        \preg_match_all('/\/GS([0-9]+)[\t\n\x0B\f\r ]+gs(?![0-9A-Za-z_])/', $stream, $match);
         $extgstate = \array_values(\array_unique(\array_map('intval', $match[1] ?? [])));
 
         // The ExtGState resources that carry a name of their own rather than the
         // GS<n> form: the SVG masks (MSK_…) and the gradient soft masks (TGS<n>).
-        \preg_match_all('/\/([A-Za-z][A-Za-z0-9_]*)\s+gs\b/', $stream, $match);
+        \preg_match_all('/\/([A-Za-z][A-Za-z0-9_]*)[\t\n\x0B\f\r ]+gs(?![0-9A-Za-z_])/', $stream, $match);
         $gsnames = [];
         foreach ($match[1] ?? [] as $name) {
             if (\preg_match('/^GS[0-9]+$/', $name) === 1) {
@@ -4773,16 +4801,20 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $gsnames[$name] = true;
         }
 
-        \preg_match_all('/\/Sh([0-9]+)\s+sh\b/', $stream, $match);
+        \preg_match_all('/\/Sh([0-9]+)[\t\n\x0B\f\r ]+sh(?![0-9A-Za-z_])/', $stream, $match);
         $gradient = \array_values(\array_unique(\array_map('intval', $match[1] ?? [])));
 
-        \preg_match_all('/\/Pattern\s+cs\s+\/(PTN_[0-9A-F]+)\s+scn\b/', $stream, $match);
+        \preg_match_all(
+            '/\/Pattern[\t\n\x0B\f\r ]+cs[\t\n\x0B\f\r ]+\/(PTN_[0-9A-F]+)[\t\n\x0B\f\r ]+scn(?![0-9A-Za-z_])/',
+            $stream,
+            $match,
+        );
         $pattern = \array_values(\array_unique($match[1] ?? []));
 
         // The stream carries the PDF resource names, while the spot color
         // dictionary is keyed by color name, so the names are mapped back. The
         // stroking operator is the upper-case form of the non-stroking one.
-        \preg_match_all('/\/CS([0-9]+)\s+(?:cs|CS)\b/', $stream, $match);
+        \preg_match_all('/\/CS([0-9]+)[\t\n\x0B\f\r ]+(?:cs|CS)(?![0-9A-Za-z_])/', $stream, $match);
         $spotIndexes = \array_flip(\array_map('intval', $match[1] ?? []));
         $spot = [];
         foreach ($this->color->getSpotColors() as $spotkey => $spotdata) {
@@ -4795,7 +4827,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         $image = [];
         $xobject = [];
-        \preg_match_all('/\/([A-Za-z0-9_]+)\s+Do\b/', $stream, $match);
+        \preg_match_all('/\/([A-Za-z0-9_]+)[\t\n\x0B\f\r ]+Do(?![0-9A-Za-z_])/', $stream, $match);
         foreach ($match[1] ?? [] as $key) {
             $imgm = [];
             if (\preg_match('/^IMG(?:plain|mask)?([0-9]+)$/', $key, $imgm) === 1) {
@@ -5276,7 +5308,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             && !isset($attr['fill'])
             && (
                 !isset($attr['style'])
-                || !\preg_match('/[;\"\s]{1}fill[\s]*:[\s]*([^;\"]*)/si', $attr['style'], $attrval)
+                || AsciiPattern::matchFolded(
+                    '/[;\"\t\n\x0B\f\r ]{1}fill[\t\n\x0B\f\r ]*:[\t\n\x0B\f\r ]*([^;\"]*)/s',
+                    $attr['style'],
+                    $attrval,
+                ) !== 1
             )
         ) {
             // default fill attribute for clipping
@@ -5313,7 +5349,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $locked = false;
             foreach ($declblocks as $block) {
                 $attrval = [];
-                $found = \preg_match_all('/[;\"\s]{1}' . $key . '[\s]*:[\s]*([^;\"]*)/si', $block, $attrval);
+                $found = AsciiPattern::matchAllFolded(
+                    '/[;\"\t\n\x0B\f\r ]{1}' . \strtolower($key) . '[\t\n\x0B\f\r ]*:[\t\n\x0B\f\r ]*([^;\"]*)/s',
+                    $block,
+                    $attrval,
+                );
                 if ($found === false || $found < 1) {
                     continue;
                 }
@@ -5322,9 +5362,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 // of its values, unless an earlier one is important.
                 foreach ($attrval[1] ?? [] as $raw) {
                     $decl = \trim($raw);
-                    $important = \preg_match('/!\s*important$/i', $decl) === 1;
+                    $important = AsciiPattern::matchFolded('/![\t\n\x0B\f\r ]*important$/', $decl) === 1;
                     if ($important) {
-                        $decl = \trim((string) \preg_replace('/!\s*important$/i', '', $decl));
+                        $decl = \trim((string) AsciiPattern::replaceFolded(
+                            '/![\t\n\x0B\f\r ]*important$/',
+                            static fn(): string => '',
+                            $decl,
+                        ));
                     }
 
                     if ($decl === '' || $locked && !$important) {
@@ -5744,7 +5788,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
         // Parse "min-x min-y width height" on whitespace and commas, keeping
         // decimals and negative origins intact.
-        $vbvals = \preg_split('/[\s,]+/', \trim($attr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
+        $vbvals = \preg_split('/[\t\n\x0B\f\r ,]+/', \trim($attr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
         if (!\is_array($vbvals) || !isset($vbvals[0], $vbvals[1], $vbvals[2], $vbvals[3])) {
             return $out
             . $this->parseSVGStyle($parser, $soid, $svgstyle, $prev_svgstyle, $posx, $posy, $width, $height);
@@ -6679,7 +6723,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         $paths = [];
-        \preg_match_all('/([ACHLMQSTVZ])[\s]*+([^ACHLMQSTVZ\"]*+)/si', $attrd, $paths, PREG_SET_ORDER);
+        \preg_match_all(
+            '/([ACHLMQSTVZachlmqstvz])[\t\n\x0B\f\r ]*+([^ACHLMQSTVZachlmqstvz\"]*+)/s',
+            $attrd,
+            $paths,
+            PREG_SET_ORDER,
+        );
         if ($paths === []) {
             return [];
         }
@@ -7032,7 +7081,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         $matches = [];
-        if (!\preg_match('/^url\([\s]*#([^)\s]+)[\s]*\)$/', \trim($marker), $matches)) {
+        if (!\preg_match(
+            '/^url\([\t\n\x0B\f\r ]*#([^)\t\n\x0B\f\r ]+)[\t\n\x0B\f\r ]*\)$/',
+            \trim($marker),
+            $matches,
+        )) {
             return '';
         }
 
@@ -7096,7 +7149,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $vbw = $mkw;
         $vbh = $mkh;
         if (isset($markerAttr['viewBox']) && $markerAttr['viewBox'] !== '') {
-            $vals = \preg_split('/[\s,]+/', \trim($markerAttr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
+            $vals = \preg_split('/[\t\n\x0B\f\r ,]+/', \trim($markerAttr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
             if (\is_array($vals) && \count($vals) >= 4) {
                 $vbx = $this->svgUnitToUnit($vals[0], $soid);
                 $vby = $this->svgUnitToUnit($vals[1] ?? '0', $soid);
@@ -7178,7 +7231,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             }
         } else {
             $omatch = [];
-            if (\preg_match('/^([+-]?\d+(?:\.\d+)?)(deg)?$/i', $orient, $omatch) === 1) {
+            if (AsciiPattern::matchFolded('/^([+-]?\d+(?:\.\d+)?)(deg)?$/', $orient, $omatch) === 1) {
                 if (isset($omatch[1]) && \is_numeric($omatch[1])) {
                     $angle = (float) $omatch[1];
                 }
@@ -7330,7 +7383,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
         $attrpoints = isset($attr['points']) && $attr['points'] !== '' ? \trim($attr['points']) : '0 0';
         // note that point may use a complex syntax not covered here
-        $points = \preg_split('/[\,\s]+/si', $attrpoints);
+        $points = \preg_split('/[\,\t\n\x0B\f\r ]+/s', $attrpoints);
         if (!\is_array($points) || \count($points) < 4) {
             return '';
         }
@@ -7698,7 +7751,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         // Parse the rotate list; the first angle is the run fallback.
         $svgobj['textmode']['rotlist'] = [];
         if (isset($attr['rotate']) && $attr['rotate'] !== '') {
-            $rotvals = \preg_split('/[\s,]+/', \trim($attr['rotate']), -1, \PREG_SPLIT_NO_EMPTY);
+            $rotvals = \preg_split('/[\t\n\x0B\f\r ,]+/', \trim($attr['rotate']), -1, \PREG_SPLIT_NO_EMPTY);
             if (\is_array($rotvals) && $rotvals !== []) {
                 if (\is_numeric($rotvals[0])) {
                     $svgobj['textmode']['rotate'] = (float) $rotvals[0];
@@ -7721,7 +7774,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $svgobj['textmode']['textpathmethod'] = 'align';
         $svgobj['textmode']['textpathspacing'] = 'exact';
         if (isset($attr['x']) && \str_contains($attr['x'], ' ')) {
-            $xvals = \preg_split('/[\s,]+/', \trim($attr['x']), -1, \PREG_SPLIT_NO_EMPTY);
+            $xvals = \preg_split('/[\t\n\x0B\f\r ,]+/', \trim($attr['x']), -1, \PREG_SPLIT_NO_EMPTY);
             if (\is_array($xvals)) {
                 foreach ($xvals as $xv) {
                     $svgobj['textmode']['xlist'][] = $this->svgUnitToUnit($xv, $soid);
@@ -7729,7 +7782,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             }
         }
         if (isset($attr['y']) && \str_contains($attr['y'], ' ')) {
-            $yvals = \preg_split('/[\s,]+/', \trim($attr['y']), -1, \PREG_SPLIT_NO_EMPTY);
+            $yvals = \preg_split('/[\t\n\x0B\f\r ,]+/', \trim($attr['y']), -1, \PREG_SPLIT_NO_EMPTY);
             if (\is_array($yvals)) {
                 foreach ($yvals as $yv) {
                     $svgobj['textmode']['ylist'][] = $this->svgUnitToUnit($yv, $soid);
@@ -7860,7 +7913,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         if ($defName === 'polyline' || $defName === 'polygon') {
             $attrPoints = $defAttr['points'] ?? '';
-            $points = \preg_split('/[\,\s]+/si', \trim($attrPoints), -1, \PREG_SPLIT_NO_EMPTY);
+            $points = \preg_split('/[\,\t\n\x0B\f\r ]+/s', \trim($attrPoints), -1, \PREG_SPLIT_NO_EMPTY);
             if (!\is_array($points) || \count($points) < 4) {
                 return null;
             }
@@ -7941,7 +7994,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 continue;
             }
 
-            $isRel = \ctype_lower($command);
+            $isRel = AsciiPattern::isLower($command);
             $cmd = \strtolower($command);
 
             if ($cmd === 'm' || $cmd === 'l' || $cmd === 't') {
@@ -9051,7 +9104,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
             // If the use width/height are omitted, fall back to the viewBox size.
             if (($useW <= 0.0 || $useH <= 0.0) && isset($symAttr['viewBox']) && $symAttr['viewBox'] !== '') {
-                $viewBoxVals = \preg_split('/[\s,]+/', \trim($symAttr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
+                $viewBoxVals = \preg_split('/[\t\n\x0B\f\r ,]+/', \trim($symAttr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
                 if (\is_array($viewBoxVals) && isset($viewBoxVals[2], $viewBoxVals[3])) {
                     $vbw = \abs($this->svgLengthToSVGUnit($viewBoxVals[2], $soid));
                     $vbh = \abs($this->svgLengthToSVGUnit($viewBoxVals[3], $soid));
@@ -9246,7 +9299,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected function getSVGRootAttribute(string $attributes, string $name): string
     {
         $tmp = [];
-        if (!\preg_match('/[\s]+' . \preg_quote($name, '/') . '[\s]*=[\s]*(["\'])(.*?)\1/si', $attributes, $tmp)) {
+        $pattern =
+            '/[\t\n\x0B\f\r ]+'
+            . \preg_quote(\strtolower($name), '/')
+            . '[\t\n\x0B\f\r ]*=[\t\n\x0B\f\r ]*(["\'])(.*?)\1/s';
+        if (AsciiPattern::matchFolded($pattern, $attributes, $tmp) !== 1) {
             return '';
         }
 
@@ -9326,7 +9383,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         ];
 
         $regs = [];
-        \preg_match('/<svg([^\>]*)>/si', $data, $regs);
+        AsciiPattern::matchFolded('/<svg([^\>]*)>/s', $data, $regs);
         if (!isset($regs[1]) || $regs[1] === '') {
             return $out;
         }
@@ -9337,12 +9394,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $out['height'] = \max(0.0, $this->getSVGRootLength($this->getSVGRootAttribute($regs[1], 'height')));
 
         $tmp = [];
-        if (!\preg_match(
-            '/[\s]+viewBox[\s]*=[\s]*(["\'])[\s]*'
-            . '([0-9\.\-]+)[\s,]+([0-9\.\-]+)[\s,]+([0-9\.]+)[\s,]+([0-9\.]+)[\s]*\1/si',
-            $regs[1],
-            $tmp,
-        )) {
+        if (
+            AsciiPattern::matchFolded(
+                '/[\t\n\x0B\f\r ]+viewbox[\t\n\x0B\f\r ]*=[\t\n\x0B\f\r ]*(["\'])[\t\n\x0B\f\r ]*'
+                . '([0-9\.\-]+)[\t\n\x0B\f\r ,]+([0-9\.\-]+)[\t\n\x0B\f\r ,]+([0-9\.]+)[\t\n\x0B\f\r ,]+([0-9\.]+)[\t\n\x0B\f\r ]*\1/s',
+                $regs[1],
+                $tmp,
+            ) !== 1
+        ) {
             return $out;
         }
 
@@ -9366,7 +9425,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return $out;
         }
 
-        $asr = \preg_split('/[\s]+/si', $aspectRatio);
+        $asr = \preg_split('/[\t\n\x0B\f\r ]+/s', $aspectRatio);
         if (!\is_array($asr) || \count($asr) < 1) {
             return $out;
         }
@@ -9564,12 +9623,24 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         // Check inline style attribute for stop-color / stop-opacity.
         if (isset($attr['style'])) {
             $matches = [];
-            if (\preg_match('/stop-color\s*:\s*([^;]+)/i', $attr['style'], $matches)) {
+            if (
+                AsciiPattern::matchFolded(
+                    '/stop-color[\t\n\x0B\f\r ]*:[\t\n\x0B\f\r ]*([^;]+)/',
+                    $attr['style'],
+                    $matches,
+                ) === 1
+            ) {
                 if (isset($matches[1])) {
                     $svgstyle['stop-color'] = \trim($matches[1]);
                 }
             }
-            if (\preg_match('/stop-opacity\s*:\s*([^;]+)/i', $attr['style'], $matches)) {
+            if (
+                AsciiPattern::matchFolded(
+                    '/stop-opacity[\t\n\x0B\f\r ]*:[\t\n\x0B\f\r ]*([^;]+)/',
+                    $attr['style'],
+                    $matches,
+                ) === 1
+            ) {
                 if (isset($matches[1])) {
                     $svgstyle['stop-opacity'] = $this->normalizeSVGAlphaValue($matches[1]);
                 }

@@ -64,17 +64,17 @@ class SelectorMatcher
      * Matches one compound selector: an optional type followed by any number of
      * id, class, attribute and pseudo-class parts.
      */
-    private const COMPOUND_REGEX = '/^(\*|[A-Za-z][\w-]*+)?+((?:[.#][\w-]++|\[[^\]]*+\]|:[a-z-]++(?:\([^)]*+\))?+)*+)$/';
+    private const COMPOUND_REGEX = '/^(\*|[A-Za-z][0-9A-Za-z_-]*+)?+((?:[.#][0-9A-Za-z_-]++|\[[^\]]*+\]|:[a-z-]++(?:\([^)]*+\))?+)*+)$/';
 
     /**
      * Matches a single simple part inside a compound selector.
      */
-    private const PART_REGEX = '/[.#][\w-]+|\[[^\]]*\]|:[a-z-]+(?:\([^)]*\))?/';
+    private const PART_REGEX = '/[.#][0-9A-Za-z_-]+|\[[^\]]*\]|:[a-z-]+(?:\([^)]*\))?/';
 
     /**
      * Matches an attribute selector body.
      */
-    private const ATTR_REGEX = '/^\[\s*([\w-]+)\s*(?:([~|^$*]?=)\s*("[^"]*"|\'[^\']*\'|[^\]\s]*)\s*)?\]$/';
+    private const ATTR_REGEX = '/^\[[\t\n\x0B\f\r ]*([0-9A-Za-z_-]+)[\t\n\x0B\f\r ]*(?:([~|^$*]?=)[\t\n\x0B\f\r ]*("[^"]*"|\'[^\']*\'|[^\]\t\n\x0B\f\r ]*)[\t\n\x0B\f\r ]*)?\]$/';
 
     /**
      * Pseudo-classes that a document read in order can decide.
@@ -509,7 +509,7 @@ class SelectorMatcher
      */
     private static function splitWords(string $value): array
     {
-        $words = \preg_split('/\s+/', $value, -1, \PREG_SPLIT_NO_EMPTY);
+        $words = \preg_split('/[\t\n\x0B\f\r ]+/', $value, -1, \PREG_SPLIT_NO_EMPTY);
 
         return \is_array($words) ? $words : [];
     }

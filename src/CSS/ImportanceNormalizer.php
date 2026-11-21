@@ -18,6 +18,8 @@ declare(strict_types=1);
 
 namespace Com\Tecnick\Pdf\CSS;
 
+use Com\Tecnick\Pdf\AsciiPattern;
+
 /**
  * Com\Tecnick\Pdf\CSS\ImportanceNormalizer
  *
@@ -162,9 +164,15 @@ class ImportanceNormalizer
             }
 
             $value = \trim(\substr($decl, $pos + 1));
-            $important = \preg_match('/!\s*important\s*$/i', $value) === 1;
+            $important = AsciiPattern::matchFolded('/![\t\n\x0B\f\r ]*important[\t\n\x0B\f\r ]*$/', $value) === 1;
             if ($important) {
-                $value = \trim(\preg_replace('/!\s*important\s*$/i', '', $value) ?? $value);
+                $value = \trim(
+                    AsciiPattern::replaceFolded(
+                        '/![\t\n\x0B\f\r ]*important[\t\n\x0B\f\r ]*$/',
+                        static fn(): string => '',
+                        $value,
+                    ) ?? $value,
+                );
             }
 
             $result[$name] = [

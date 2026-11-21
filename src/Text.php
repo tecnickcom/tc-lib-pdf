@@ -2096,8 +2096,11 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         // so plain text without decorations keeps its existing tagging.
         if (
             $tailEnd > $etEnd
-            && \preg_match('~(?:^|\s)(?:f\*?|S|s|B\*?|b\*?)(?:\s|$)~', \substr($content, $etEnd, $tailEnd - $etEnd))
-                === 1
+            && \preg_match('~(?:^|[\t\n\x0B\f\r ])(?:f\*?|S|s|B\*?|b\*?)(?:[\t\n\x0B\f\r ]|$)~', \substr(
+                $content,
+                $etEnd,
+                $tailEnd - $etEnd,
+            )) === 1
         ) {
             $etEnd = $tailEnd;
         }
@@ -4579,7 +4582,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         // extract the patterns part
         $matches = [];
-        if (\preg_match('/\\\\patterns\{([^\}]*+)\}/i', $data, $matches) !== 1) {
+        if (AsciiPattern::matchFolded('/\\\\patterns\{([^\}]*+)\}/', $data, $matches) !== 1) {
             throw new PdfException('Invalid hyphenation pattern section from file: ' . $file);
         }
 
@@ -4589,7 +4592,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         $data = \trim(\substr($matches[0], 10, -1));
         // extract each pattern
-        $list = \preg_split('/[\s]+/', $data);
+        $list = \preg_split('/[\t\n\x0B\f\r ]+/', $data);
         if ($list === false) {
             throw new PdfException('Invalid hyphenation patterns from file: ' . $file);
         }

@@ -123,8 +123,8 @@ class PdfColor extends \Com\Tecnick\Color\Pdf
         }
 
         $match = [];
-        $ok = \preg_match(
-            '/^spot\(\s*("(?:[^"\\\\]++|\\\\.)*+"|\'(?:[^\'\\\\]++|\\\\.)*+\'|[^,\)]+?)\s*(?:,\s*([^\)]+?)\s*)?\)$/i',
+        $ok = AsciiPattern::matchFolded(
+            '/^spot\([\t\n\x0B\f\r ]*("(?:[^"\\\\]++|\\\\.)*+"|\'(?:[^\'\\\\]++|\\\\.)*+\'|[^,\)]+?)[\t\n\x0B\f\r ]*(?:,[\t\n\x0B\f\r ]*([^\)]+?)[\t\n\x0B\f\r ]*)?\)$/',
             $trimmed,
             $match,
         );

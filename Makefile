@@ -335,12 +335,37 @@ tag:
 ## Run unit tests
 # PHPUnit resolves its own configuration: phpunit.xml when present, else phpunit.xml.dist.
 .PHONY: test
-test: ensuretarget
+test: ensuretarget locale-fixture
 	$(COMPOSER) run-script test
+
+## Build the LC_CTYPE test locale used by test-locale (requires localedef)
+# localedef exits with status 1 for the categories the source does not define.
+.PHONY: locale-fixture
+locale-fixture: ensuretarget
+	@if ! command -v localedef >/dev/null 2>&1; then \
+		echo "localedef not found: the test locale is not built"; \
+	else \
+		mkdir -p "$(TARGETDIR)/locale"; \
+		localedef -c -i test/fixtures/locale/hostile -f ISO-8859-9 "$(TARGETDIR)/locale/hostile" >/dev/null 2>&1 || true; \
+		if [ -f "$(TARGETDIR)/locale/hostile/LC_CTYPE" ]; then \
+			echo "test locale built in $(TARGETDIR)/locale/hostile"; \
+		else \
+			echo "localedef could not build the test locale"; \
+		fi; \
+	fi
+
+## Run unit tests under the LC_CTYPE test locale
+.PHONY: test-locale
+test-locale: locale-fixture
+	@if [ ! -f "$(TARGETDIR)/locale/hostile/LC_CTYPE" ]; then \
+		echo "test locale not available: skipping"; \
+	else \
+		$(PHP) -d auto_prepend_file=test/locale_prepend.php vendor/bin/phpunit --stderr --no-coverage --display-skipped test; \
+	fi
 
 ## Run unit tests and write the coverage report (requires Xdebug or pcov)
 .PHONY: test-coverage
-test-coverage: ensuretarget
+test-coverage: ensuretarget locale-fixture
 	$(COMPOSER) run-script test:coverage
 
 ## Remove all installed files

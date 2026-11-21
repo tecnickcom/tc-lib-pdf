@@ -729,22 +729,16 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
     /**
      * Escape a string for XML output in the XMP packet.
      *
-     * Invalid UTF-8 sequences and the control characters that XML 1.0 does not
-     * permit are removed before the markup characters (&lt; &gt; &amp;) are
-     * escaped, so that arbitrary caller input cannot make the metadata stream
-     * unparseable.
+     * Invalid UTF-8 sequences are replaced with U+FFFD and the control characters
+     * that XML 1.0 does not permit are removed before the markup characters
+     * (&lt; &gt; &amp;) are escaped, so that arbitrary caller input cannot make
+     * the metadata stream unparseable.
      *
      * @param string $str Input string to escape.
      */
     protected function getEscapedXML(string $str): string
     {
-        if (!\mb_check_encoding($str, 'UTF-8')) {
-            $substitute = \mb_substitute_character();
-            \mb_substitute_character(0xfffd);
-            $converted = \mb_convert_encoding($str, 'UTF-8', 'UTF-8');
-            \mb_substitute_character($substitute);
-            $str = \is_string($converted) ? $converted : '';
-        }
+        $str = $this->getValidUtf8($str);
 
         // XML 1.0 allows only tab, line feed, carriage return and code points >= 0x20.
         $stripped = \preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $str);
@@ -831,7 +825,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
      */
     protected function checkCustomXMP(string $key, string $xmp): void
     {
-        if (\preg_match('/<!(?:DOCTYPE|ENTITY)/i', $xmp) === 1) {
+        if (AsciiPattern::matchFolded('/<!(?:doctype|entity)/', $xmp) === 1) {
             throw new PdfException(
                 'Custom XMP fragment for "' . $key . '" must not contain a DOCTYPE or ENTITY declaration',
             );
@@ -1321,7 +1315,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
      */
     protected function getOutXMPKeywordItems(): string
     {
-        $keywords = \preg_split('/\s+/', \trim($this->keywords), -1, PREG_SPLIT_NO_EMPTY);
+        $keywords = \preg_split('/[\t\n\x0B\f\r ]+/', \trim($this->keywords), -1, PREG_SPLIT_NO_EMPTY);
         if ($keywords === false || $keywords === []) {
             return '';
         }

@@ -104,6 +104,9 @@ jobs:
         run: composer audit
       - name: Run all tests
         run: make qa-coverage
+      - name: Run all tests under the LC_CTYPE test locale
+        if: matrix.php-version == '8.4'
+        run: make test-locale
       #- name: Generate CSS renderability reports
       #  if: matrix.php-version == '8.4'
       #  run: |
@@ -283,3 +286,4 @@ jobs:
         run: composer install --no-interaction
       - name: Run unit tests
         run: composer run test
+

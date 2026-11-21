@@ -281,7 +281,9 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $matchGs = [];
-        $gsCount = $transpNames === [] ? 0 : \preg_match_all('/\/([A-Za-z0-9_]+)\s+gs\b/', $stream, $matchGs);
+        $gsCount = $transpNames === []
+            ? 0
+            : \preg_match_all('/\/([A-Za-z0-9_]+)[\t\n\x0B\f\r ]+gs(?![0-9A-Za-z_])/', $stream, $matchGs);
         if ($gsCount !== false && $gsCount > 0) {
             foreach ($matchGs[1] ?? [] as $name) {
                 if (isset($transpNames[$name])) {
@@ -291,7 +293,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $matchDo = [];
-        $doCount = \preg_match_all('/\/([A-Za-z0-9_]+)\s+Do\b/', $stream, $matchDo);
+        $doCount = \preg_match_all('/\/([A-Za-z0-9_]+)[\t\n\x0B\f\r ]+Do(?![0-9A-Za-z_])/', $stream, $matchDo);
         if ($doCount !== false && $doCount > 0) {
             foreach ($matchDo[1] ?? [] as $name) {
                 if (
@@ -514,7 +516,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected function getPDFObjectOffsets(string $data): array
     {
         $matches = [];
-        \preg_match_all('/(([0-9]+)[\s][0-9]+[\s]obj[\n])/i', $data, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+        \preg_match_all(
+            '/(([0-9]+)[\t\n\x0B\f\r ][0-9]+[\t\n\x0B\f\r ][Oo][Bb][Jj][\n])/',
+            $data,
+            $matches,
+            PREG_SET_ORDER | PREG_OFFSET_CAPTURE,
+        );
         $offset = [];
         foreach ($matches as $match) {
             $m2 = $match[2] ?? [];
@@ -1829,7 +1836,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     {
         $fontNames = [];
         $matchFont = [];
-        $fontMatchCount = \preg_match_all('/\/(F[0-9]+)\s+[0-9\.\-]+\s+Tf\b/', $stream, $matchFont);
+        $fontMatchCount = \preg_match_all(
+            '/\/(F[0-9]+)[\t\n\x0B\f\r ]+[0-9\.\-]+[\t\n\x0B\f\r ]+Tf(?![0-9A-Za-z_])/',
+            $stream,
+            $matchFont,
+        );
         if ($fontMatchCount !== false && $fontMatchCount > 0) {
             foreach ($matchFont[1] ?? [] as $name) {
                 $fontNames[$name] = true;
@@ -1838,7 +1849,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         $extgstate = [];
         $matchGs = [];
-        $gsMatchCount = \preg_match_all('/\/GS([0-9]+)\s+gs\b/', $stream, $matchGs);
+        $gsMatchCount = \preg_match_all('/\/GS([0-9]+)[\t\n\x0B\f\r ]+gs(?![0-9A-Za-z_])/', $stream, $matchGs);
         if ($gsMatchCount !== false && $gsMatchCount > 0) {
             foreach ($matchGs[1] ?? [] as $idx) {
                 $extgstate[(int) $idx] = true;
@@ -1849,7 +1860,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         // and the soft masks of the gradients.
         $gsNames = [];
         $matchGsName = [];
-        $gsNameCount = \preg_match_all('/\/([A-Za-z][A-Za-z0-9_]*)\s+gs\b/', $stream, $matchGsName);
+        $gsNameCount = \preg_match_all(
+            '/\/([A-Za-z][A-Za-z0-9_]*)[\t\n\x0B\f\r ]+gs(?![0-9A-Za-z_])/',
+            $stream,
+            $matchGsName,
+        );
         if ($gsNameCount !== false && $gsNameCount > 0) {
             foreach ($matchGsName[1] ?? [] as $name) {
                 if (\preg_match('/^GS[0-9]+$/', $name) === 1) {
@@ -1862,7 +1877,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         $patternNames = [];
         $matchPtn = [];
-        $ptnCount = \preg_match_all('/\/Pattern\s+cs\s+\/(PTN_[0-9A-F]+)\s+scn\b/', $stream, $matchPtn);
+        $ptnCount = \preg_match_all(
+            '/\/Pattern[\t\n\x0B\f\r ]+cs[\t\n\x0B\f\r ]+\/(PTN_[0-9A-F]+)[\t\n\x0B\f\r ]+scn(?![0-9A-Za-z_])/',
+            $stream,
+            $matchPtn,
+        );
         if ($ptnCount !== false && $ptnCount > 0) {
             foreach ($matchPtn[1] ?? [] as $name) {
                 $patternNames[$name] = true;
@@ -1871,7 +1890,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         $gradient = [];
         $matchSh = [];
-        $shMatchCount = \preg_match_all('/\/Sh([0-9]+)\s+sh\b/', $stream, $matchSh);
+        $shMatchCount = \preg_match_all('/\/Sh([0-9]+)[\t\n\x0B\f\r ]+sh(?![0-9A-Za-z_])/', $stream, $matchSh);
         if ($shMatchCount !== false && $shMatchCount > 0) {
             foreach ($matchSh[1] ?? [] as $idx) {
                 $gradient[(int) $idx] = true;
@@ -1881,7 +1900,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $spotNames = [];
         $matchCs = [];
         // The stroking operator is the upper-case form of the non-stroking one.
-        $csMatchCount = \preg_match_all('/\/(CS[0-9]+)\s+(?:cs|CS)\b/', $stream, $matchCs);
+        $csMatchCount = \preg_match_all('/\/(CS[0-9]+)[\t\n\x0B\f\r ]+(?:cs|CS)(?![0-9A-Za-z_])/', $stream, $matchCs);
         if ($csMatchCount !== false && $csMatchCount > 0) {
             foreach ($matchCs[1] ?? [] as $name) {
                 $spotNames[$name] = true;
@@ -1891,7 +1910,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $imageKeys = [];
         $xobjectKeys = [];
         $matchDo = [];
-        $doMatchCount = \preg_match_all('/\/([A-Za-z0-9_]+)\s+Do\b/', $stream, $matchDo);
+        $doMatchCount = \preg_match_all('/\/([A-Za-z0-9_]+)[\t\n\x0B\f\r ]+Do(?![0-9A-Za-z_])/', $stream, $matchDo);
         if ($doMatchCount !== false && $doMatchCount > 0) {
             foreach ($matchDo[1] ?? [] as $key) {
                 $imgm = [];
@@ -1968,7 +1987,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             }
 
             $match = [];
-            $ok = \preg_match('/\/' . \preg_quote($name, '/') . '\s+([0-9]+)\s+0\s+R\b/', $dict, $match);
+            $ok = \preg_match(
+                '/\/'
+                . \preg_quote($name, '/')
+                . '[\t\n\x0B\f\r ]+([0-9]+)[\t\n\x0B\f\r ]+0[\t\n\x0B\f\r ]+R(?![0-9A-Za-z_])/',
+                $dict,
+                $match,
+            );
             if ($ok === 1 && isset($match[1])) {
                 $out .= ' /' . $name . ' ' . (int) $match[1] . ' 0 R';
             }
@@ -2341,7 +2366,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     }
 
                     if ($akey === 'Headers') {
-                        $headerIds = \preg_split('/[\s,]+/', \trim($aval));
+                        $headerIds = \preg_split('/[\t\n\x0B\f\r ,]+/', \trim($aval));
                         if ($headerIds === false) {
                             continue;
                         }
@@ -4915,13 +4940,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         $root_oid = $this->processPrevNextBookmarks();
         $first_oid = $this->pon + 1;
-        $nltags = '/<br[\s]?\/>|<\/(blockquote|dd|dl|div|dt|h1|h2|h3|h4|h5|h6|hr|li|ol|p|pre|ul|tcpdf|table|tr|td)>/si';
+        $nltags = '/<br[\t\n\x0B\f\r ]?\/>|<\/(blockquote|dd|dl|div|dt|h1|h2|h3|h4|h5|h6|hr|li|ol|p|pre|ul|tcpdf|table|tr|td)>/s';
         $out = '';
         foreach ($this->outlines as $outline) {
             // covert HTML title to string
-            $search = [$nltags, "/[\r]+/si", "/[\n]+/si"];
-            $replace = ["\n", '', "\n"];
-            $title = \preg_replace($search, $replace, $outline['t']);
+            $title = AsciiPattern::replaceFolded($nltags, static fn(): string => "\n", $outline['t']);
+            $title = $title === null ? null : \preg_replace(["/[\r]+/s", "/[\n]+/s"], ['', "\n"], $title);
             if ($title === null) {
                 $title = '';
             }
@@ -5436,7 +5460,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function certificatePemToDer(string $pem): string
     {
-        $stripped = (string) \preg_replace('/-----[^-]+-----|\s+/', '', $pem);
+        $stripped = (string) \preg_replace('/-----[^-]+-----|[\t\n\x0B\f\r ]+/', '', $pem);
         $der = \base64_decode($stripped, true);
         if ($der === false) {
             throw new PdfException('Unable to decode a certificate');
@@ -5654,7 +5678,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         $unique = [];
         foreach ($inputs as $pem) {
-            $unique[\preg_replace('/\s+/', '', $pem) ?? $pem] = $pem;
+            $unique[\preg_replace('/[\t\n\x0B\f\r ]+/', '', $pem) ?? $pem] = $pem;
         }
 
         return \array_values($unique);
@@ -6110,7 +6134,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function getSignatureRectSize(string $rect): array
     {
-        $coords = \preg_split('/\s+/', \trim($rect));
+        $coords = \preg_split('/[\t\n\x0B\f\r ]+/', \trim($rect));
         if ($coords === false || \count($coords) < 4) {
             return [0.0, 0.0];
         }

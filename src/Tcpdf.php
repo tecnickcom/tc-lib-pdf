@@ -225,7 +225,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         }
 
         $matches = [];
-        if (\preg_match('/^pdfa([1-3])([abu])?$/i', $normalizedMode, $matches) === 1) {
+        if (\preg_match('/^pdfa([1-3])([abu])?$/', $normalizedMode, $matches) === 1) {
             $pdfaPart = $matches[1] ?? null;
             if ($pdfaPart === null || $pdfaPart === '') {
                 return;
@@ -823,7 +823,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         $hexSignature = '';
 
         if ($encoding === 'hex') {
-            $hexSignature = \preg_replace('/\s+/', '', $signature) ?? '';
+            $hexSignature = \preg_replace('/[\t\n\x0B\f\r ]+/', '', $signature) ?? '';
             if ($hexSignature === '' || \preg_match('/^[0-9a-fA-F]+$/', $hexSignature) !== 1) {
                 throw new PdfException('Invalid hexadecimal signature');
             }
