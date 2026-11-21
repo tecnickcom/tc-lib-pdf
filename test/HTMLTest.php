@@ -16193,9 +16193,9 @@ class HTMLTest extends TestUtil
             $marker[$position] = $this->getListMarkerRects($out);
         }
 
-        $this->assertCount(2, $lines['outside'] ?? []);
-        $this->assertCount(2, $lines['inside'] ?? []);
-        $this->assertCount(1, $marker['inside'] ?? []);
+        $this->assertCount(2, $lines['outside']);
+        $this->assertCount(2, $lines['inside']);
+        $this->assertCount(1, $marker['inside']);
 
         $markerX = $marker['inside'][0][0] ?? 0.0;
         // An inside marker ends on the item content edge, which is where an RTL line
@@ -22450,14 +22450,14 @@ class HTMLTest extends TestUtil
         }
 
         // 100px = 75pt and 30mm = 85.04pt replace the content height of the row
-        $none = $tops['none'] ?? 0.0;
-        $attr = $tops['attr'] ?? 0.0;
-        $pxTop = $tops['px'] ?? 0.0;
+        $none = $tops['none'];
+        $attr = $tops['attr'];
+        $pxTop = $tops['px'];
         $this->assertGreaterThan($none + 40.0, $attr);
         $this->assertEqualsWithDelta($attr, $pxTop, 0.001);
-        $this->assertEqualsWithDelta($pxTop + (85.0394 - 75.0), $tops['mm'] ?? 0.0, 0.01);
+        $this->assertEqualsWithDelta($pxTop + (85.0394 - 75.0), $tops['mm'], 0.01);
         // a height lower than the content keeps the content height
-        $this->assertEqualsWithDelta($none, $tops['short'] ?? 0.0, 0.001);
+        $this->assertEqualsWithDelta($none, $tops['short'], 0.001);
     }
 
     /**
@@ -23477,8 +23477,8 @@ class HTMLTest extends TestUtil
             $lines[$align] = $this->getPageGlyphTokens($obj, (int) $obj->page->getPageId());
         }
 
-        $left = $lines['left'] ?? [];
-        $justify = $lines['justify'] ?? [];
+        $left = $lines['left'];
+        $justify = $lines['justify'];
         $this->assertGreaterThan(2, \count($left));
         $this->assertCount(\count($left), $justify);
         // The last line is not justified, so it matches the left aligned one.
