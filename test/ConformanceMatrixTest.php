@@ -190,6 +190,71 @@ class ConformanceMatrixTest extends TestUtil
     }
 
     /**
+     * The header replayed on a continuation page is drawn with tagging suspended.
+     * It must still leave out the characters the font has no glyph for, as the
+     * first header does, since the .notdef rule applies to artifacts too.
+     *
+     * @throws \Throwable
+     */
+    #[DataProvider('taggedModeProvider')]
+    public function testReplayedTableHeaderDropsUncoveredCodepoints(string $mode): void
+    {
+        $pdf = new Tcpdf('mm', true, false, false, $mode);
+        $pdf->setTitle('Replayed header');
+        $pdf->setLanguage('en-US');
+        $font = $pdf->font->insert($pdf->pon, 'freesans', '', 12);
+        $pdf->addPage();
+        $pdf->page->addContent($font['out']);
+        // FreeSans covers neither of these two ideographs.
+        $rows = \str_repeat('<tr><td>a</td><td>b</td></tr>', 80);
+        $pdf->addHTMLCell(
+            html: '<table><thead><tr><th>X'
+            . "\u{540D}\u{524D}"
+            . 'Y</th><th>Name</th></tr></thead><tbody>'
+            . $rows
+            . '</tbody></table>',
+            posx: 15,
+            posy: 20,
+            width: 150,
+        );
+
+        $out = $pdf->getOutPDFString();
+
+        $this->assertGreaterThan(1, \count($pdf->page->getPages()));
+        $this->assertSame(0, $this->countNotdefTextStrings($out));
+    }
+
+    /**
+     * Count the Tj strings of an uncompressed document that show glyph 0.
+     */
+    private function countNotdefTextStrings(string $out): int
+    {
+        $matches = [];
+        \preg_match_all('/\(((?:\\\\.|[^\\\\)])*)\) Tj/s', $out, $matches);
+        $escapes = ['r' => "\r", 'n' => "\n", 't' => "\t", 'b' => "\x08", 'f' => "\f"];
+        $count = 0;
+        foreach ($matches[1] ?? [] as $escaped) {
+            $glyphs = '';
+            $len = \strlen($escaped);
+            for ($idx = 0; $idx < $len; ++$idx) {
+                $chr = $escaped[$idx];
+                if ($chr === '\\' && ($idx + 1) < $len) {
+                    ++$idx;
+                    $chr = $escapes[$escaped[$idx]] ?? $escaped[$idx];
+                }
+
+                $glyphs .= $chr;
+            }
+
+            if (\in_array("\0\0", \str_split($glyphs, 2), true)) {
+                ++$count;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
      * Conformance levels that are not tagged must not claim a structure tree.
      *
      * @throws \Throwable
@@ -1663,7 +1728,8 @@ class ConformanceMatrixTest extends TestUtil
         $pdf->getOutPDFString();
         $warnings = \implode("\n", $pdf->getWarnings());
 
-        $this->assertSame($dropped, \str_contains($warnings, 'U+6F22, U+5B57'));
+        $this->assertSame($dropped, \str_contains($warnings, 'character U+6F22,'));
+        $this->assertSame($dropped, \str_contains($warnings, 'character U+5B57,'));
     }
 
     /** @return array<string, array{0: string, 1: bool}> */

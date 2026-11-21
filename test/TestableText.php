@@ -761,4 +761,24 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
     {
         return $this->tagPdfUaFigureContent($content, $pid, $alt, $bbox);
     }
+
+    public function exposeForbidsUnmappedGlyphs(): bool
+    {
+        return $this->forbidsUnmappedGlyphs();
+    }
+
+    public function exposeRequiresEmbeddedFonts(): bool
+    {
+        return $this->requiresEmbeddedFonts();
+    }
+
+    public function exposeIsTaggedMode(): bool
+    {
+        return $this->isTaggedMode();
+    }
+
+    public function exposePdfUaMode(): string
+    {
+        return $this->pdfuaMode;
+    }
 }

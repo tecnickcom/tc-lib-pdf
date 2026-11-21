@@ -12955,6 +12955,34 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Return the code points of a text without the characters prepareText() drops
+     * from the layout (see getLayoutOrdArr()). No warning is recorded.
+     *
+     * @return array<int, int>
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function getHTMLLayoutOrdArr(string $text): array
+    {
+        $ordarr = \array_values($this->uniconv->strToOrdArr($text));
+        if (!$this->dropsUnmappedOrds()) {
+            return $ordarr;
+        }
+
+        $kept = [];
+        foreach ($ordarr as $ord) {
+            if ($this->isDroppedLayoutOrd($ord)) {
+                continue;
+            }
+
+            $kept[] = $ord;
+        }
+
+        return $kept;
+    }
+
+    /**
      * Insert a code point between two adjacent characters of the text that are not
      * spaces, line break controls or combining marks; when $cjk is true, only where
      * one of them is a CJK character (U+2E80 or above).
@@ -14873,6 +14901,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * @param THTMLRenderContext $hrc HTML render context.
      *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Unicode\Exception
      */
     protected function hasHTMLTextBreakOpportunity(array &$hrc, int $key, string $text): bool
@@ -14885,7 +14914,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return true;
         }
 
-        if ($this->getOrdArrFirstAutoBreak($this->uniconv->strToOrdArr($text)) > 0) {
+        if ($this->getOrdArrFirstAutoBreak($this->getHTMLLayoutOrdArr($text)) > 0) {
             return true;
         }
 
@@ -14904,6 +14933,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * may keep flowing after the previous text, while a fragment starting with visible
      * content wraps from the line origin when it does not fit in the remaining width.
      *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Unicode\Exception
      */
     protected function canHTMLTextKeepVisibleChunkOnCurrentLine(
@@ -14925,7 +14955,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $lead = $leadMatches[0] ?? '';
                 // ideographic text and hyphenated words can break before the end of
                 // the non-space chunk
-                $leadord = $this->uniconv->strToOrdArr($lead);
+                $leadord = $this->getHTMLLayoutOrdArr($lead);
                 $leadbreak = $this->getOrdArrFirstAutoBreak($leadord);
                 if ($leadbreak > 0) {
                     $lead = \implode('', $this->uniconv->ordArrToChrArr(\array_slice($leadord, 0, $leadbreak)));
@@ -20204,6 +20234,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @return array{cut: int, shy: bool} Number of leading characters of $text in
      *         the head, and whether the head ends at a SOFT HYPHEN.
      *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Unicode\Exception
      */
     protected function getHTMLVerticalFitHeadCut(string $text, array $ordarr, int $linePos, int $lineChars): array
@@ -20220,8 +20251,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Return the length in the source text of a head slice of prepared code points.
      *
      * prepareHTMLText() can insert ZERO WIDTH SPACE (automatic break points) and
-     * SOFT HYPHEN (hyphenation) code points, and the Arabic shaping can replace
-     * code points. A slice that does not start at 0 is counted by length.
+     * SOFT HYPHEN (hyphenation) code points, drop the code points the font has no
+     * glyph for (see getLayoutOrdArr()), and the Arabic shaping can replace code
+     * points. A slice that does not start at 0 is counted by length.
      *
      * @param string          $text   Source text.
      * @param array<int, int> $ordarr Code points returned by prepareHTMLText() for $text.
@@ -20230,11 +20262,49 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return int Number of leading characters of $text covered by the slice.
      *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Unicode\Exception
      */
     protected function getHTMLProbeTextOffset(string $text, array $ordarr, int $start, int $length): int
     {
         $srcarr = \array_values($this->uniconv->strToOrdArr($text));
+        if (!$this->dropsUnmappedOrds()) {
+            return $this->getHTMLProbeOrdArrOffset($srcarr, $ordarr, $start, $length);
+        }
+
+        // prepareHTMLText() dropped the code points the font has no glyph for:
+        // count in the kept source code points, then map back to the source text.
+        $keptsrc = [];
+        $keptpos = [];
+        foreach ($srcarr as $pos => $ord) {
+            if ($this->isDroppedLayoutOrd($ord)) {
+                continue;
+            }
+
+            $keptsrc[] = $ord;
+            $keptpos[] = $pos;
+        }
+
+        $count = $this->getHTMLProbeOrdArrOffset($keptsrc, $ordarr, $start, $length);
+        if ($count <= 0) {
+            return 0;
+        }
+
+        // the dropped code points after the last covered one stay in the head
+        return $keptpos[$count] ?? \count($srcarr);
+    }
+
+    /**
+     * Return the number of source code points covered by a slice of prepared code
+     * points (see getHTMLProbeTextOffset()).
+     *
+     * @param array<int, int> $srcarr Source code points.
+     * @param array<int, int> $ordarr Prepared code points.
+     * @param int             $start  Slice start in $ordarr.
+     * @param int             $length Slice length.
+     */
+    protected function getHTMLProbeOrdArrOffset(array $srcarr, array $ordarr, int $start, int $length): int
+    {
         $numsrc = \count($srcarr);
         $ordarr = \array_values($ordarr);
         $slice = \array_values(\array_slice($ordarr, $start, $length));
